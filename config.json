@@ -1,0 +1,57 @@
+{
+  "monitor_name": "ETF Monitor",
+  "timezone": "Asia/Shanghai",
+  "mock_mode": true,
+  "assets": [
+    {
+      "name": "电网设备ETF",
+      "symbol": "561380",
+      "market": "A_SHARE",
+      "enabled": true,
+      "sector_name": "电网设备",
+      "position": {
+        "target_amount": 70000,
+        "invested_amount": 10000,
+        "last_buy_price": 1.0,
+        "last_buy_date": "2026-07-10"
+      },
+      "strategy": {
+        "type": "staged_buy",
+        "drop_from_last_buy_trigger_pct": 8.0,
+        "new_low_window_days": 10,
+        "stable_days_required": 5,
+        "stable_range_pct": 3.0,
+        "consecutive_down_warning_days": 3,
+        "max_single_add_amount": 5000,
+        "notify_on_wait": false,
+        "notify_on_watch": true,
+        "notify_on_review_buy": true
+      }
+    }
+  ],
+  "data": {
+    "history_days": 120,
+    "include_fund_flow": false,
+    "request_timeout_seconds": 15
+  },
+  "llm": {
+    "enabled": false,
+    "provider": "deepseek",
+    "model": "deepseek-chat",
+    "max_summary_chars": 220
+  },
+  "email": {
+    "enabled": false,
+    "recipient": "your_email@outlook.com",
+    "send_only_when_triggered": true
+  },
+  "storage": {
+    "history_file": "data/history.xlsx",
+    "decisions_file": "data/decisions.xlsx",
+    "latest_file": "data/latest.json"
+  },
+  "report": {
+    "template_file": "templates/dashboard.html",
+    "output_file": "output/index.html"
+  }
+}
