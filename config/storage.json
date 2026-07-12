@@ -1,0 +1,8 @@
+{
+  "storage": {
+    "history_file": "data/history.xlsx",
+    "decisions_file": "data/decisions.xlsx",
+    "latest_file": "data/latest.json",
+    "transactions_file": "data/transactions.json"
+  }
+}

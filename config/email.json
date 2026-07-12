@@ -1,0 +1,31 @@
+{
+  "email": {
+    "enabled": true,
+    "provider": "outlook",
+    "recipient": "peterfla@163.com",
+    "subject_prefix": "ETF Monitor",
+    "send_mode": "trigger",
+    "triggers": {
+      "WAIT": false,
+      "WATCH": true,
+      "HOLD": false,
+      "REVIEW_BUY": true,
+      "PARTIAL_SELL": true
+    },
+    "include_llm_summary": true,
+    "include_raw_metrics": true,
+    "html": true,
+    "debug": {
+      "enabled": false,
+      "force_send_email": false,
+      "verbose_logging": true
+    },
+    "smtp": {
+      "host_env": "OUTLOOK_SMTP_HOST",
+      "port_env": "OUTLOOK_SMTP_PORT",
+      "default_host": "smtp.office365.com",
+      "default_port": 587,
+      "timeout_seconds": 30
+    }
+  }
+}

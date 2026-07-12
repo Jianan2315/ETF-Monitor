@@ -1,0 +1,8 @@
+{
+  "llm": {
+    "enabled": false,
+    "provider": "deepseek",
+    "model": "deepseek-chat",
+    "max_summary_chars": 220
+  }
+}

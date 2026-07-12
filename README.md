@@ -102,3 +102,81 @@ SMTP 登录是否可用取决于 Microsoft 账户设置；有些账户需要应�
 }
 ```
 程序会自动计算份额、平均成本、当前成本、总收益和最近买入价格，并在网页显示操作时间线。卖出记录建议同时填写 `shares`，以保证份额计算准确。
+
+
+## 邮件调试与强制测试
+
+邮件配置位于 `config/email.json`。正常启用邮件：
+
+```json
+{
+  "email": {
+    "enabled": true,
+    "send_mode": "trigger"
+  }
+}
+```
+
+### 强制发送一封测试邮件
+
+为了测试 Outlook SMTP，而不必等待策略进入 `WATCH` 或 `REVIEW_BUY`，临时修改：
+
+```json
+"debug": {
+  "enabled": true,
+  "force_send_email": true,
+  "verbose_logging": true
+}
+```
+
+然后运行：
+
+```bash
+python run.py
+```
+
+这会绕过状态触发条件，但仍要求：
+
+```json
+"email": {
+  "enabled": true
+}
+```
+
+测试完成后，应恢复为：
+
+```json
+"debug": {
+  "enabled": false,
+  "force_send_email": false,
+  "verbose_logging": true
+}
+```
+
+### 日志位置
+
+- `logs/monitor.log`：行情、指标、策略、存储与网页生成；
+- `logs/email.log`：邮件是否触发、跳过原因、SMTP 连接、TLS、登录与发送结果。
+
+例如状态没有开启触发时，`email.log` 会写明：
+
+```text
+Email skipped | Reason=status HOLD is disabled or missing in email.triggers
+```
+
+SMTP 登录失败时，完整错误会记录在 `logs/email.log`，而 Excel、JSON 和网页仍会正常生成。
+
+### Outlook 常见问题
+
+如果日志显示 `SMTPAuthenticationError`，可能原因包括：
+
+- 密码或应用密码不正确；
+- Microsoft 账户未启用 SMTP AUTH；
+- 账户开启双重验证后需要应用密码；
+- 组织账户管理员禁止了 SMTP AUTH。
+
+如果日志显示连接超时，应检查当前网络能否访问：
+
+```text
+smtp.office365.com:587
+```

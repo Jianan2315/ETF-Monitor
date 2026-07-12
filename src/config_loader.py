@@ -37,8 +37,21 @@ def load_config(path: Path) -> dict:
 
 
 def validate_email_config(email: dict) -> None:
-    if not isinstance(email.get('enabled',False),bool):
-        raise ValueError('email.enabled 必须是布尔值')
-    triggers=email.get('triggers',{})
-    if not isinstance(triggers,dict):
-        raise ValueError('email.triggers 必须是对象')
+    if not isinstance(email.get("enabled", False), bool):
+        raise ValueError("email.enabled 必须是布尔值")
+
+    mode = email.get("send_mode", "trigger")
+    if mode not in {"trigger", "always"}:
+        raise ValueError("email.send_mode 只能是 trigger 或 always")
+
+    triggers = email.get("triggers", {})
+    if not isinstance(triggers, dict):
+        raise ValueError("email.triggers 必须是对象")
+
+    debug = email.get("debug", {})
+    if not isinstance(debug, dict):
+        raise ValueError("email.debug 必须是对象")
+
+    for key in ("enabled", "force_send_email", "verbose_logging"):
+        if key in debug and not isinstance(debug[key], bool):
+            raise ValueError(f"email.debug.{key} 必须是布尔值")
