@@ -30,7 +30,18 @@
       <div class="top-grid">
         <section class="panel decision-panel">
           <div class="panel-title-row">
-            <h3>规则判断</h3>
+            <div class="panel-title-actions">
+              <h3>规则判断</h3>
+              {% if result.asset.strategy_document %}
+                <button
+                  type="button"
+                  class="strategy-detail-button"
+                  data-strategy-modal="strategy-modal-{{ result.asset.symbol }}"
+                >
+                  查看当前策略
+                </button>
+              {% endif %}
+            </div>
             {% if result.decision.suggested_amount > 0 %}
               <span class="amount-pill">复核 {{ "%.0f"|format(result.decision.suggested_amount) }} 元</span>
             {% endif %}
@@ -126,6 +137,75 @@
         </div>
         <script type="application/json" id="chart-data-{{ result.asset.symbol }}">{{ result.chart_data | tojson }}</script>
       </section>
+
+      {% if result.asset.strategy_document %}
+      <div
+        class="strategy-modal"
+        id="strategy-modal-{{ result.asset.symbol }}"
+        hidden
+        aria-hidden="true"
+      >
+        <div class="strategy-modal-backdrop" data-close-strategy-modal></div>
+        <section
+          class="strategy-modal-dialog"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="strategy-modal-title-{{ result.asset.symbol }}"
+        >
+          <div class="strategy-modal-header">
+            <div>
+              <p class="eyebrow">INVESTMENT STRATEGY</p>
+              <h2 id="strategy-modal-title-{{ result.asset.symbol }}">
+                {{ result.asset.strategy_document.title }}
+              </h2>
+            </div>
+            <button
+              type="button"
+              class="strategy-modal-close"
+              aria-label="关闭策略详情"
+              data-close-strategy-modal
+            >
+              ×
+            </button>
+          </div>
+
+          <div class="strategy-modal-body">
+            <section class="strategy-section">
+              <h3>策略目标</h3>
+              <p>{{ result.asset.strategy_document.objective }}</p>
+            </section>
+
+            <section class="strategy-section">
+              <h3>检查频率</h3>
+              <p>{{ result.asset.strategy_document.review_frequency }}</p>
+            </section>
+
+            <section class="strategy-section">
+              <h3>买入规则</h3>
+              <ol>
+                {% for item in result.asset.strategy_document.buy_rules %}
+                  <li>{{ item }}</li>
+                {% endfor %}
+              </ol>
+            </section>
+
+            <section class="strategy-section">
+              <h3>卖出规则</h3>
+              <ol>
+                {% for item in result.asset.strategy_document.sell_rules %}
+                  <li>{{ item }}</li>
+                {% endfor %}
+              </ol>
+            </section>
+
+            <section class="strategy-risk-note">
+              <strong>风险说明</strong>
+              <p>{{ result.asset.strategy_document.risk_note }}</p>
+            </section>
+          </div>
+        </section>
+      </div>
+      {% endif %}
 
       <p class="disclaimer">本页面只用于数据汇总和人工复核，不构成投资建议。</p>
     </section>

@@ -197,3 +197,40 @@ window.addEventListener('resize', () => {
   clearTimeout(window._chartResize);
   window._chartResize = setTimeout(drawAllCharts, 120);
 });
+
+
+function openStrategyModal(modal) {
+  if (!modal) return;
+  modal.hidden = false;
+  modal.setAttribute('aria-hidden', 'false');
+  document.body.classList.add('modal-open');
+  const closeButton = modal.querySelector('.strategy-modal-close');
+  if (closeButton) closeButton.focus();
+}
+
+function closeStrategyModal(modal) {
+  if (!modal) return;
+  modal.hidden = true;
+  modal.setAttribute('aria-hidden', 'true');
+  document.body.classList.remove('modal-open');
+}
+
+document.addEventListener('click', event => {
+  const openButton = event.target.closest('[data-strategy-modal]');
+  if (openButton) {
+    const modal = document.getElementById(openButton.dataset.strategyModal);
+    openStrategyModal(modal);
+    return;
+  }
+
+  const closeControl = event.target.closest('[data-close-strategy-modal]');
+  if (closeControl) {
+    closeStrategyModal(closeControl.closest('.strategy-modal'));
+  }
+});
+
+document.addEventListener('keydown', event => {
+  if (event.key !== 'Escape') return;
+  const openModal = document.querySelector('.strategy-modal:not([hidden])');
+  closeStrategyModal(openModal);
+});
