@@ -1,4 +1,4 @@
-# ETF Monitor 第一版
+# ETF Monitor
 
 本项目是一个本地运行、无服务器的 ETF 监控工具骨架。
 
@@ -27,7 +27,12 @@ python run.py
 默认 `config.json` 中 `mock_mode=true`，所以无需 API Key 即可先运行。切换真实行情时改为 `false`。
 
 ## 配置
-- ETF、仓位与规则：`config.json`
+- 应用与数据：`config/app.json`
+- ETF、仓位上限与规则：`config/assets.json`
+- 邮件策略：`config/email.json`
+- 大模型：`config/llm.json`
+- 存储路径：`config/storage.json`
+- 买卖记录：`data/transactions.json`
 - API Key、邮箱密码：`.env`
 - 真实行情适配器：`src/data_fetcher.py`
 - 判断规则：`src/strategy.py`
@@ -70,3 +75,30 @@ SMTP 登录是否可用取决于 Microsoft 账户设置；有些账户需要应�
 - `last_buy_price`：最近一笔买入价格。
 
 每次加仓或卖出后应同步更新这些数值，否则网页中的总收益金额和收益率只是旧成本数据下的估算。
+
+
+## 当前配置架构
+程序现在优先读取 `config/` 目录。根目录 `config.json` 仅保留迁移提示。
+
+## 邮件启用
+1. 在 `config/email.json` 把 `enabled` 改成 `true`；
+2. 修改 `recipient`；
+3. 在 `.env` 填写 `OUTLOOK_EMAIL` 与 `OUTLOOK_PASSWORD`；
+4. 在 `triggers` 中决定哪些状态发信。未列出的状态默认不发。
+
+`send_mode` 可为：
+- `trigger`：只按 `triggers` 发；
+- `always`：每次运行都发。
+
+邮件失败只写入日志，不会阻止 Excel、JSON 和网页生成。只有确实需要发送邮件、且 `include_llm_summary=true`、同时 `llm.enabled=true` 时，才会调用大模型。
+
+## 持仓与操作记录
+编辑 `data/transactions.json` 记录真实买卖：
+```json
+{
+  "561380": [
+    {"date":"2026-07-10","type":"BUY","amount":10000,"price":1.0,"note":"首次建仓"}
+  ]
+}
+```
+程序会自动计算份额、平均成本、当前成本、总收益和最近买入价格，并在网页显示操作时间线。卖出记录建议同时填写 `shares`，以保证份额计算准确。

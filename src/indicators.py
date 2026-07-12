@@ -19,7 +19,7 @@ def calculate_indicators(asset: dict, history: pd.DataFrame, latest: MarketSnaps
         raise ValueError("At least 21 valid closing prices are required")
 
     strategy = asset["strategy"]
-    last_buy_price = float(asset["position"]["last_buy_price"])
+    last_buy_price = float(asset['position'].get('last_buy_price', latest.price) or latest.price)
     up_days = count_consecutive_up_days(close)
     down_days = count_consecutive_down_days(close)
     trend_days = up_days if up_days > 0 else down_days

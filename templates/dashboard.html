@@ -22,6 +22,7 @@
         <div>
           <p class="asset-code">{{ result.asset.symbol }}</p>
           <h2>{{ result.asset.name }}</h2>
+          <p class="strategy-version">{{ result.asset.strategy.name }} · v{{ result.asset.strategy.version }}</p>
           <p class="muted">{{ result.data_source }} · {{ result.generated_at }}</p>
         </div>
         <div class="status-badge status-{{ result.decision.status | lower }}">{{ result.decision.status }}</div>
@@ -53,10 +54,10 @@
 
         <section class="panel position-panel">
           <h3>当前仓位</h3>
-          <div class="position-line"><span>已投入成本</span><strong>{{ result.asset.position.invested_amount }} 元</strong></div>
+          <div class="position-line"><span>已投入成本</span><strong>{{ "%.2f"|format(result.position_metrics.invested_amount) }} 元</strong></div>
           <div class="position-line"><span>目标上限</span><strong>{{ result.asset.position.target_amount }} 元</strong></div>
-          <div class="position-line"><span>剩余额度</span><strong>{{ result.asset.position.target_amount - result.asset.position.invested_amount }} 元</strong></div>
-          <div class="progress-track"><div class="progress-fill" style="width: {{ [100, (result.asset.position.invested_amount / result.asset.position.target_amount * 100)] | min }}%;"></div></div>
+          <div class="position-line"><span>剩余额度</span><strong>{{ "%.2f"|format([0, result.asset.position.target_amount - result.position_metrics.invested_amount] | max) }} 元</strong></div>
+          <div class="progress-track"><div class="progress-fill" style="width: {{ [100, (result.position_metrics.invested_amount / result.asset.position.target_amount * 100)] | min }}%;"></div></div>
         </section>
       </div>
 
@@ -106,7 +107,7 @@
         <div class="panel-title-row">
           <div>
             <h3>我的持仓变化</h3>
-            <p class="muted">收益按配置中的持仓成本与平均成本估算。</p>
+            <p class="muted">收益根据 data/transactions.json 中的买卖记录自动计算。</p>
           </div>
         </div>
         <div class="investment-grid">
@@ -114,6 +115,21 @@
           <div><span>当前总收益金额</span><strong>{{ "%+.2f"|format(result.position_metrics.profit_amount) }} 元</strong></div>
           <div><span>相比上次买入时</span><strong>{{ "%+.2f"|format(result.indicators.drawdown_from_last_buy_pct) }}%</strong></div>
         </div>
+      </section>
+
+
+      <section class="panel operation-panel">
+        <div class="panel-title-row"><h3>操作记录</h3><span class="muted">最近 {{ result.operation_history|length }} 条</span></div>
+        {% if result.operation_history %}
+        <div class="operation-timeline">
+          {% for item in result.operation_history %}
+          <article class="operation-item operation-{{ item.type|lower }}">
+            <div class="operation-dot"></div>
+            <div><strong>{{ item.date }} · {{ '买入' if item.type == 'BUY' else '卖出' }}</strong><p>{{ "%.2f"|format(item.amount) }} 元 · 价格 {{ "%.4f"|format(item.price) }}{% if item.note %} · {{ item.note }}{% endif %}</p></div>
+          </article>
+          {% endfor %}
+        </div>
+        {% else %}<p class="muted">暂无操作记录。</p>{% endif %}
       </section>
 
       <section class="panel chart-panel">
@@ -156,7 +172,7 @@
             <div>
               <p class="eyebrow">INVESTMENT STRATEGY</p>
               <h2 id="strategy-modal-title-{{ result.asset.symbol }}">
-                {{ result.asset.strategy_document.title }}
+                {{ result.asset.strategy_document.title }} · v{{ result.asset.strategy.version }}
               </h2>
             </div>
             <button
