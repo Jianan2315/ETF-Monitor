@@ -42,7 +42,7 @@
 
         <section class="panel position-panel">
           <h3>当前仓位</h3>
-          <div class="position-line"><span>已投入</span><strong>{{ result.asset.position.invested_amount }} 元</strong></div>
+          <div class="position-line"><span>已投入成本</span><strong>{{ result.asset.position.invested_amount }} 元</strong></div>
           <div class="position-line"><span>目标上限</span><strong>{{ result.asset.position.target_amount }} 元</strong></div>
           <div class="position-line"><span>剩余额度</span><strong>{{ result.asset.position.target_amount - result.asset.position.invested_amount }} 元</strong></div>
           <div class="progress-track"><div class="progress-fill" style="width: {{ [100, (result.asset.position.invested_amount / result.asset.position.target_amount * 100)] | min }}%;"></div></div>
@@ -72,16 +72,44 @@
         </section>
       </div>
 
-      <section class="panel state-strip">
-        <div><span>相对上次买入</span><strong>{{ "%.2f"|format(result.indicators.drawdown_from_last_buy_pct) }}%</strong></div>
-        <div><span>连续下跌</span><strong>{{ result.indicators.consecutive_down_days }} 日</strong></div>
-        <div><span>连续上涨</span><strong>{{ result.indicators.consecutive_up_days }} 日</strong></div>
-        <div><span>本轮反弹</span><strong>{{ "%.2f"|format(result.indicators.rebound_pct) }}%</strong></div>
+      <section class="panel market-state-panel">
+        <h3>市场状态</h3>
+        <div class="state-strip state-strip-market">
+          <div><span>连续下跌</span><strong>{{ result.indicators.consecutive_down_days }} 日</strong></div>
+          <div><span>连续上涨</span><strong>{{ result.indicators.consecutive_up_days }} 日</strong></div>
+          <div><span>本轮反弹</span><strong>{{ "%.2f"|format(result.indicators.rebound_pct) }}%</strong></div>
+        </div>
+      </section>
+
+      <section class="panel investment-panel">
+        <div class="panel-title-row">
+          <div>
+            <h3>我的持仓变化</h3>
+            <p class="muted">收益按配置中的持仓成本与平均成本估算。</p>
+          </div>
+        </div>
+        <div class="investment-grid">
+          <div><span>总收益率</span><strong>{{ "%+.2f"|format(result.position_metrics.profit_pct) }}%</strong></div>
+          <div><span>总收益金额</span><strong>{{ "%+.2f"|format(result.position_metrics.profit_amount) }} 元</strong></div>
+          <div><span>相对上次买入价</span><strong>{{ "%+.2f"|format(result.indicators.drawdown_from_last_buy_pct) }}%</strong></div>
+          <div><span>相对整体持仓成本</span><strong>{{ "%+.2f"|format(result.position_metrics.price_vs_average_cost_pct) }}%</strong></div>
+        </div>
       </section>
 
       <section class="panel chart-panel">
-        <div class="panel-title-row">
-          <div><h3>近6个月走势</h3><p class="muted">纵轴采用相对区间起点的涨跌幅；移动鼠标可查看日期、价格和涨跌幅。</p></div>
+        <div class="chart-header">
+          <div>
+            <h3 class="chart-title">近6个月走势</h3>
+            <p class="muted">纵轴采用所选区间起点的涨跌幅；移动鼠标可查看日期、价格和区间涨跌。</p>
+          </div>
+          <div class="range-switcher" role="group" aria-label="走势图时间范围">
+            <button type="button" data-days="5">一周</button>
+            <button type="button" data-days="21">一个月</button>
+            <button type="button" data-days="63">三个月</button>
+            <button type="button" data-days="126" class="active">六个月</button>
+            <button type="button" data-days="252">最近一年</button>
+            <button type="button" data-days="all">成立以来</button>
+          </div>
         </div>
         <div class="chart-wrap">
           <canvas class="price-chart" data-source-id="chart-data-{{ result.asset.symbol }}"></canvas>

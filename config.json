@@ -13,7 +13,8 @@
         "target_amount": 100000,
         "invested_amount": 10000,
         "last_buy_price": 1.0,
-        "last_buy_date": "2026-07-10"
+        "last_buy_date": "2026-07-10",
+        "average_cost": 1.0
       },
       "strategy": {
         "type": "staged_buy",
@@ -41,7 +42,7 @@
     }
   ],
   "data": {
-    "history_days": 120,
+    "history_days": 1000,
     "include_fund_flow": false,
     "request_timeout_seconds": 15
   },

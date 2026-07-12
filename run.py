@@ -13,17 +13,51 @@ from src.logger import configure_logging
 ROOT = Path(__file__).resolve().parent
 
 
-def build_chart_data(history, days=126):
-    chart_history = history.tail(days).copy()
-    base_price = float(chart_history.iloc[0]["close"])
+def build_chart_data(history):
+    """Return every available history point; the browser chooses the visible range."""
+    chart_history = history.copy()
     return [
         {
             "date": row["date"].strftime("%Y-%m-%d") if hasattr(row["date"], "strftime") else str(row["date"]),
             "price": round(float(row["close"]), 4),
-            "change_pct": round((float(row["close"]) / base_price - 1) * 100, 2),
         }
         for _, row in chart_history.iterrows()
     ]
+
+
+def build_position_metrics(asset, latest_price):
+    """Calculate position-level values from cost basis and average cost.
+
+    `invested_amount` is treated as the current cost basis.  For accurate
+    profit figures, keep `average_cost` updated after every purchase or sale.
+    """
+    position = asset["position"]
+    cost_basis = float(position.get("invested_amount", 0.0))
+    average_cost = float(position.get("average_cost", position.get("last_buy_price", 0.0)))
+
+    if cost_basis <= 0 or average_cost <= 0:
+        return {
+            "average_cost": average_cost,
+            "estimated_shares": 0.0,
+            "current_value": 0.0,
+            "profit_amount": 0.0,
+            "profit_pct": 0.0,
+            "price_vs_average_cost_pct": 0.0,
+        }
+
+    shares = cost_basis / average_cost
+    current_value = shares * latest_price
+    profit_amount = current_value - cost_basis
+    profit_pct = (current_value / cost_basis - 1) * 100
+
+    return {
+        "average_cost": round(average_cost, 4),
+        "estimated_shares": round(shares, 4),
+        "current_value": round(current_value, 2),
+        "profit_amount": round(profit_amount, 2),
+        "profit_pct": round(profit_pct, 2),
+        "price_vs_average_cost_pct": round((latest_price / average_cost - 1) * 100, 2),
+    }
 
 
 def main():
@@ -43,6 +77,7 @@ def main():
                 "asset": asset,
                 "latest": bundle.latest.to_dict(),
                 "indicators": indicators.to_dict(),
+                "position_metrics": build_position_metrics(asset, bundle.latest.price),
                 "decision": decision.to_dict(),
                 "data_source": bundle.data_source,
                 "generated_at": bundle.generated_at.isoformat(),
