@@ -21,6 +21,9 @@ def calculate_indicators(asset: dict, history: pd.DataFrame, latest: MarketSnaps
     strategy = asset["strategy"]
     last_buy_price = float(asset["position"]["last_buy_price"])
     up_days = count_consecutive_up_days(close)
+    down_days = count_consecutive_down_days(close)
+    trend_days = up_days if up_days > 0 else down_days
+    consecutive_trend_pct = cumulative_return_for_last_days(close, trend_days) if trend_days else 0.0
     preceding_down_days = count_preceding_down_days(close, up_days)
     rebound_pct = cumulative_return_for_last_days(close, up_days) if up_days else 0.0
 
@@ -40,8 +43,9 @@ def calculate_indicators(asset: dict, history: pd.DataFrame, latest: MarketSnaps
         three_month_high_date=three_m[1],
         six_month_high_date=six_m[1],
         drawdown_from_last_buy_pct=(latest.price / last_buy_price - 1) * 100,
-        consecutive_down_days=count_consecutive_down_days(close),
+        consecutive_down_days=down_days,
         consecutive_up_days=up_days,
+        consecutive_trend_pct=consecutive_trend_pct,
         preceding_down_days=preceding_down_days,
         rebound_pct=rebound_pct,
         is_new_5d_low=is_new_low(close, 5),

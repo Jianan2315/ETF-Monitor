@@ -22,7 +22,7 @@ def ind(**overrides):
     base=dict(daily_change_pct=0,five_day_change_pct=0,ten_day_change_pct=0,twenty_day_change_pct=0,
       one_month_drawdown_pct=-5,three_month_drawdown_pct=-10,six_month_drawdown_pct=-12,
       one_month_high_date='2026-07-01',three_month_high_date='2026-06-01',six_month_high_date='2026-03-01',
-      drawdown_from_last_buy_pct=-2,consecutive_down_days=0,consecutive_up_days=0,preceding_down_days=0,
+      drawdown_from_last_buy_pct=-2,consecutive_down_days=0,consecutive_up_days=0,consecutive_trend_pct=0,preceding_down_days=0,
       rebound_pct=0,is_new_5d_low=False,is_new_10d_low=False,stable_days=1,latest_price=1)
     base.update(overrides)
     return IndicatorResult(**base)

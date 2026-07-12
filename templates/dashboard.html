@@ -74,10 +74,20 @@
 
       <section class="panel market-state-panel">
         <h3>市场状态</h3>
-        <div class="state-strip state-strip-market">
-          <div><span>连续下跌</span><strong>{{ result.indicators.consecutive_down_days }} 日</strong></div>
-          <div><span>连续上涨</span><strong>{{ result.indicators.consecutive_up_days }} 日</strong></div>
-          <div><span>本轮反弹</span><strong>{{ "%.2f"|format(result.indicators.rebound_pct) }}%</strong></div>
+        <div class="market-summary">
+          {% if result.indicators.consecutive_down_days > 0 %}
+            <span>当前连续下跌</span>
+            <strong>{{ result.indicators.consecutive_down_days }} 日</strong>
+            <em>{{ "%+.2f"|format(result.indicators.consecutive_trend_pct) }}%</em>
+          {% elif result.indicators.consecutive_up_days > 0 %}
+            <span>当前连续上涨</span>
+            <strong>{{ result.indicators.consecutive_up_days }} 日</strong>
+            <em>{{ "%+.2f"|format(result.indicators.consecutive_trend_pct) }}%</em>
+          {% else %}
+            <span>当前状态</span>
+            <strong>涨跌持平</strong>
+            <em>0.00%</em>
+          {% endif %}
         </div>
       </section>
 
@@ -89,10 +99,9 @@
           </div>
         </div>
         <div class="investment-grid">
-          <div><span>总收益率</span><strong>{{ "%+.2f"|format(result.position_metrics.profit_pct) }}%</strong></div>
-          <div><span>总收益金额</span><strong>{{ "%+.2f"|format(result.position_metrics.profit_amount) }} 元</strong></div>
-          <div><span>相对上次买入价</span><strong>{{ "%+.2f"|format(result.indicators.drawdown_from_last_buy_pct) }}%</strong></div>
-          <div><span>相对整体持仓成本</span><strong>{{ "%+.2f"|format(result.position_metrics.price_vs_average_cost_pct) }}%</strong></div>
+          <div><span>当前总收益率</span><strong>{{ "%+.2f"|format(result.position_metrics.profit_pct) }}%</strong></div>
+          <div><span>当前总收益金额</span><strong>{{ "%+.2f"|format(result.position_metrics.profit_amount) }} 元</strong></div>
+          <div><span>相比上次买入时</span><strong>{{ "%+.2f"|format(result.indicators.drawdown_from_last_buy_pct) }}%</strong></div>
         </div>
       </section>
 

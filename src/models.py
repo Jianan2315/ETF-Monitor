@@ -47,6 +47,7 @@ class IndicatorResult:
     drawdown_from_last_buy_pct: float
     consecutive_down_days: int
     consecutive_up_days: int
+    consecutive_trend_pct: float
     preceding_down_days: int
     rebound_pct: float
     is_new_5d_low: bool

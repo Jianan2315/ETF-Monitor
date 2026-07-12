@@ -87,8 +87,30 @@ function drawChart(canvas, hoveredIndex = null) {
   ctx.stroke();
 
   ctx.fillStyle = '#7b8794';
-  [...new Set([0, Math.floor((points.length - 1) / 2), points.length - 1])]
-    .forEach(index => ctx.fillText(points[index].date.slice(5), x(index) - 18, h - 10));
+  const tickCount = canvas._selectedDays === 'all' ? 6 : 5;
+  const tickIndexes = [...new Set(
+    Array.from({length: tickCount}, (_, i) =>
+      Math.round(i * (points.length - 1) / Math.max(1, tickCount - 1))
+    )
+  )];
+
+  function formatXAxisDate(dateText) {
+    const [year, month, day] = dateText.split('-');
+    if (canvas._selectedDays === '252' || canvas._selectedDays === 'all') {
+      return `${year}-${month}`;
+    }
+    return `${month}-${day}`;
+  }
+
+  tickIndexes.forEach(index => {
+    const label = formatXAxisDate(points[index].date);
+    const labelWidth = ctx.measureText(label).width;
+    const labelX = Math.max(
+      pad.left,
+      Math.min(w - pad.right - labelWidth, x(index) - labelWidth / 2)
+    );
+    ctx.fillText(label, labelX, h - 10);
+  });
 
   if (hoveredIndex !== null && points[hoveredIndex]) {
     const point = points[hoveredIndex];
