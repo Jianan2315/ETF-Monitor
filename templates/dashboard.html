@@ -1,1 +1,99 @@
-<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>{{ monitor_name }}</title><link rel="stylesheet" href="../static/style.css"></head><body><main class="dashboard"><header><p class="eyebrow">LOCAL ETF MONITOR</p><h1>{{ monitor_name }}</h1><p>Python负责确定性判断，大模型只负责解释。</p></header>{% for r in results %}<section class="card"><div class="head"><div><p class="code">{{ r.asset.symbol }}</p><h2>{{ r.asset.name }}</h2><p class="muted">{{ r.data_source }} · {{ r.generated_at }}</p></div><span class="status status-{{ r.decision.status|lower }}">{{ r.decision.status }}</span></div>{% if r.llm_summary %}<div class="summary"><b>模型摘要</b><p>{{ r.llm_summary }}</p></div>{% endif %}<div class="grid">{% set x=r.indicators %}<article><span>最新价格</span><b>{{ '%.4f'|format(x.latest_price) }}</b></article><article><span>今日</span><b>{{ '%.2f'|format(x.daily_change_pct) }}%</b></article><article><span>近5日</span><b>{{ '%.2f'|format(x.five_day_change_pct) }}%</b></article><article><span>近10日</span><b>{{ '%.2f'|format(x.ten_day_change_pct) }}%</b></article><article><span>近20日</span><b>{{ '%.2f'|format(x.twenty_day_change_pct) }}%</b></article><article><span>近期高点回撤</span><b>{{ '%.2f'|format(x.drawdown_from_recent_high_pct) }}%</b></article><article><span>相对上次买入</span><b>{{ '%.2f'|format(x.drawdown_from_last_buy_pct) }}%</b></article><article><span>连续下跌</span><b>{{ x.consecutive_down_days }}日</b></article></div><div class="columns"><section class="panel"><h3>规则判断</h3><ul>{% for reason in r.decision.reasons %}<li>{{ reason }}</li>{% endfor %}</ul><p>建议人工复核金额：<b>{{ '%.0f'|format(r.decision.suggested_amount) }}元</b></p></section><section class="panel"><h3>当前仓位</h3><p>已投入：<b>{{ r.asset.position.invested_amount }}元</b></p><p>目标上限：<b>{{ r.asset.position.target_amount }}元</b></p><div class="track"><div class="fill" style="width:{{ [100,(r.asset.position.invested_amount/r.asset.position.target_amount*100)]|min }}%"></div></div></section></div><p class="muted foot">本页面只提供数据汇总和人工复核提示，不构成自动交易指令或投资建议。</p></section>{% endfor %}</main><script src="../static/app.js"></script></body></html>
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{ monitor_name }}</title>
+  <link rel="stylesheet" href="../static/style.css">
+</head>
+<body>
+  <main class="dashboard">
+    <header class="page-header">
+      <div>
+        <p class="eyebrow">LOCAL ETF MONITOR</p>
+        <h1>{{ monitor_name }}</h1>
+        <p>程序只提供规则判断和人工复核提醒，不执行自动交易。</p>
+      </div>
+    </header>
+
+    {% for result in results %}
+    <section class="asset-card">
+      <div class="asset-heading">
+        <div>
+          <p class="asset-code">{{ result.asset.symbol }}</p>
+          <h2>{{ result.asset.name }}</h2>
+          <p class="muted">{{ result.data_source }} · {{ result.generated_at }}</p>
+        </div>
+        <div class="status-badge status-{{ result.decision.status | lower }}">{{ result.decision.status }}</div>
+      </div>
+
+      <div class="top-grid">
+        <section class="panel decision-panel">
+          <div class="panel-title-row">
+            <h3>规则判断</h3>
+            {% if result.decision.suggested_amount > 0 %}
+              <span class="amount-pill">复核 {{ "%.0f"|format(result.decision.suggested_amount) }} 元</span>
+            {% endif %}
+          </div>
+          <ul>
+            {% for reason in result.decision.reasons %}<li>{{ reason }}</li>{% endfor %}
+          </ul>
+        </section>
+
+        <section class="panel position-panel">
+          <h3>当前仓位</h3>
+          <div class="position-line"><span>已投入</span><strong>{{ result.asset.position.invested_amount }} 元</strong></div>
+          <div class="position-line"><span>目标上限</span><strong>{{ result.asset.position.target_amount }} 元</strong></div>
+          <div class="position-line"><span>剩余额度</span><strong>{{ result.asset.position.target_amount - result.asset.position.invested_amount }} 元</strong></div>
+          <div class="progress-track"><div class="progress-fill" style="width: {{ [100, (result.asset.position.invested_amount / result.asset.position.target_amount * 100)] | min }}%;"></div></div>
+        </section>
+      </div>
+
+      {% if result.llm_summary %}<div class="summary-box"><strong>模型摘要</strong><p>{{ result.llm_summary }}</p></div>{% endif %}
+
+      <div class="analysis-grid">
+        <section class="panel metric-group">
+          <h3>阶段涨跌</h3>
+          <div class="metric-list">
+            <div><span>今日</span><strong>{{ "%.2f"|format(result.indicators.daily_change_pct) }}%</strong></div>
+            <div><span>近5日</span><strong>{{ "%.2f"|format(result.indicators.five_day_change_pct) }}%</strong></div>
+            <div><span>近10日</span><strong>{{ "%.2f"|format(result.indicators.ten_day_change_pct) }}%</strong></div>
+            <div><span>近20日</span><strong>{{ "%.2f"|format(result.indicators.twenty_day_change_pct) }}%</strong></div>
+          </div>
+        </section>
+
+        <section class="panel metric-group">
+          <h3>阶段高点回撤</h3>
+          <div class="metric-list">
+            <div><span>近1个月 <small>高点 {{ result.indicators.one_month_high_date }}</small></span><strong>{{ "%.2f"|format(result.indicators.one_month_drawdown_pct) }}%</strong></div>
+            <div><span>近3个月 <small>高点 {{ result.indicators.three_month_high_date }}</small></span><strong>{{ "%.2f"|format(result.indicators.three_month_drawdown_pct) }}%</strong></div>
+            <div><span>近6个月 <small>高点 {{ result.indicators.six_month_high_date }}</small></span><strong>{{ "%.2f"|format(result.indicators.six_month_drawdown_pct) }}%</strong></div>
+          </div>
+        </section>
+      </div>
+
+      <section class="panel state-strip">
+        <div><span>相对上次买入</span><strong>{{ "%.2f"|format(result.indicators.drawdown_from_last_buy_pct) }}%</strong></div>
+        <div><span>连续下跌</span><strong>{{ result.indicators.consecutive_down_days }} 日</strong></div>
+        <div><span>连续上涨</span><strong>{{ result.indicators.consecutive_up_days }} 日</strong></div>
+        <div><span>本轮反弹</span><strong>{{ "%.2f"|format(result.indicators.rebound_pct) }}%</strong></div>
+      </section>
+
+      <section class="panel chart-panel">
+        <div class="panel-title-row">
+          <div><h3>近6个月走势</h3><p class="muted">纵轴采用相对区间起点的涨跌幅；移动鼠标可查看日期、价格和涨跌幅。</p></div>
+        </div>
+        <div class="chart-wrap">
+          <canvas class="price-chart" data-source-id="chart-data-{{ result.asset.symbol }}"></canvas>
+          <div class="chart-tooltip" hidden></div>
+        </div>
+        <script type="application/json" id="chart-data-{{ result.asset.symbol }}">{{ result.chart_data | tojson }}</script>
+      </section>
+
+      <p class="disclaimer">本页面只用于数据汇总和人工复核，不构成投资建议。</p>
+    </section>
+    {% endfor %}
+  </main>
+  <script src="../static/app.js"></script>
+</body>
+</html>

@@ -7,3 +7,4 @@ logs/*.log
 data/*.xlsx
 data/*.json
 output/*.html
+.idea/

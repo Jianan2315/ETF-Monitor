@@ -10,7 +10,7 @@
       "enabled": true,
       "sector_name": "电网设备",
       "position": {
-        "target_amount": 70000,
+        "target_amount": 100000,
         "invested_amount": 10000,
         "last_buy_price": 1.0,
         "last_buy_date": "2026-07-10"
@@ -25,7 +25,18 @@
         "max_single_add_amount": 5000,
         "notify_on_wait": false,
         "notify_on_watch": true,
-        "notify_on_review_buy": true
+        "notify_on_review_buy": true,
+        "normal_add_amount": 10000,
+        "enhanced_add_amount": 15000,
+        "reversal_confirmation_days": 3,
+        "reversal_watch_days": 2,
+        "minimum_rebound_pct": 8.0,
+        "sell_rules_enabled": true,
+        "first_take_profit_pct": 25.0,
+        "first_sell_position_pct": 20.0,
+        "second_take_profit_pct": 40.0,
+        "second_sell_position_pct": 20.0,
+        "minimum_core_position_pct": 50.0
       }
     }
   ],
