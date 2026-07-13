@@ -1,7 +1,8 @@
 {
   "email": {
     "enabled": true,
-    "provider": "outlook",
+    "provider": "microsoft_graph",
+    "expected_sender": "followwhatyouwant@outlook.com",
     "recipient": "peterfla@163.com",
     "subject_prefix": "ETF Monitor",
     "send_mode": "trigger",
@@ -16,16 +17,19 @@
     "include_raw_metrics": true,
     "html": true,
     "debug": {
-      "enabled": false,
-      "force_send_email": false,
+      "enabled": true,
+      "force_send_email": true,
       "verbose_logging": true
     },
-    "smtp": {
-      "host_env": "OUTLOOK_SMTP_HOST",
-      "port_env": "OUTLOOK_SMTP_PORT",
-      "default_host": "smtp.office365.com",
-      "default_port": 587,
-      "timeout_seconds": 30
+    "graph": {
+      "authority": "https://login.microsoftonline.com/consumers",
+      "scopes": [
+        "Mail.Send"
+      ],
+      "endpoint": "https://graph.microsoft.com/v1.0/me/sendMail",
+      "token_cache_file": "data/private/msal_token_cache.json",
+      "timeout_seconds": 30,
+      "save_to_sent_items": true
     }
   }
 }

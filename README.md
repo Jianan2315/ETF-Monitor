@@ -1,20 +1,22 @@
 # ETF Monitor
 
-本项目是一个本地运行、无服务器的 ETF 监控工具骨架。
+这是一个本地运行、无服务器的 ETF 监控工具。
 
-## 功能
-- Python 获取 ETF 行情（默认 mock 数据，可切换 AKShare）
-- Pandas/NumPy 计算近 5/10/20 日涨跌、连续下跌、近期高点回撤、创新低、稳定天数
-- Python 确定性规则输出 `WAIT / WATCH / REVIEW_BUY`
-- 结果保存到 Excel 和 JSON
-- Jinja2 生成静态 HTML 仪表盘，无需 Flask
-- 可选调用 DeepSeek 生成文字摘要
-- 可选通过 Outlook SMTP 发送邮件
-- 可通过 Windows 任务计划程序定时运行
+## 主要功能
 
-> 只用于数据整理与人工复核，不会自动交易，也不构成投资建议。
+- Python 获取 ETF 行情；默认可使用模拟数据，也可切换 AKShare；
+- Pandas / NumPy 计算阶段涨跌、连续涨跌、近期高点回撤、创新低和稳定天数；
+- 确定性规则输出 `WAIT / WATCH / HOLD / REVIEW_BUY / PARTIAL_SELL`；
+- 结果保存为 Excel 和 JSON；
+- Jinja2 生成静态 HTML 仪表盘，不需要 Flask；
+- 可选调用 DeepSeek 生成邮件摘要；
+- 使用 Microsoft Graph + OAuth2 从 Outlook.com 个人邮箱发送邮件；
+- 支持 Windows 任务计划程序定时运行。
+
+> 该工具只用于数据整理和人工复核，不会自动交易，也不构成投资建议。
 
 ## 快速开始
+
 ```bash
 python -m venv .venv
 .venv\Scripts\activate
@@ -22,104 +24,103 @@ pip install -r requirements.txt
 copy .env.example .env
 python run.py
 ```
-运行后打开 `output/index.html`。
 
-默认 `config.json` 中 `mock_mode=true`，所以无需 API Key 即可先运行。切换真实行情时改为 `false`。
+运行后打开：
 
-## 配置
+```text
+output/index.html
+```
+
+## 项目配置
+
 - 应用与数据：`config/app.json`
 - ETF、仓位上限与规则：`config/assets.json`
-- 邮件策略：`config/email.json`
+- 邮件与 OAuth：`config/email.json`
 - 大模型：`config/llm.json`
 - 存储路径：`config/storage.json`
 - 买卖记录：`data/transactions.json`
-- API Key、邮箱密码：`.env`
-- 真实行情适配器：`src/data_fetcher.py`
-- 判断规则：`src/strategy.py`
-- 页面模板：`templates/dashboard.html`
-- 样式：`static/style.css`
+- Microsoft Client ID、AI Key：`.env`
+- 行情适配器：`src/data_fetcher.py`
+- 策略规则：`src/strategy.py`
+- 邮件内容和 Graph 请求：`src/email_sender.py`
+- Microsoft OAuth：`src/microsoft_graph_auth.py`
 
-## Outlook 说明
-SMTP 登录是否可用取决于 Microsoft 账户设置；有些账户需要应用密码、启用 SMTP AUTH，或改用 Microsoft Graph。邮件模块独立封装，后续只需替换 `src/email_sender.py`。
+## Microsoft Graph 邮件设置
 
-## Windows 定时任务
-程序填写 Python 可执行文件，参数填写项目内 `run.py`，起始于填写项目目录。可设为交易日 14:35 或 15:10 运行。
+本版本不再使用 Outlook SMTP、普通密码或 App Password。邮件通过 Microsoft Graph 的 `sendMail` 接口发送，并使用 OAuth2 Device Code Flow 登录。
 
+### 1. 注册 Microsoft 应用
 
-## V2 更新
+进入 Microsoft Entra 管理中心或 Azure Portal 的 **App registrations（应用注册）**：
 
-- 买入规则增加“止跌横盘”和“趋势反转确认”两个入口。
-- 连续下跌并创新低时保持 WAIT。
-- 下跌后上涨1—2日只 WATCH；连续上涨达到配置天数且累计反弹达到阈值后，按正常额度进入 REVIEW_BUY。
-- 回撤超过8%且横盘稳定后，按增强额度进入 REVIEW_BUY。
-- 页面将规则判断和仓位置顶，删除最新价格卡片。
-- 涨跌与1月/3月/6月高点回撤分栏显示，并标出高点日期。
-- 增加近6个月可交互走势图，鼠标悬停显示日期、价格和区间涨跌幅。
-
-## V3 页面与持仓配置
-
-走势图现在支持：一周、一个月、三个月、六个月、最近一年和成立以来。`成立以来` 实际展示数据源当前能够返回的最早历史；如需更长数据，请提高 `config.json` 中的 `data.history_days`，并确保数据接口能够返回对应区间。
-
-持仓收益依赖以下配置：
-
-```json
-"position": {
-  "invested_amount": 10000,
-  "average_cost": 1.0000,
-  "last_buy_price": 1.0000
-}
+```text
+https://entra.microsoft.com/
 ```
 
-- `invested_amount`：当前仍持有仓位的成本总额；
-- `average_cost`：当前整体持仓的平均单位成本；
-- `last_buy_price`：最近一笔买入价格。
+新建应用时：
 
-每次加仓或卖出后应同步更新这些数值，否则网页中的总收益金额和收益率只是旧成本数据下的估算。
+1. 填写任意名称，例如 `ETF Monitor`；
+2. 支持的账户类型选择：
+   - `Personal Microsoft accounts only`；或
+   - 同时支持组织账户和个人 Microsoft 账户；
+3. Redirect URI 可以先留空；
+4. 注册完成后，复制 **Application (client) ID**。
 
+把 Client ID 填入 `.env`：
 
-## 当前配置架构
-程序现在优先读取 `config/` 目录。根目录 `config.json` 仅保留迁移提示。
-
-## 邮件启用
-1. 在 `config/email.json` 把 `enabled` 改成 `true`；
-2. 修改 `recipient`；
-3. 在 `.env` 填写 `OUTLOOK_EMAIL` 与 `OUTLOOK_PASSWORD`；
-4. 在 `triggers` 中决定哪些状态发信。未列出的状态默认不发。
-
-`send_mode` 可为：
-- `trigger`：只按 `triggers` 发；
-- `always`：每次运行都发。
-
-邮件失败只写入日志，不会阻止 Excel、JSON 和网页生成。只有确实需要发送邮件、且 `include_llm_summary=true`、同时 `llm.enabled=true` 时，才会调用大模型。
-
-## 持仓与操作记录
-编辑 `data/transactions.json` 记录真实买卖：
-```json
-{
-  "561380": [
-    {"date":"2026-07-10","type":"BUY","amount":10000,"price":1.0,"note":"首次建仓"}
-  ]
-}
+```env
+MICROSOFT_CLIENT_ID=你的ApplicationClientID
 ```
-程序会自动计算份额、平均成本、当前成本、总收益和最近买入价格，并在网页显示操作时间线。卖出记录建议同时填写 `shares`，以保证份额计算准确。
 
+### 2. 开启 Public Client Flow
 
-## 邮件调试与强制测试
+在应用注册页面进入：
 
-邮件配置位于 `config/email.json`。正常启用邮件：
+```text
+Authentication
+→ Advanced settings
+→ Allow public client flows
+→ Yes
+```
+
+Device Code Flow 需要应用被配置为 Public Client。
+
+### 3. 添加 Microsoft Graph 权限
+
+进入：
+
+```text
+API permissions
+→ Add a permission
+→ Microsoft Graph
+→ Delegated permissions
+→ Mail.Send
+```
+
+只需要委托权限 `Mail.Send`。本地脚本不需要 Client Secret。
+
+### 4. 配置发件账户和收件人
+
+编辑 `config/email.json`：
 
 ```json
 {
   "email": {
     "enabled": true,
-    "send_mode": "trigger"
+    "provider": "microsoft_graph",
+    "expected_sender": "你的Outlook邮箱@outlook.com",
+    "recipient": "收件邮箱@example.com"
   }
 }
 ```
 
-### 强制发送一封测试邮件
+- `expected_sender`：用于检查你登录的 Microsoft 账户是否正确；不需要时可以留空；
+- `recipient`：支持单个邮箱，也支持用逗号分隔多个邮箱；
+- 实际发件人由 OAuth 登录账户决定，代码不会保存邮箱密码。
 
-为了测试 Outlook SMTP，而不必等待策略进入 `WATCH` 或 `REVIEW_BUY`，临时修改：
+## 第一次授权与测试
+
+为了立即测试邮件，保留或临时设置：
 
 ```json
 "debug": {
@@ -129,21 +130,31 @@ SMTP 登录是否可用取决于 Microsoft 账户设置；有些账户需要应�
 }
 ```
 
-然后运行：
+然后在可见的终端中运行：
 
 ```bash
 python run.py
 ```
 
-这会绕过状态触发条件，但仍要求：
+第一次运行时，终端会显示一个网址和验证码。通常会提示打开：
 
-```json
-"email": {
-  "enabled": true
-}
+```text
+https://microsoft.com/devicelogin
 ```
 
-测试完成后，应恢复为：
+输入验证码，使用 `expected_sender` 对应的 Microsoft 个人账户登录，并同意 `Mail.Send` 权限。
+
+成功后，Token 会缓存到：
+
+```text
+data/private/msal_token_cache.json
+```
+
+后续运行通常会静默刷新 Token，不需要每次重新登录。
+
+> Token 缓存包含敏感的刷新凭据，已经加入 `.gitignore`，不要上传到 GitHub，也不要分享给他人。
+
+测试完成后建议改回：
 
 ```json
 "debug": {
@@ -153,30 +164,65 @@ python run.py
 }
 ```
 
-### 日志位置
+## 邮件触发规则
 
-- `logs/monitor.log`：行情、指标、策略、存储与网页生成；
-- `logs/email.log`：邮件是否触发、跳过原因、SMTP 连接、TLS、登录与发送结果。
+`config/email.json` 中：
 
-例如状态没有开启触发时，`email.log` 会写明：
-
-```text
-Email skipped | Reason=status HOLD is disabled or missing in email.triggers
+```json
+"send_mode": "trigger",
+"triggers": {
+  "WAIT": false,
+  "WATCH": true,
+  "HOLD": false,
+  "REVIEW_BUY": true,
+  "PARTIAL_SELL": true
+}
 ```
 
-SMTP 登录失败时，完整错误会记录在 `logs/email.log`，而 Excel、JSON 和网页仍会正常生成。
+- `trigger`：只在对应状态为 `true` 时发送；
+- `always`：每次程序运行都发送；
+- `debug.force_send_email=true`：绕过状态触发，用于测试，但仍要求 `email.enabled=true`。
 
-### Outlook 常见问题
+## 日志
 
-如果日志显示 `SMTPAuthenticationError`，可能原因包括：
+- `logs/monitor.log`：行情、指标、策略、存储和网页生成；
+- `logs/email.log`：邮件是否触发、OAuth Token、设备登录提示和 Graph `sendMail` 结果。
 
-- 密码或应用密码不正确；
-- Microsoft 账户未启用 SMTP AUTH；
-- 账户开启双重验证后需要应用密码；
-- 组织账户管理员禁止了 SMTP AUTH。
+Graph 成功发送时通常返回 HTTP `202`。如果失败，`email.log` 会记录 Graph 错误码和请求 ID；邮件失败不会阻止 Excel、JSON 和网页生成。
 
-如果日志显示连接超时，应检查当前网络能否访问：
+## 持仓与操作记录
 
-```text
-smtp.office365.com:587
+编辑 `data/transactions.json` 记录真实买卖：
+
+```json
+{
+  "561380": [
+    {
+      "date": "2026-07-10",
+      "type": "BUY",
+      "amount": 10000,
+      "price": 1.0,
+      "note": "首次建仓"
+    }
+  ]
+}
 ```
+
+程序会自动计算份额、平均成本、当前成本、总收益和最近买入价格，并在网页显示操作时间线。卖出记录建议填写 `shares`，以保证份额计算准确。
+
+## Windows 定时任务
+
+首次 OAuth 授权必须手动在终端完成。确认 Token 缓存已经生成并且邮件测试成功后，再创建 Windows 任务计划：
+
+- 程序：项目虚拟环境中的 `python.exe`；
+- 参数：项目内的 `run.py`；
+- 起始于：项目根目录；
+- 时间：例如交易日 14:35 或 15:10。
+
+如果 Token 缓存失效并且再次需要人工授权，程序会在 `logs/email.log` 中明确记录。
+
+## 官方参考
+
+- MSAL Python：`https://learn.microsoft.com/en-us/entra/msal/python/`
+- Device Code Flow：`https://learn.microsoft.com/en-us/entra/identity-platform/msal-authentication-flows`
+- Microsoft Graph sendMail：`https://learn.microsoft.com/en-us/graph/api/user-sendmail`

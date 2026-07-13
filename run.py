@@ -149,6 +149,7 @@ def main() -> int:
                     send_notification_email(
                         result,
                         config,
+                        project_root=ROOT,
                         forced=delivery.forced,
                         logger=email_logger,
                     )

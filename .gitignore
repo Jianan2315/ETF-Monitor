@@ -8,3 +8,7 @@ data/*.xlsx
 data/*.json
 output/*.html
 .idea/
+
+# Microsoft OAuth token cache (contains sensitive refresh tokens)
+data/private/
+*msal_token_cache*.json

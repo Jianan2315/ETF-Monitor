@@ -40,6 +40,10 @@ def validate_email_config(email: dict) -> None:
     if not isinstance(email.get("enabled", False), bool):
         raise ValueError("email.enabled 必须是布尔值")
 
+    provider = str(email.get("provider", "microsoft_graph")).lower()
+    if provider not in {"microsoft_graph", "outlook_graph", "graph"}:
+        raise ValueError("email.provider 目前只支持 microsoft_graph")
+
     mode = email.get("send_mode", "trigger")
     if mode not in {"trigger", "always"}:
         raise ValueError("email.send_mode 只能是 trigger 或 always")
@@ -55,3 +59,22 @@ def validate_email_config(email: dict) -> None:
     for key in ("enabled", "force_send_email", "verbose_logging"):
         if key in debug and not isinstance(debug[key], bool):
             raise ValueError(f"email.debug.{key} 必须是布尔值")
+
+    graph = email.get("graph", {})
+    if not isinstance(graph, dict):
+        raise ValueError("email.graph 必须是对象")
+
+    scopes = graph.get("scopes", ["Mail.Send"])
+    if not isinstance(scopes, list) or not scopes:
+        raise ValueError("email.graph.scopes 必须是非空数组")
+    if not all(isinstance(scope, str) and scope.strip() for scope in scopes):
+        raise ValueError("email.graph.scopes 中的每一项都必须是非空字符串")
+
+    for key in ("authority", "endpoint", "token_cache_file"):
+        value = graph.get(key)
+        if not isinstance(value, str) or not value.strip():
+            raise ValueError(f"email.graph.{key} 必须是非空字符串")
+
+    timeout = graph.get("timeout_seconds", 30)
+    if not isinstance(timeout, int) or timeout <= 0:
+        raise ValueError("email.graph.timeout_seconds 必须是正整数")

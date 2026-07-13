@@ -2,12 +2,21 @@ from __future__ import annotations
 
 import html
 import logging
-import os
-import smtplib
-import socket
 from dataclasses import dataclass
-from email.message import EmailMessage
+from pathlib import Path
 from typing import Any
+
+import requests
+
+from src.microsoft_graph_auth import (
+    MicrosoftGraphAuthError,
+    acquire_graph_access_token,
+    validate_graph_environment,
+)
+
+
+class MicrosoftGraphEmailError(RuntimeError):
+    """Raised when Microsoft Graph rejects a sendMail request."""
 
 
 @dataclass(frozen=True)
@@ -62,49 +71,8 @@ def evaluate_email_delivery(result: dict, email_config: dict) -> EmailDecision:
 
 
 def should_send_email(result: dict, email_config: dict) -> bool:
-    """Backward-compatible boolean helper used by existing tests/callers."""
+    """Backward-compatible boolean helper used by tests and callers."""
     return evaluate_email_delivery(result, email_config).should_send
-
-
-def validate_email_environment(email_config: dict) -> dict[str, Any]:
-    sender = (os.getenv("OUTLOOK_EMAIL") or "").strip()
-    password = os.getenv("OUTLOOK_PASSWORD") or ""
-    recipient = str(email_config.get("recipient", "")).strip()
-
-    smtp_cfg = email_config.get("smtp", {}) or {}
-    host_env = smtp_cfg.get("host_env", "OUTLOOK_SMTP_HOST")
-    port_env = smtp_cfg.get("port_env", "OUTLOOK_SMTP_PORT")
-    default_host = smtp_cfg.get("default_host", "smtp.office365.com")
-    default_port = int(smtp_cfg.get("default_port", 587))
-    timeout_seconds = int(smtp_cfg.get("timeout_seconds", 30))
-
-    host = (os.getenv(host_env) or default_host).strip()
-    raw_port = (os.getenv(port_env) or str(default_port)).strip()
-
-    missing: list[str] = []
-    if not sender:
-        missing.append("OUTLOOK_EMAIL")
-    if not password:
-        missing.append("OUTLOOK_PASSWORD")
-    if not recipient or recipient == "your_email@outlook.com":
-        missing.append("config/email.json -> email.recipient")
-
-    if missing:
-        raise RuntimeError("Missing email configuration: " + ", ".join(missing))
-
-    try:
-        port = int(raw_port)
-    except ValueError as exc:
-        raise RuntimeError(f"Invalid SMTP port: {raw_port}") from exc
-
-    return {
-        "sender": sender,
-        "password": password,
-        "recipient": recipient,
-        "host": host,
-        "port": port,
-        "timeout_seconds": timeout_seconds,
-    }
 
 
 def _status_icon(status: str) -> str:
@@ -128,43 +96,46 @@ def _subject(result: dict, email_config: dict, forced: bool = False) -> str:
 
 
 def _plain_body(result: dict, include_raw: bool = True, forced: bool = False) -> str:
-    i = result["indicators"]
-    d = result["decision"]
-    p = result["position_metrics"]
-    a = result["asset"]
+    indicators = result["indicators"]
+    decision = result["decision"]
+    position = result["position_metrics"]
+    asset = result["asset"]
 
     parts: list[str] = []
 
     if forced:
         parts.append(
-            "邮件测试模式已开启：本邮件绕过了状态触发条件，用于验证 SMTP 配置。"
+            "邮件测试模式已开启：本邮件绕过状态触发条件，用于验证 Microsoft Graph 通知。"
         )
 
     if result.get("llm_summary"):
         parts.append(f"模型摘要：\n{result['llm_summary']}")
 
     parts.append(
-        f"基金：{a['name']}（{a['symbol']}）\n"
-        f"状态：{d['status']}\n"
-        f"策略：{a['strategy'].get('name', '')} "
-        f"v{a['strategy'].get('version', '')}\n"
-        f"建议人工复核金额：{d['suggested_amount']:.0f} 元\n\n"
+        f"基金：{asset['name']}（{asset['symbol']}）\n"
+        f"状态：{decision['status']}\n"
+        f"策略：{asset['strategy'].get('name', '')} "
+        f"v{asset['strategy'].get('version', '')}\n"
+        f"建议人工复核金额：{decision['suggested_amount']:.0f} 元\n\n"
         "判断原因：\n"
-        + "\n".join(f"{n + 1}. {reason}" for n, reason in enumerate(d["reasons"]))
+        + "\n".join(
+            f"{index + 1}. {reason}"
+            for index, reason in enumerate(decision["reasons"])
+        )
     )
 
     if include_raw:
         parts.append(
             "核心指标：\n"
-            f"今日：{i['daily_change_pct']:.2f}%\n"
-            f"近5日：{i['five_day_change_pct']:.2f}%\n"
-            f"近10日：{i['ten_day_change_pct']:.2f}%\n"
-            f"近20日：{i['twenty_day_change_pct']:.2f}%\n"
-            f"相比上次买入：{i['drawdown_from_last_buy_pct']:.2f}%\n"
-            f"当前总收益率：{p['profit_pct']:.2f}%\n"
-            f"当前总收益金额：{p['profit_amount']:.2f} 元\n"
-            f"已投入成本：{p['invested_amount']:.2f} 元\n"
-            f"目标上限：{a['position'].get('target_amount', 0):.2f} 元"
+            f"今日：{indicators['daily_change_pct']:.2f}%\n"
+            f"近5日：{indicators['five_day_change_pct']:.2f}%\n"
+            f"近10日：{indicators['ten_day_change_pct']:.2f}%\n"
+            f"近20日：{indicators['twenty_day_change_pct']:.2f}%\n"
+            f"相比上次买入：{indicators['drawdown_from_last_buy_pct']:.2f}%\n"
+            f"当前总收益率：{position['profit_pct']:.2f}%\n"
+            f"当前总收益金额：{position['profit_amount']:.2f} 元\n"
+            f"已投入成本：{position['invested_amount']:.2f} 元\n"
+            f"目标上限：{asset['position'].get('target_amount', 0):.2f} 元"
         )
 
     parts.append(
@@ -176,21 +147,23 @@ def _plain_body(result: dict, include_raw: bool = True, forced: bool = False) ->
 
 
 def _html_body(result: dict, include_raw: bool = True, forced: bool = False) -> str:
-    i = result["indicators"]
-    d = result["decision"]
-    p = result["position_metrics"]
-    a = result["asset"]
+    indicators = result["indicators"]
+    decision = result["decision"]
+    position = result["position_metrics"]
+    asset = result["asset"]
 
     reasons = "".join(
-        f"<li>{html.escape(str(reason))}</li>" for reason in d["reasons"]
+        f"<li>{html.escape(str(reason))}</li>"
+        for reason in decision["reasons"]
     )
 
     summary = ""
     if result.get("llm_summary"):
+        summary_text = html.escape(str(result["llm_summary"])).replace("\n", "<br>")
         summary = (
             '<div style="padding:14px;background:#eef6fb;border-radius:10px;'
             'margin-bottom:16px"><b>模型摘要</b>'
-            f"<p>{html.escape(result['llm_summary'])}</p></div>"
+            f"<p>{summary_text}</p></div>"
         )
 
     test_banner = ""
@@ -199,20 +172,20 @@ def _html_body(result: dict, include_raw: bool = True, forced: bool = False) -> 
             '<div style="padding:12px 14px;background:#fff4dd;'
             'border:1px solid #f0d69d;border-radius:10px;margin-bottom:16px;'
             'color:#6d4b0b"><b>测试邮件</b><br>'
-            "本邮件绕过状态触发条件，仅用于验证 SMTP 配置。</div>"
+            "本邮件绕过状态触发条件，仅用于验证 Microsoft Graph 通知。</div>"
         )
 
     raw = ""
     if include_raw:
         rows = [
-            ("今日", f"{i['daily_change_pct']:.2f}%"),
-            ("近5日", f"{i['five_day_change_pct']:.2f}%"),
-            ("近10日", f"{i['ten_day_change_pct']:.2f}%"),
-            ("近20日", f"{i['twenty_day_change_pct']:.2f}%"),
-            ("相比上次买入", f"{i['drawdown_from_last_buy_pct']:.2f}%"),
-            ("总收益率", f"{p['profit_pct']:.2f}%"),
-            ("总收益金额", f"{p['profit_amount']:.2f} 元"),
-            ("已投入成本", f"{p['invested_amount']:.2f} 元"),
+            ("今日", f"{indicators['daily_change_pct']:.2f}%"),
+            ("近5日", f"{indicators['five_day_change_pct']:.2f}%"),
+            ("近10日", f"{indicators['ten_day_change_pct']:.2f}%"),
+            ("近20日", f"{indicators['twenty_day_change_pct']:.2f}%"),
+            ("相比上次买入", f"{indicators['drawdown_from_last_buy_pct']:.2f}%"),
+            ("总收益率", f"{position['profit_pct']:.2f}%"),
+            ("总收益金额", f"{position['profit_amount']:.2f} 元"),
+            ("已投入成本", f"{position['invested_amount']:.2f} 元"),
         ]
         raw = (
             '<table style="width:100%;border-collapse:collapse">'
@@ -232,16 +205,16 @@ def _html_body(result: dict, include_raw: bool = True, forced: bool = False) -> 
   <div style="max-width:680px;margin:auto;background:white;border-radius:16px;padding:24px">
     {test_banner}
     {summary}
-    <h2 style="margin:0 0 4px">{html.escape(a['name'])}</h2>
+    <h2 style="margin:0 0 4px">{html.escape(asset['name'])}</h2>
     <p style="color:#64748b">
-      {html.escape(a['symbol'])} ·
-      {html.escape(a['strategy'].get('name', ''))}
-      v{html.escape(str(a['strategy'].get('version', '')))}
+      {html.escape(asset['symbol'])} ·
+      {html.escape(asset['strategy'].get('name', ''))}
+      v{html.escape(str(asset['strategy'].get('version', '')))}
     </p>
     <div style="display:inline-block;padding:8px 12px;background:#fff0cf;border-radius:999px;font-weight:700">
-      {html.escape(d['status'])}
+      {html.escape(decision['status'])}
     </div>
-    <p><b>建议人工复核金额：</b>{d['suggested_amount']:.0f} 元</p>
+    <p><b>建议人工复核金额：</b>{decision['suggested_amount']:.0f} 元</p>
     <h3>判断原因</h3>
     <ol>{reasons}</ol>
     {raw}
@@ -255,92 +228,168 @@ def _html_body(result: dict, include_raw: bool = True, forced: bool = False) -> 
 </html>"""
 
 
+def build_graph_message_payload(
+    result: dict,
+    email_config: dict,
+    *,
+    forced: bool = False,
+) -> dict[str, Any]:
+    """Build the JSON body expected by Microsoft Graph /me/sendMail."""
+    recipients = _parse_recipients(email_config.get("recipient"))
+    include_raw = bool(email_config.get("include_raw_metrics", True))
+    use_html = bool(email_config.get("html", True))
+
+    body_content = (
+        _html_body(result, include_raw, forced=forced)
+        if use_html
+        else _plain_body(result, include_raw, forced=forced)
+    )
+
+    return {
+        "message": {
+            "subject": _subject(result, email_config, forced=forced),
+            "body": {
+                "contentType": "HTML" if use_html else "Text",
+                "content": body_content,
+            },
+            "toRecipients": [
+                {"emailAddress": {"address": recipient}}
+                for recipient in recipients
+            ],
+        },
+        "saveToSentItems": bool(
+            (email_config.get("graph", {}) or {}).get("save_to_sent_items", True)
+        ),
+    }
+
+
 def send_notification_email(
     result: dict,
     config: dict,
     *,
+    project_root: Path,
     forced: bool = False,
     logger: logging.Logger | None = None,
 ) -> None:
+    """Send an ETF notification through Microsoft Graph delegated OAuth."""
     email_config = config["email"]
     email_logger = logger or logging.getLogger("etf_email")
-    verbose = bool((email_config.get("debug", {}) or {}).get("verbose_logging", False))
+    provider = str(email_config.get("provider", "microsoft_graph")).lower()
 
     email_logger.info("Email sending started")
     email_logger.info(
         "Status=%s | Forced=%s | Provider=%s",
         result["decision"]["status"],
         forced,
-        email_config.get("provider", "outlook"),
+        provider,
     )
 
+    if provider not in {"microsoft_graph", "outlook_graph", "graph"}:
+        raise MicrosoftGraphEmailError(
+            f"Unsupported email provider: {provider}. Use microsoft_graph."
+        )
+
     try:
-        settings = validate_email_environment(email_config)
+        settings = validate_graph_environment(email_config)
         email_logger.info(
-            "Email configuration validated | Sender=%s | Recipient=%s",
-            settings["sender"],
+            "Microsoft Graph configuration validated | Recipient=%s | Authority=%s",
             settings["recipient"],
+            settings["authority"],
         )
         email_logger.info(
-            "SMTP target=%s:%s | Timeout=%ss",
-            settings["host"],
-            settings["port"],
+            "Graph endpoint=%s | Timeout=%ss | Token cache=%s",
+            settings["endpoint"],
             settings["timeout_seconds"],
+            settings["cache_file"],
         )
 
-        message = EmailMessage()
-        message["From"] = settings["sender"]
-        message["To"] = settings["recipient"]
-        message["Subject"] = _subject(result, email_config, forced=forced)
+        token = acquire_graph_access_token(settings, project_root, email_logger)
+        email_logger.info(
+            "Microsoft token ready | Account=%s | Silent=%s",
+            token.account_username or "unknown",
+            token.acquired_silently,
+        )
 
-        include_raw = bool(email_config.get("include_raw_metrics", True))
-        message.set_content(_plain_body(result, include_raw, forced=forced))
-        if email_config.get("html", True):
-            message.add_alternative(
-                _html_body(result, include_raw, forced=forced),
-                subtype="html",
-            )
-
-        email_logger.info("Connecting to SMTP server")
-        with smtplib.SMTP(
-            settings["host"],
-            settings["port"],
+        payload = build_graph_message_payload(
+            result,
+            email_config,
+            forced=forced,
+        )
+        email_logger.info("Calling Microsoft Graph sendMail")
+        response = requests.post(
+            settings["endpoint"],
+            headers={
+                "Authorization": f"Bearer {token.access_token}",
+                "Content-Type": "application/json",
+            },
+            json=payload,
             timeout=settings["timeout_seconds"],
-        ) as smtp:
-            if verbose:
-                smtp.set_debuglevel(1)
+        )
 
-            email_logger.info("SMTP connected")
-            email_logger.info("Starting TLS")
-            smtp.starttls()
-            email_logger.info("TLS established")
+        request_id = response.headers.get("request-id") or response.headers.get(
+            "client-request-id"
+        )
+        email_logger.info(
+            "Microsoft Graph response | Status=%s | Request ID=%s",
+            response.status_code,
+            request_id or "not provided",
+        )
 
-            email_logger.info("Logging in to SMTP account")
-            smtp.login(settings["sender"], settings["password"])
-            email_logger.info("SMTP login succeeded")
-
-            email_logger.info("Sending email message")
-            smtp.send_message(message)
-            email_logger.info(
-                "Email sent successfully | Recipient=%s | Subject=%s",
-                settings["recipient"],
-                message["Subject"],
+        if response.status_code != 202:
+            detail = _safe_graph_error(response)
+            raise MicrosoftGraphEmailError(
+                f"Microsoft Graph sendMail failed with HTTP {response.status_code}: "
+                f"{detail}"
             )
 
-    except smtplib.SMTPAuthenticationError:
+        email_logger.info(
+            "Email sent successfully through Microsoft Graph | Recipient=%s | Subject=%s",
+            settings["recipient"],
+            payload["message"]["subject"],
+        )
+
+    except MicrosoftGraphAuthError:
+        email_logger.exception("Microsoft Graph authentication failed")
+        raise
+    except requests.Timeout:
         email_logger.exception(
-            "SMTP authentication failed. Check the account password/app password "
-            "and whether SMTP AUTH is enabled."
+            "Microsoft Graph request timed out. Check network access and timeout settings."
         )
         raise
-    except (socket.timeout, TimeoutError):
-        email_logger.exception(
-            "SMTP connection timed out. Check network access, host, port, and firewall."
-        )
-        raise
-    except smtplib.SMTPException:
-        email_logger.exception("SMTP operation failed")
+    except requests.RequestException:
+        email_logger.exception("Microsoft Graph HTTP request failed")
         raise
     except Exception:
-        email_logger.exception("Unexpected email sending failure")
+        email_logger.exception("Unexpected Microsoft Graph email failure")
         raise
+
+
+def _parse_recipients(value: Any) -> list[str]:
+    if isinstance(value, str):
+        candidates = [item.strip() for item in value.replace(";", ",").split(",")]
+    elif isinstance(value, list):
+        candidates = [str(item).strip() for item in value]
+    else:
+        candidates = []
+
+    recipients = [item for item in candidates if item]
+    if not recipients:
+        raise MicrosoftGraphEmailError(
+            "No valid email recipient is configured in config/email.json"
+        )
+    return recipients
+
+
+def _safe_graph_error(response: requests.Response) -> str:
+    try:
+        payload = response.json()
+    except ValueError:
+        return response.text[:1000] or "empty response"
+
+    if isinstance(payload, dict):
+        error = payload.get("error", payload)
+        if isinstance(error, dict):
+            code = error.get("code", "unknown")
+            message = error.get("message", "")
+            return f"{code}: {message}".strip()
+    return str(payload)[:1000]

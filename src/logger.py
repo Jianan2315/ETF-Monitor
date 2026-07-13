@@ -21,7 +21,7 @@ def configure_logging(monitor_path: Path, email_path: Path | None = None) -> log
     - etf_monitor -> logs/monitor.log and console
     - etf_email   -> logs/email.log
 
-    Email logs do not propagate into monitor.log, so SMTP troubleshooting stays
+    Email logs do not propagate into monitor.log, so Microsoft Graph troubleshooting stays
     separate from the market-data and strategy pipeline.
     """
     monitor_path.parent.mkdir(parents=True, exist_ok=True)
