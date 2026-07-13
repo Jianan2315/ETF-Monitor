@@ -9,7 +9,7 @@
 - 确定性规则输出 `WAIT / WATCH / HOLD / REVIEW_BUY / PARTIAL_SELL`；
 - 结果保存为 Excel 和 JSON；
 - Jinja2 生成静态 HTML 仪表盘，不需要 Flask；
-- 可选调用 DeepSeek 生成邮件摘要；
+- 默认调用本机 Ollama + Qwen3 生成邮件摘要，也保留手动切回 DeepSeek 的能力；
 - 使用 Microsoft Graph + OAuth2 从 Outlook.com 个人邮箱发送邮件；
 - 支持 Windows 任务计划程序定时运行。
 
@@ -31,6 +31,9 @@ python run.py
 output/index.html
 ```
 
+
+> `data/`、`logs/` 和 `output/` 可以不随代码打包，程序会在运行时创建需要的目录。但是 `data/private/msal_token_cache.json` 是已经完成 Microsoft 登录后的本地 Token 缓存；如果你整体替换项目目录，请从旧项目复制回去，否则下一次发送邮件时需要重新完成设备登录授权。不要把该 Token 上传到 GitHub。
+
 ## 项目配置
 
 - 应用与数据：`config/app.json`
@@ -39,11 +42,95 @@ output/index.html
 - 大模型：`config/llm.json`
 - 存储路径：`config/storage.json`
 - 买卖记录：`data/transactions.json`
-- Microsoft Client ID、AI Key：`.env`
+- Microsoft Client ID：`.env`；Ollama 本地模式不需要 AI API Key
 - 行情适配器：`src/data_fetcher.py`
 - 策略规则：`src/strategy.py`
 - 邮件内容和 Graph 请求：`src/email_sender.py`
 - Microsoft OAuth：`src/microsoft_graph_auth.py`
+
+
+## 本地 Ollama 模型设置
+
+当前默认配置位于 `config/llm.json`：
+
+```json
+{
+  "llm": {
+    "enabled": true,
+    "provider": "ollama",
+    "model": "qwen3:8b",
+    "fallback_models": ["qwen3:4b"],
+    "base_url": "http://127.0.0.1:11434",
+    "think": false,
+    "keep_alive": "0"
+  }
+}
+```
+
+运行逻辑：
+
+1. 优先使用 `qwen3:8b`；
+2. 如果 8B 未安装、加载失败或超时，会尝试 `qwen3:4b`；
+3. 如果 Ollama 没启动或两个模型都失败，程序只跳过模型摘要，邮件仍以确定性策略结果发送；
+4. 本地模型只负责把 Python 已确定的结果整理成中文，不参与 `WAIT / WATCH / REVIEW_BUY` 等正式决策。
+
+### 启动前检查
+
+在 PowerShell 中执行：
+
+```powershell
+ollama list
+```
+
+应能看到：
+
+```text
+qwen3:8b
+qwen3:4b
+```
+
+然后确认 Ollama 正在后台运行。通常 Windows 版 Ollama 启动后会自动提供本地服务；无法连接时可尝试：
+
+```powershell
+ollama serve
+```
+
+也可以先手动测试：
+
+```powershell
+ollama run qwen3:8b
+```
+
+### 测试完整邮件流程
+
+模型摘要只有在邮件确实准备发送时才会调用。为了立即测试，在 `config/email.json` 中临时保留：
+
+```json
+"debug": {
+  "enabled": true,
+  "force_send_email": true,
+  "verbose_logging": true
+}
+```
+
+运行：
+
+```powershell
+python run.py
+```
+
+在 `logs/monitor.log` 中可看到：
+
+```text
+Calling local Ollama | Model=qwen3:8b
+Local summary generated
+```
+
+邮件正文中会出现“模型摘要”。测试完成后，将 `force_send_email` 改回 `false`。
+
+### 切回 DeepSeek（可选）
+
+本地模型是默认方案。仅在需要时，才把 `provider` 改为 `deepseek`，将 `model` 改为 `deepseek-chat`，并在 `.env` 中配置 `DEEPSEEK_API_KEY`。
 
 ## Microsoft Graph 邮件设置
 

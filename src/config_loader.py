@@ -33,6 +33,7 @@ def load_config(path: Path) -> dict:
     if missing:
         raise ValueError(f'配置缺少字段: {missing}')
     validate_email_config(config['email'])
+    validate_llm_config(config['llm'])
     return config
 
 
@@ -78,3 +79,41 @@ def validate_email_config(email: dict) -> None:
     timeout = graph.get("timeout_seconds", 30)
     if not isinstance(timeout, int) or timeout <= 0:
         raise ValueError("email.graph.timeout_seconds 必须是正整数")
+
+
+
+def validate_llm_config(llm: dict) -> None:
+    if not isinstance(llm.get("enabled", False), bool):
+        raise ValueError("llm.enabled 必须是布尔值")
+
+    provider = str(llm.get("provider", "ollama")).lower()
+    if provider not in {"ollama", "deepseek"}:
+        raise ValueError("llm.provider 只能是 ollama 或 deepseek")
+
+    max_chars = llm.get("max_summary_chars", 220)
+    if not isinstance(max_chars, int) or max_chars <= 0:
+        raise ValueError("llm.max_summary_chars 必须是正整数")
+
+    timeout = llm.get("timeout_seconds", 180 if provider == "ollama" else 30)
+    if not isinstance(timeout, (int, float)) or timeout <= 0:
+        raise ValueError("llm.timeout_seconds 必须是正数")
+
+    if provider == "ollama":
+        for key in ("base_url", "chat_endpoint", "tags_endpoint", "model"):
+            value = llm.get(key)
+            if not isinstance(value, str) or not value.strip():
+                raise ValueError(f"llm.{key} 必须是非空字符串")
+
+        fallback = llm.get("fallback_models", [])
+        if not isinstance(fallback, list):
+            raise ValueError("llm.fallback_models 必须是数组")
+        if not all(isinstance(model, str) and model.strip() for model in fallback):
+            raise ValueError("llm.fallback_models 中每一项都必须是非空字符串")
+
+        if not isinstance(llm.get("think", False), bool):
+            raise ValueError("llm.think 必须是布尔值")
+
+        for key in ("connect_timeout_seconds", "num_ctx", "num_predict"):
+            value = llm.get(key)
+            if not isinstance(value, (int, float)) or value <= 0:
+                raise ValueError(f"llm.{key} 必须是正数")

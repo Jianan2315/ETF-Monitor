@@ -1,14 +1,16 @@
 .env
 .venv/
+venv/
 __pycache__/
-*.pyc
+*.py[cod]
 .pytest_cache/
-logs/*.log
-data/*.xlsx
-data/*.json
-output/*.html
 .idea/
+.vscode/
 
-# Microsoft OAuth token cache (contains sensitive refresh tokens)
-data/private/
+# Runtime-generated and private local state
+logs/
+output/
+data/
+
+# Microsoft OAuth token cache (defense in depth)
 *msal_token_cache*.json

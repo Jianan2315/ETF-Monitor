@@ -1,8 +1,21 @@
 {
   "llm": {
-    "enabled": false,
-    "provider": "deepseek",
-    "model": "deepseek-chat",
+    "enabled": true,
+    "provider": "ollama",
+    "model": "qwen3:8b",
+    "fallback_models": [
+      "qwen3:4b"
+    ],
+    "base_url": "http://127.0.0.1:11434",
+    "chat_endpoint": "/api/chat",
+    "tags_endpoint": "/api/tags",
+    "connect_timeout_seconds": 5,
+    "timeout_seconds": 180,
+    "temperature": 0.1,
+    "num_ctx": 4096,
+    "num_predict": 320,
+    "think": false,
+    "keep_alive": "0",
     "max_summary_chars": 220
   }
 }

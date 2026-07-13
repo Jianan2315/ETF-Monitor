@@ -133,6 +133,7 @@ def main() -> int:
                         result["llm_summary"] = generate_summary(
                             result,
                             config["llm"],
+                            logger=logger,
                         )
                     except Exception:
                         logger.exception(
