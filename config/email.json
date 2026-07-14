@@ -3,7 +3,7 @@
     "enabled": true,
     "provider": "microsoft_graph",
     "expected_sender": "followwhatyouwant@outlook.com",
-    "recipient": "peterfla@163.com",
+    "recipient": "jianan0875@outlook.com",
     "subject_prefix": "ETF Monitor",
     "send_mode": "trigger",
     "triggers": {
