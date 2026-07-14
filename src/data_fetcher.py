@@ -41,18 +41,33 @@ def fetch_asset_data(asset: dict, config: dict, mode: str = "auto") -> MarketBun
 
 
 def _market_phase(now: datetime, mode: str) -> str:
+    """
+    Determine the actual market phase from local time.
+
+    `mode` describes the requested run type, but it must not force a realtime
+    request when the market is closed. This lets a manually triggered
+    `--mode intraday` run before 09:30 or after 15:00 fall back to the latest
+    completed daily data instead of becoming a DATA_ERROR.
+    """
+    # An explicit close run intentionally uses completed daily data only,
+    # even when it is manually started during trading hours.
     if mode == "close":
         return "CLOSED"
-    if mode == "intraday":
-        return "INTRADAY"
+
     if now.weekday() >= 5:
         return "NON_TRADING_DAY"
+
     hm = now.hour * 60 + now.minute
     if hm < 9 * 60 + 30:
         return "PRE_MARKET"
+
+    # Keep the lunch break in INTRADAY: the realtime endpoint can still return
+    # the latest snapshot even though trading is temporarily paused.
     if hm <= 15 * 60:
         return "INTRADAY"
+
     return "CLOSED"
+
 
 
 def _normalize_history(df: pd.DataFrame, history_days: int) -> pd.DataFrame:
@@ -182,8 +197,20 @@ def _ak(asset: dict, config: dict, mode: str = "auto") -> MarketBundle:
     intraday = pd.DataFrame(columns=["time", "price", "volume", "amount"])
     spot = None
     if phase == "INTRADAY":
+        # During the actual trading session, the realtime snapshot is required.
+        # If it cannot be obtained, the outer retry mechanism will retry and
+        # eventually send DATA_ERROR.
         spot = _fetch_spot(ak, asset)
-        intraday = _fetch_intraday(ak, asset, now)
+
+        # The minute chart is useful but not required for the strategy. If the
+        # minute endpoint is temporarily unavailable, keep the valid spot
+        # snapshot and render an empty "今日走势" chart instead of failing the
+        # whole run.
+        try:
+            intraday = _fetch_intraday(ak, asset, now)
+        except Exception:
+            intraday = pd.DataFrame(columns=["time", "price", "volume", "amount"])
+
         history = _merge_spot_into_history(history, spot, phase)
 
     last = history.iloc[-1]
