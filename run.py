@@ -62,7 +62,7 @@ def main() -> int:
         if not configured_asset.get("enabled", True):
             continue
         try:
-            bundle=fetch_asset_data(configured_asset, config, mode=args.mode)
+            bundle=fetch_asset_data(configured_asset, config, mode=args.mode, project_root=ROOT)
         except DataFetchError as exc:
             logger.error("数据获取失败 | Asset=%s | Errors=%s", configured_asset.get("symbol"), exc.attempts)
             try:
