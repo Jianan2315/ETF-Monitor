@@ -30,8 +30,13 @@
           <p class="asset-code">{{ result.asset.symbol }}</p>
           <h2>{{ result.asset.name }}</h2>
           <p class="strategy-version">{{ result.asset.strategy.name }} · v{{ result.asset.strategy.version }}</p>
-          <p class="muted">{{ result.data_source }} · {{ result.generated_at }}</p>
-          <p class="muted">数据阶段：{{ result.data_phase }} · 行情时间：{{ result.market_timestamp or '未知' }}</p>
+          <p class="muted data-source-line">
+            数据来源：{{ result.data_source }}
+            {% if result.using_local_cache %} · 本地缓存日期：{{ result.cache_date }}{% endif %}
+          </p>
+          <p class="muted">数据阶段：{{ result.data_phase }}</p>
+          <p class="muted">行情时间：{{ result.market_timestamp or '未知' }}</p>
+          <p class="muted">本次运行时间：{{ result.run_time }}</p>
         </div>
         <div class="status-wrap">
           <div class="status-badge status-{{ result.decision.status | lower }}">{{ result.decision.status }}</div>

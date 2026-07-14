@@ -33,6 +33,8 @@ class MarketBundle:
     intraday: pd.DataFrame | None = None
     data_phase: str = "CLOSED"
     market_timestamp: datetime | None = None
+    using_local_cache: bool = False
+    cache_date: str | None = None
 
 
 @dataclass

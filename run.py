@@ -1,12 +1,13 @@
 from __future__ import annotations
 
 import argparse
+from datetime import datetime
 from pathlib import Path
 
 from src.config_loader import load_config
 from src.data_fetcher import DataFetchError, fetch_asset_data
 from src.email_sender import evaluate_email_delivery, send_data_error_email, send_notification_email
-from src.html_report import generate_html_report
+from src.html_report import generate_html_report, mark_existing_report_stale
 from src.indicators import calculate_indicators
 from src.llm_client import generate_summary
 from src.logger import configure_logging, get_email_logger
@@ -44,6 +45,19 @@ def build_intraday_data(frame):
             for _, row in frame.iterrows()]
 
 
+
+def format_market_time(timestamp, data_phase: str) -> str:
+    if timestamp is None:
+        return "未知"
+    if data_phase == "INTRADAY":
+        return timestamp.strftime("%Y-%m-%d %H:%M:%S")
+    return timestamp.strftime("%Y-%m-%d")
+
+
+def format_run_time(timestamp) -> str:
+    return timestamp.strftime("%Y-%m-%d %H:%M:%S")
+
+
 def main() -> int:
     args = parse_args()
     logger = configure_logging(ROOT/"logs"/"monitor.log", ROOT/"logs"/"email.log")
@@ -64,12 +78,46 @@ def main() -> int:
         try:
             bundle=fetch_asset_data(configured_asset, config, mode=args.mode, project_root=ROOT)
         except DataFetchError as exc:
-            logger.error("数据获取失败 | Asset=%s | Errors=%s", configured_asset.get("symbol"), exc.attempts)
+            run_time = datetime.now()
+            logger.error(
+                "数据获取失败 | Asset=%s | LastAvailable=%s | Errors=%s",
+                configured_asset.get("symbol"),
+                exc.last_available_date,
+                exc.attempts,
+            )
+            try:
+                expected_date = None
+                if exc.last_available_date:
+                    from src.data_fetcher import _market_phase, _expected_history_date
+                    phase = _market_phase(run_time, args.mode)
+                    expected_date = _expected_history_date(
+                        run_time,
+                        phase,
+                    ).strftime("%Y-%m-%d")
+                marked = mark_existing_report_stale(
+                    ROOT,
+                    config,
+                    asset=configured_asset,
+                    run_time=run_time,
+                    last_available_date=exc.last_available_date,
+                    expected_date=expected_date,
+                    errors=exc.attempts,
+                )
+                logger.warning(
+                    "Previous report stale warning injected=%s",
+                    marked,
+                )
+            except Exception:
+                logger.exception("旧报告过期警告写入失败")
             try:
                 if config["email"].get("enabled", False):
                     send_data_error_email(
-                        asset=configured_asset, errors=exc.attempts, config=config,
-                        project_root=ROOT, run_label=args.slot or args.mode, logger=email_logger
+                        asset=configured_asset,
+                        errors=exc.attempts,
+                        config=config,
+                        project_root=ROOT,
+                        run_label=run_time.strftime("%Y-%m-%d %H:%M:%S"),
+                        logger=email_logger,
                     )
             except Exception:
                 logger.exception("DATA_ERROR 邮件发送失败")
@@ -92,10 +140,16 @@ def main() -> int:
             "status_label":STATUS_LABELS.get(decision.status, decision.status),
             "data_source":bundle.data_source,
             "data_phase":bundle.data_phase,
-            "market_timestamp":bundle.market_timestamp.isoformat() if bundle.market_timestamp else None,
-            "generated_at":bundle.generated_at.isoformat(),
+            "market_timestamp":format_market_time(
+                bundle.market_timestamp,
+                bundle.data_phase,
+            ),
+            "generated_at":format_run_time(bundle.generated_at),
+            "run_time":format_run_time(datetime.now()),
             "run_mode":args.mode,
             "run_slot":args.slot,
+            "using_local_cache":bundle.using_local_cache,
+            "cache_date":bundle.cache_date,
             "chart_data":build_chart_data(bundle.history),
             "intraday_chart_data":build_intraday_data(bundle.intraday),
             "operation_history":list(reversed(transactions[-10:])),

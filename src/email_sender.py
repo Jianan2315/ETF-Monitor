@@ -107,6 +107,15 @@ def _plain_body(result: dict, include_raw: bool = True, forced: bool = False) ->
 
     parts: list[str] = []
 
+    metadata = (
+        f"数据源：{result.get('data_source', '未知')}\n"
+        f"数据阶段：{result.get('data_phase', 'UNKNOWN')}\n"
+        f"行情时间：{result.get('market_timestamp', '未知')}\n"
+        f"实际运行时间：{result.get('run_time', result.get('generated_at', '未知'))}\n"
+        f"计划时点：{result.get('run_slot') or '手动运行'}"
+    )
+    parts.append(metadata)
+
     if forced:
         parts.append(
             "邮件测试模式已开启：本邮件绕过状态触发条件，用于验证 Microsoft Graph 通知。"
@@ -145,11 +154,7 @@ def _plain_body(result: dict, include_raw: bool = True, forced: bool = False) ->
             f"目标上限：{asset['position'].get('target_amount', 0):.2f} 元"
         )
 
-    parts.append(
-        f"数据源：{result['data_source']}\n"
-        f"生成时间：{result['generated_at']}\n\n"
-        "仅用于人工复核，不构成投资建议。"
-    )
+    parts.append("仅用于人工复核，不构成投资建议。")
     return "\n\n".join(parts)
 
 
@@ -206,10 +211,21 @@ def _html_body(result: dict, include_raw: bool = True, forced: bool = False) -> 
             + "</table>"
         )
 
+    metadata = f"""
+    <div style="padding:14px 16px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;margin-bottom:16px;line-height:1.8">
+      <div><b>数据源：</b>{html.escape(str(result.get('data_source', '未知')))}</div>
+      <div><b>数据阶段：</b>{html.escape(str(result.get('data_phase', 'UNKNOWN')))}</div>
+      <div><b>行情时间：</b>{html.escape(str(result.get('market_timestamp', '未知')))}</div>
+      <div><b>实际运行时间：</b>{html.escape(str(result.get('run_time', result.get('generated_at', '未知'))))}</div>
+      <div><b>计划时点：</b>{html.escape(str(result.get('run_slot') or '手动运行'))}</div>
+    </div>
+    """
+
     return f"""<!doctype html>
 <html>
 <body style="font-family:Arial,Microsoft YaHei,sans-serif;color:#172033;background:#f4f6f8;padding:24px">
   <div style="max-width:680px;margin:auto;background:white;border-radius:16px;padding:24px">
+    {metadata}
     {test_banner}
     {summary}
     <h2 style="margin:0 0 4px">{html.escape(asset['name'])}</h2>
@@ -222,16 +238,11 @@ def _html_body(result: dict, include_raw: bool = True, forced: bool = False) -> 
       {html.escape(decision['status'])}
     </div>
     <p><b>状态说明：</b>{html.escape(str(result.get('status_label', decision['status'])))}</p>
-    <p><b>数据阶段：</b>{html.escape(str(result.get('data_phase', 'UNKNOWN')))}　
-       <b>行情时间：</b>{html.escape(str(result.get('market_timestamp', '未知')))}　
-       <b>运行时点：</b>{html.escape(str(result.get('run_slot') or result.get('run_mode', 'manual')))}</p>
     <p><b>建议人工复核金额：</b>{decision['suggested_amount']:.0f} 元</p>
     <h3>判断原因</h3>
     <ol>{reasons}</ol>
     {raw}
     <p style="margin-top:20px;color:#64748b;font-size:12px">
-      数据源：{html.escape(result['data_source'])}<br>
-      生成时间：{html.escape(result['generated_at'])}<br>
       仅用于人工复核，不构成投资建议。
     </p>
   </div>

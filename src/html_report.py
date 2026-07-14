@@ -3,6 +3,8 @@ from __future__ import annotations
 from datetime import datetime, timedelta
 from pathlib import Path
 import shutil
+import re
+from html import escape
 
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
@@ -79,3 +81,104 @@ def _generate_history_index(root: Path, report: dict, history_dir: Path) -> None
         <table><thead><tr><th>日期</th><th>时点</th><th>类型</th><th>报告</th></tr></thead><tbody>{body}</tbody></table></html>""",
         encoding="utf-8",
     )
+
+
+
+def mark_existing_report_stale(
+    root: Path,
+    config: dict,
+    *,
+    asset: dict,
+    run_time: datetime,
+    last_available_date: str | None,
+    expected_date: str | None,
+    errors: list[str],
+) -> bool:
+    """
+    Preserve the previous successful report content, but inject a blocking
+    warning modal and red banner so old data cannot be mistaken for a fresh run.
+    """
+    output_path = root / config["report"]["output_file"]
+    if not output_path.exists():
+        return False
+
+    html = output_path.read_text(encoding="utf-8")
+    # Remove an older injected warning before inserting the newest one.
+    html = re.sub(
+        r"<!-- DATA_STALE_WARNING_START -->[\s\S]*?<!-- DATA_STALE_WARNING_END -->",
+        "",
+        html,
+    )
+
+    error_items = "".join(
+        f"<li>{escape(item)}</li>" for item in errors[-3:]
+    )
+    latest_text = escape(last_available_date or "未知")
+    expected_text = escape(expected_date or "当前交易日所需数据")
+    run_text = escape(run_time.strftime("%Y-%m-%d %H:%M:%S"))
+    asset_text = escape(
+        f"{asset.get('name', '')}（{asset.get('symbol', '')}）"
+    )
+
+    warning = f"""
+<!-- DATA_STALE_WARNING_START -->
+<style>
+.data-stale-banner {{
+  position: sticky; top: 0; z-index: 9998;
+  background: #b42318; color: #fff; padding: 12px 18px;
+  font-weight: 700; text-align: center;
+  box-shadow: 0 3px 12px rgba(0,0,0,.22);
+}}
+.data-stale-modal {{
+  position: fixed; inset: 0; z-index: 9999;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(15,23,42,.66); padding: 20px;
+}}
+.data-stale-dialog {{
+  width: min(620px, 100%); background: white; color: #172033;
+  border-radius: 16px; padding: 24px; box-shadow: 0 18px 55px rgba(0,0,0,.3);
+}}
+.data-stale-dialog h2 {{ color: #b42318; margin-top: 0; }}
+.data-stale-dialog button {{
+  border: 0; border-radius: 9px; padding: 10px 16px;
+  background: #172033; color: white; cursor: pointer;
+}}
+.data-source-stale {{ color: #b42318 !important; font-weight: 700 !important; }}
+</style>
+<div class="data-stale-banner">
+  数据更新失败：当前页面保留的是旧报告，不能视为本次运行结果。
+</div>
+<div class="data-stale-modal" id="data-stale-modal" role="dialog" aria-modal="true">
+  <section class="data-stale-dialog">
+    <h2>行情数据未能更新</h2>
+    <p><b>标的：</b>{asset_text}</p>
+    <p><b>本次运行时间：</b>{run_text}</p>
+    <p><b>本地最后可用行情日期：</b>{latest_text}</p>
+    <p><b>程序期望的最新行情日期：</b>{expected_text}</p>
+    <p>页面主体仍是上一次成功生成的报告。请不要把其中的状态、涨跌幅或操作建议当作本次运行的新结果。</p>
+    <details><summary>查看数据获取错误</summary><ol>{error_items}</ol></details>
+    <p><button type="button" onclick="document.getElementById('data-stale-modal').style.display='none'">我已知晓，查看旧报告</button></p>
+  </section>
+</div>
+<script>
+document.querySelectorAll('.data-source-line, .muted').forEach(function(node) {{
+  if (
+    node.classList.contains('data-source-line') ||
+    node.textContent.includes('数据阶段') ||
+    node.textContent.includes('行情时间') ||
+    node.textContent.includes('本次运行时间')
+  ) {{
+    node.classList.add('data-source-stale');
+  }}
+}});
+</script>
+<!-- DATA_STALE_WARNING_END -->
+"""
+    if "<body" in html:
+        body_end = html.find(">", html.find("<body")) + 1
+        html = html[:body_end] + warning + html[body_end:]
+    else:
+        html = warning + html
+
+    output_path.write_text(html, encoding="utf-8")
+    return True

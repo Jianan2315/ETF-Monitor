@@ -12,9 +12,18 @@ from src.models import MarketBundle, MarketSnapshot
 
 
 class DataFetchError(RuntimeError):
-    def __init__(self, message: str, attempts: list[str] | None = None):
+    def __init__(
+        self,
+        message: str,
+        attempts: list[str] | None = None,
+        *,
+        last_available_date: str | None = None,
+        cache_source: str | None = None,
+    ):
         super().__init__(message)
         self.attempts = attempts or []
+        self.last_available_date = last_available_date
+        self.cache_source = cache_source
 
 
 def fetch_asset_data(
@@ -196,6 +205,37 @@ def _load_history_cache(
             pass
 
     return None, None
+
+
+
+def _expected_history_date(now: datetime, phase: str) -> pd.Timestamp:
+    today = pd.Timestamp(now.date())
+
+    if phase == "INTRADAY":
+        return today - pd.tseries.offsets.BDay(1)
+
+    if phase == "PRE_MARKET":
+        return today - pd.tseries.offsets.BDay(1)
+
+    if phase == "NON_TRADING_DAY":
+        return today - pd.tseries.offsets.BDay(1)
+
+    # CLOSED on a weekday normally expects today's completed daily bar.
+    return today
+
+
+def _history_is_fresh_enough(
+    history: pd.DataFrame,
+    now: datetime,
+    phase: str,
+) -> tuple[bool, str, str]:
+    latest_date = pd.Timestamp(history["date"].max()).normalize()
+    expected_date = _expected_history_date(now, phase).normalize()
+    return (
+        latest_date >= expected_date,
+        latest_date.strftime("%Y-%m-%d"),
+        expected_date.strftime("%Y-%m-%d"),
+    )
 
 
 def _normalize_history(df: pd.DataFrame, history_days: int) -> pd.DataFrame:
@@ -445,6 +485,9 @@ def _ak(
     data_source = "AKShare / Eastmoney"
     cache_note = None
 
+    using_local_cache = False
+    cache_date = None
+
     if history is not None:
         _save_history_cache(
             project_root,
@@ -466,6 +509,25 @@ def _ak(
                 ),
                 attempts=history_errors,
             )
+
+        fresh, latest_date, expected_date = _history_is_fresh_enough(
+            history,
+            now,
+            phase,
+        )
+        if not fresh:
+            raise DataFetchError(
+                (
+                    f"Only stale local data is available for {asset['symbol']}: "
+                    f"latest={latest_date}, expected>={expected_date}"
+                ),
+                attempts=history_errors,
+                last_available_date=latest_date,
+                cache_source="local cache / data/latest.json",
+            )
+
+        using_local_cache = True
+        cache_date = latest_date
         data_source = "Local daily cache"
         cache_note = cached_at or "unknown"
 
@@ -522,6 +584,8 @@ def _ak(
         intraday=intraday,
         data_phase=phase,
         market_timestamp=latest.timestamp,
+        using_local_cache=using_local_cache,
+        cache_date=cache_date,
     )
 
 
