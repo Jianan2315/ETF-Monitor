@@ -1,0 +1,16 @@
+{
+  "data": {
+    "history_days": 1000,
+    "adjust": "qfq",
+    "include_fund_flow": false,
+    "request_timeout_seconds": 20,
+    "retry": {
+      "max_attempts": 3,
+      "delays_seconds": [
+        5,
+        15,
+        30
+      ]
+    }
+  }
+}

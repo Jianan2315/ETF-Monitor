@@ -13,7 +13,7 @@ def load_config(path: Path) -> dict:
 
     if path.is_dir():
         merged: dict = {}
-        files = ['app.json','assets.json','email.json','llm.json','storage.json']
+        files = ['app.json','assets.json','email.json','llm.json','storage.json','data.json','report.json','schedule.json']
         for name in files:
             file_path = path / name
             if not file_path.exists():

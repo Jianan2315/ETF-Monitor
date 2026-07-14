@@ -234,3 +234,65 @@ document.addEventListener('keydown', event => {
   const openModal = document.querySelector('.strategy-modal:not([hidden])');
   closeStrategyModal(openModal);
 });
+
+
+function drawIntradayChart(canvas) {
+  const source = document.getElementById(canvas.dataset.sourceId);
+  if (!source) return;
+  const points = JSON.parse(source.textContent || "[]");
+  const ctx = canvas.getContext("2d");
+  const ratio = window.devicePixelRatio || 1;
+  const rect = canvas.getBoundingClientRect();
+  canvas.width = Math.max(1, Math.floor(rect.width * ratio));
+  canvas.height = Math.max(1, Math.floor(rect.height * ratio));
+  ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+  const w = rect.width, h = rect.height;
+  const pad = {left:56,right:18,top:18,bottom:34};
+  ctx.clearRect(0,0,w,h);
+  ctx.font = "12px sans-serif";
+  ctx.fillStyle = "#7b8794";
+  ctx.strokeStyle = "#e8edf1";
+
+  const labels=["09:30","10:30","11:30","13:30","14:30","15:00"];
+  labels.forEach((label,index)=>{
+    const x=pad.left+index*(w-pad.left-pad.right)/(labels.length-1);
+    ctx.fillText(label,x-18,h-10);
+    ctx.beginPath();ctx.moveTo(x,pad.top);ctx.lineTo(x,h-pad.bottom);ctx.stroke();
+  });
+
+  if (!points.length) {
+    ctx.fillStyle="#9aa5af";
+    ctx.fillText("暂无今日分时数据", Math.max(pad.left, w/2-55), h/2);
+    return;
+  }
+
+  const values=points.map(p=>p.price);
+  let min=Math.min(...values), max=Math.max(...values);
+  if(min===max){min-=0.01;max+=0.01;}
+  const extra=(max-min)*0.12 || 0.01; min-=extra; max+=extra;
+  const x=i=>pad.left+i*(w-pad.left-pad.right)/Math.max(1,points.length-1);
+  const y=v=>pad.top+(max-v)*(h-pad.top-pad.bottom)/(max-min);
+  ctx.strokeStyle="#2676a5";ctx.lineWidth=2.2;ctx.beginPath();
+  points.forEach((p,i)=>{if(i===0)ctx.moveTo(x(i),y(p.price));else ctx.lineTo(x(i),y(p.price));});
+  ctx.stroke();
+
+  const tooltip=canvas.parentElement.querySelector(".chart-tooltip");
+  canvas.onmousemove=event=>{
+    const bounds=canvas.getBoundingClientRect();
+    const index=Math.max(0,Math.min(points.length-1,Math.round((event.clientX-bounds.left-pad.left)/(w-pad.left-pad.right)*(points.length-1))));
+    const point=points[index];
+    tooltip.hidden=false;
+    tooltip.innerHTML=`${point.time}<br>价格：${Number(point.price).toFixed(4)}`;
+    tooltip.style.left=`${x(index)}px`; tooltip.style.top=`${y(point.price)}px`;
+  };
+  canvas.onmouseleave=()=>{tooltip.hidden=true;};
+}
+
+function drawAllIntradayCharts() {
+  document.querySelectorAll(".intraday-chart").forEach(drawIntradayChart);
+}
+document.addEventListener("DOMContentLoaded", drawAllIntradayCharts);
+window.addEventListener("resize", ()=> {
+  clearTimeout(window._intradayResize);
+  window._intradayResize=setTimeout(drawAllIntradayCharts,120);
+});

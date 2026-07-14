@@ -30,6 +30,9 @@ class MarketBundle:
     latest: MarketSnapshot
     data_source: str
     generated_at: datetime
+    intraday: pd.DataFrame | None = None
+    data_phase: str = "CLOSED"
+    market_timestamp: datetime | None = None
 
 
 @dataclass

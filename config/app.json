@@ -1,14 +1,5 @@
 {
   "monitor_name": "ETF Monitor",
   "timezone": "Asia/Shanghai",
-  "mock_mode": true,
-  "data": {
-    "history_days": 1000,
-    "include_fund_flow": false,
-    "request_timeout_seconds": 15
-  },
-  "report": {
-    "template_file": "templates/dashboard.html",
-    "output_file": "output/index.html"
-  }
+  "mock_mode": false
 }

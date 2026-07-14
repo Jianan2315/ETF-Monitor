@@ -89,8 +89,12 @@ def _subject(result: dict, email_config: dict, forced: bool = False) -> str:
     prefix = email_config.get("subject_prefix", "ETF Monitor")
     status = result["decision"]["status"]
     test_tag = "[TEST]" if forced else ""
+    run_tag = ""
+    if result.get("run_slot"):
+        phase = "盘中" if result.get("data_phase") == "INTRADAY" else "收盘"
+        run_tag = f"[{result['run_slot']}{phase}]"
     return (
-        f"{_status_icon(status)} [{prefix}]{test_tag}[{status}] "
+        f"{_status_icon(status)} [{prefix}]{test_tag}{run_tag}[{status}] "
         f"{result['asset']['name']}"
     )
 
@@ -113,7 +117,10 @@ def _plain_body(result: dict, include_raw: bool = True, forced: bool = False) ->
 
     parts.append(
         f"基金：{asset['name']}（{asset['symbol']}）\n"
-        f"状态：{decision['status']}\n"
+        f"状态：{decision['status']}（{result.get('status_label', decision['status'])}）\n"
+        f"数据阶段：{result.get('data_phase', 'UNKNOWN')}\n"
+        f"行情时间：{result.get('market_timestamp', '未知')}\n"
+        f"运行时点：{result.get('run_slot') or result.get('run_mode', 'manual')}\n"
         f"策略：{asset['strategy'].get('name', '')} "
         f"v{asset['strategy'].get('version', '')}\n"
         f"建议人工复核金额：{decision['suggested_amount']:.0f} 元\n\n"
@@ -214,6 +221,10 @@ def _html_body(result: dict, include_raw: bool = True, forced: bool = False) -> 
     <div style="display:inline-block;padding:8px 12px;background:#fff0cf;border-radius:999px;font-weight:700">
       {html.escape(decision['status'])}
     </div>
+    <p><b>状态说明：</b>{html.escape(str(result.get('status_label', decision['status'])))}</p>
+    <p><b>数据阶段：</b>{html.escape(str(result.get('data_phase', 'UNKNOWN')))}　
+       <b>行情时间：</b>{html.escape(str(result.get('market_timestamp', '未知')))}　
+       <b>运行时点：</b>{html.escape(str(result.get('run_slot') or result.get('run_mode', 'manual')))}</p>
     <p><b>建议人工复核金额：</b>{decision['suggested_amount']:.0f} 元</p>
     <h3>判断原因</h3>
     <ol>{reasons}</ol>
@@ -393,3 +404,48 @@ def _safe_graph_error(response: requests.Response) -> str:
             message = error.get("message", "")
             return f"{code}: {message}".strip()
     return str(payload)[:1000]
+
+
+def send_data_error_email(
+    *,
+    asset: dict,
+    errors: list[str],
+    config: dict,
+    project_root: Path,
+    run_label: str,
+    logger: logging.Logger | None = None,
+) -> None:
+    email_config = config["email"]
+    email_logger = logger or logging.getLogger("etf_email")
+    settings = validate_graph_environment(email_config)
+    token = acquire_graph_access_token(settings, project_root, email_logger)
+    recipients = _parse_recipients(email_config.get("recipient"))
+    escaped_errors = "".join(f"<li>{html.escape(item)}</li>" for item in errors)
+    subject = f"🔴 [{email_config.get('subject_prefix','ETF Monitor')}][DATA_ERROR][{run_label}] {asset.get('name', asset.get('symbol',''))}"
+    content = f"""<html><body style="font-family:Arial,Microsoft YaHei,sans-serif">
+    <h2>行情数据获取失败</h2>
+    <p><b>标的：</b>{html.escape(str(asset.get('name','')))}（{html.escape(str(asset.get('symbol','')))})</p>
+    <p><b>运行时点：</b>{html.escape(run_label)}</p>
+    <p>程序已完成重试，但仍未取得有效数据。本次没有生成新的策略结论，也没有覆盖上一份成功网页。</p>
+    <h3>失败记录</h3><ol>{escaped_errors}</ol>
+    <p><b>请人工查看行情并决定是否需要操作。</b></p>
+    </body></html>"""
+    payload = {
+        "message": {
+            "subject": subject,
+            "body": {"contentType": "HTML", "content": content},
+            "toRecipients": [{"emailAddress": {"address": r}} for r in recipients],
+        },
+        "saveToSentItems": bool((email_config.get("graph", {}) or {}).get("save_to_sent_items", True)),
+    }
+    response = requests.post(
+        settings["endpoint"],
+        headers={"Authorization": f"Bearer {token.access_token}", "Content-Type": "application/json"},
+        json=payload,
+        timeout=settings["timeout_seconds"],
+    )
+    if response.status_code != 202:
+        raise MicrosoftGraphEmailError(
+            f"Microsoft Graph DATA_ERROR send failed with HTTP {response.status_code}: {_safe_graph_error(response)}"
+        )
+    email_logger.info("DATA_ERROR email sent successfully | Asset=%s | Slot=%s", asset.get("symbol"), run_label)

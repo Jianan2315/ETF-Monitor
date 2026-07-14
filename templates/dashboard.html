@@ -16,6 +16,13 @@
       </div>
     </header>
 
+    <section class="report-meta panel">
+      <div><span>运行类型</span><strong>{{ run_mode }}</strong></div>
+      <div><span>计划时点</span><strong>{{ run_slot or '手动/自动识别' }}</strong></div>
+      <div><span>报告生成时间</span><strong>{{ report_generated_at }}</strong></div>
+      <div><a href="history.html">查看历史报告</a></div>
+    </section>
+
     {% for result in results %}
     <section class="asset-card">
       <div class="asset-heading">
@@ -24,8 +31,12 @@
           <h2>{{ result.asset.name }}</h2>
           <p class="strategy-version">{{ result.asset.strategy.name }} · v{{ result.asset.strategy.version }}</p>
           <p class="muted">{{ result.data_source }} · {{ result.generated_at }}</p>
+          <p class="muted">数据阶段：{{ result.data_phase }} · 行情时间：{{ result.market_timestamp or '未知' }}</p>
         </div>
-        <div class="status-badge status-{{ result.decision.status | lower }}">{{ result.decision.status }}</div>
+        <div class="status-wrap">
+          <div class="status-badge status-{{ result.decision.status | lower }}">{{ result.decision.status }}</div>
+          <small>{{ result.status_label }}</small>
+        </div>
       </div>
 
       <div class="top-grid">
@@ -130,6 +141,30 @@
           {% endfor %}
         </div>
         {% else %}<p class="muted">暂无操作记录。</p>{% endif %}
+      </section>
+
+      <section class="panel chart-panel intraday-panel">
+        <div class="chart-header">
+          <div>
+            <h3 class="chart-title">今日走势</h3>
+            <p class="muted">
+              {% if result.intraday_chart_data %}
+                09:30—15:00 分时价格；盘中数据尚未收盘。
+              {% elif result.data_phase == 'PRE_MARKET' %}
+                当前尚未开盘，09:30 后显示分时数据。
+              {% elif result.data_phase == 'NON_TRADING_DAY' %}
+                今日非交易日，暂无分时数据。
+              {% else %}
+                当前暂无今日分时数据。
+              {% endif %}
+            </p>
+          </div>
+        </div>
+        <div class="chart-wrap">
+          <canvas class="intraday-chart" data-source-id="intraday-data-{{ result.asset.symbol }}"></canvas>
+          <div class="chart-tooltip" hidden></div>
+        </div>
+        <script type="application/json" id="intraday-data-{{ result.asset.symbol }}">{{ result.intraday_chart_data | tojson }}</script>
       </section>
 
       <section class="panel chart-panel">

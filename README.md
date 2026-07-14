@@ -313,3 +313,32 @@ Graph 成功发送时通常返回 HTTP `202`。如果失败，`email.log` 会记
 - MSAL Python：`https://learn.microsoft.com/en-us/entra/msal/python/`
 - Device Code Flow：`https://learn.microsoft.com/en-us/entra/identity-platform/msal-authentication-flows`
 - Microsoft Graph sendMail：`https://learn.microsoft.com/en-us/graph/api/user-sendmail`
+
+
+## V9 真实盘中数据、失败告警与历史报告
+
+推荐在 Windows 任务计划程序中建立三个独立任务：
+
+```powershell
+python run.py --mode intraday --slot 14:45
+python run.py --mode intraday --slot 14:55
+python run.py --mode close --slot 15:10
+```
+
+盘中任务会获取 ETF 实时快照和当日一分钟分时数据；收盘任务使用正式日线。
+数据接口失败时会按照 `config/data.json` 重试。全部失败后：
+
+- 不覆盖 `output/index.html`；
+- 不生成新的策略结果；
+- 发送 `DATA_ERROR` 邮件；
+- 在 `logs/monitor.log` 中记录每次失败。
+
+每次成功运行会同时更新：
+
+```text
+output/index.html
+output/history.html
+output/history/YYYY-MM-DD_HHMM_mode.html
+```
+
+`WAIT` 表示下跌尚未停止，需要主动等待；`HOLD` 表示没有触发操作条件，维持现有仓位。
