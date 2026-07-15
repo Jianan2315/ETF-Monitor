@@ -132,6 +132,9 @@
           <label class="checkbox-row"><input name="email_include_llm_summary" type="checkbox">包含模型摘要</label>
           <label class="checkbox-row"><input name="email_include_raw_metrics" type="checkbox">包含原始指标</label>
           <label class="checkbox-row"><input name="email_force_send" type="checkbox">强制发送（调试）</label>
+          <label>DATA_ERROR去重时间（分钟）
+            <input name="email_data_error_dedup_minutes" type="number" min="1">
+          </label>
         </div>
         <h3>触发状态</h3>
         <div class="checkbox-grid">
@@ -144,7 +147,8 @@
       </section>
 
       <section class="card">
-        <h2>数据、报告和调度</h2>
+        <h2>数据、报告和默认时点</h2>
+        <p class="muted">这里的时点用于程序默认配置，不会自动创建 Windows 定时任务。实际运行计划请到“定时运行计划”页面管理。</p>
         <div class="form-grid">
           <label>历史交易日数量
             <input name="history_days" type="number">
@@ -158,10 +162,10 @@
           <label>历史报告最大数量
             <input name="max_history_files" type="number">
           </label>
-          <label>盘中时点（逗号分隔）
+          <label>默认盘中时点（逗号分隔）
             <input name="intraday_slots" type="text">
           </label>
-          <label>收盘时点
+          <label>默认收盘时点
             <input name="close_slot" type="text">
           </label>
         </div>

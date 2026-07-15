@@ -35,6 +35,8 @@ class MarketBundle:
     market_timestamp: datetime | None = None
     using_local_cache: bool = False
     cache_date: str | None = None
+    data_warnings: list[str] | None = None
+    phase_label: str | None = None
 
 
 @dataclass

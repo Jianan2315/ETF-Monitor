@@ -161,15 +161,17 @@ def mark_existing_report_stale(
   </section>
 </div>
 <script>
-document.querySelectorAll('.data-source-line, .muted').forEach(function(node) {{
-  if (
-    node.classList.contains('data-source-line') ||
-    node.textContent.includes('数据阶段') ||
-    node.textContent.includes('行情时间') ||
-    node.textContent.includes('本次运行时间')
-  ) {{
-    node.classList.add('data-source-stale');
-  }}
+document.addEventListener('DOMContentLoaded', function() {{
+  document.querySelectorAll('.data-source-line, .muted').forEach(function(node) {{
+    if (
+      node.classList.contains('data-source-line') ||
+      node.textContent.includes('数据阶段') ||
+      node.textContent.includes('行情时间') ||
+      node.textContent.includes('本次运行时间')
+    ) {{
+      node.classList.add('data-source-stale');
+    }}
+  }});
 }});
 </script>
 <!-- DATA_STALE_WARNING_END -->

@@ -20,12 +20,13 @@
     <section class="action-grid">
       <article class="card action-card">
         <h2>生成报告</h2>
-        <p>后台运行现有 Python 监控流程，完成后自动跳转到最新报告。</p>
+        <p>“按当前时间”会自动判断开盘前、上午盘中、午间休市、下午盘中或收盘后；不符合时段的按钮会自动禁用。</p>
         <div class="button-row">
           <button data-run-mode="auto">按当前时间生成</button>
           <button data-run-mode="intraday">生成盘中报告</button>
           <button data-run-mode="close">生成收盘报告</button>
         </div>
+        <p id="mode-guidance" class="muted"></p>
         <div id="run-result" class="result-box" hidden></div>
       </article>
 
@@ -34,6 +35,7 @@
         <p>录入买卖、修改目标仓位、策略、模型、邮件和数据参数。</p>
         <div class="button-row">
           <a class="button-link" href="/settings">进入参数管理</a>
+          <a class="button-link" href="/schedules">定时运行计划</a>
           <a class="button-link secondary" href="/history">查看历史报告</a>
         </div>
       </article>

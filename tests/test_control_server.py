@@ -28,3 +28,28 @@ def test_settings_api_returns_expected_sections():
     assert "email" in data
     assert "llm" in data
     assert "data" in data
+
+
+def test_schedules_route_loads():
+    client = control_server.app.test_client()
+    response = client.get("/schedules")
+    assert response.status_code == 200
+    assert "定时运行计划" in response.get_data(as_text=True)
+
+
+def test_schedule_mode_time_validation():
+    control_server._validate_plan_time_for_mode("intraday", "09:30")
+    control_server._validate_plan_time_for_mode("intraday", "15:00")
+    control_server._validate_plan_time_for_mode("close", "15:05")
+
+    with pytest.raises(ValueError):
+        control_server._validate_plan_time_for_mode("intraday", "09:29")
+
+    with pytest.raises(ValueError):
+        control_server._validate_plan_time_for_mode("close", "15:04")
+
+
+def test_schedule_weekday_validation():
+    assert control_server._normalize_weekdays(["FRI", "MON", "MON"]) == ["MON", "FRI"]
+    with pytest.raises(ValueError):
+        control_server._normalize_weekdays([])

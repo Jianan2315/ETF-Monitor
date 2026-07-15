@@ -91,7 +91,15 @@ def _subject(result: dict, email_config: dict, forced: bool = False) -> str:
     test_tag = "[TEST]" if forced else ""
     run_tag = ""
     if result.get("run_slot"):
-        phase = "盘中" if result.get("data_phase") == "INTRADAY" else "收盘"
+        phase_map = {
+            "PRE_OPEN": "开盘前",
+            "AM_SESSION": "上午盘中",
+            "MIDDAY_BREAK": "午间休市",
+            "PM_SESSION": "下午盘中",
+            "AFTER_CLOSE": "收盘后",
+            "WEEKEND": "周末",
+        }
+        phase = phase_map.get(result.get("data_phase"), "报告")
         run_tag = f"[{result['run_slot']}{phase}]"
     return (
         f"{_status_icon(status)} [{prefix}]{test_tag}{run_tag}[{status}] "
@@ -109,7 +117,7 @@ def _plain_body(result: dict, include_raw: bool = True, forced: bool = False) ->
 
     metadata = (
         f"数据源：{result.get('data_source', '未知')}\n"
-        f"数据阶段：{result.get('data_phase', 'UNKNOWN')}\n"
+        f"数据阶段：{result.get('data_phase_label', result.get('data_phase', 'UNKNOWN'))}（{result.get('data_phase', 'UNKNOWN')}）\n"
         f"行情时间：{result.get('market_timestamp', '未知')}\n"
         f"实际运行时间：{result.get('run_time', result.get('generated_at', '未知'))}\n"
         f"计划时点：{result.get('run_slot') or '手动运行'}"
@@ -127,7 +135,7 @@ def _plain_body(result: dict, include_raw: bool = True, forced: bool = False) ->
     parts.append(
         f"基金：{asset['name']}（{asset['symbol']}）\n"
         f"状态：{decision['status']}（{result.get('status_label', decision['status'])}）\n"
-        f"数据阶段：{result.get('data_phase', 'UNKNOWN')}\n"
+        f"数据阶段：{result.get('data_phase_label', result.get('data_phase', 'UNKNOWN'))}（{result.get('data_phase', 'UNKNOWN')}）\n"
         f"行情时间：{result.get('market_timestamp', '未知')}\n"
         f"运行时点：{result.get('run_slot') or result.get('run_mode', 'manual')}\n"
         f"策略：{asset['strategy'].get('name', '')} "
@@ -214,7 +222,7 @@ def _html_body(result: dict, include_raw: bool = True, forced: bool = False) -> 
     metadata = f"""
     <div style="padding:14px 16px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;margin-bottom:16px;line-height:1.8">
       <div><b>数据源：</b>{html.escape(str(result.get('data_source', '未知')))}</div>
-      <div><b>数据阶段：</b>{html.escape(str(result.get('data_phase', 'UNKNOWN')))}</div>
+      <div><b>数据阶段：</b>{html.escape(str(result.get('data_phase_label', result.get('data_phase', 'UNKNOWN'))))}（{html.escape(str(result.get('data_phase', 'UNKNOWN')))}）</div>
       <div><b>行情时间：</b>{html.escape(str(result.get('market_timestamp', '未知')))}</div>
       <div><b>实际运行时间：</b>{html.escape(str(result.get('run_time', result.get('generated_at', '未知'))))}</div>
       <div><b>计划时点：</b>{html.escape(str(result.get('run_slot') or '手动运行'))}</div>
@@ -424,6 +432,8 @@ def send_data_error_email(
     config: dict,
     project_root: Path,
     run_label: str,
+    last_available_date: str | None = None,
+    expected_date: str | None = None,
     logger: logging.Logger | None = None,
 ) -> None:
     email_config = config["email"]
@@ -436,8 +446,10 @@ def send_data_error_email(
     content = f"""<html><body style="font-family:Arial,Microsoft YaHei,sans-serif">
     <h2>行情数据获取失败</h2>
     <p><b>标的：</b>{html.escape(str(asset.get('name','')))}（{html.escape(str(asset.get('symbol','')))})</p>
-    <p><b>运行时点：</b>{html.escape(run_label)}</p>
-    <p>程序已完成重试，但仍未取得有效数据。本次没有生成新的策略结论，也没有覆盖上一份成功网页。</p>
+    <p><b>实际运行时间：</b>{html.escape(run_label)}</p>
+    <p><b>本地最后可用行情：</b>{html.escape(str(last_available_date or '无'))}</p>
+    <p><b>程序期望行情日期：</b>{html.escape(str(expected_date or '未知'))}</p>
+    <p>程序已完成重试，但仍未取得足以生成新报告的数据。本次没有生成新的策略结论；如果已有旧报告，页面会明确标记为旧数据。</p>
     <h3>失败记录</h3><ol>{escaped_errors}</ol>
     <p><b>请人工查看行情并决定是否需要操作。</b></p>
     </body></html>"""

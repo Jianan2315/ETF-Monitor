@@ -34,9 +34,15 @@
             数据来源：{{ result.data_source }}
             {% if result.using_local_cache %} · 本地缓存日期：{{ result.cache_date }}{% endif %}
           </p>
-          <p class="muted">数据阶段：{{ result.data_phase }}</p>
+          <p class="muted">数据阶段：{{ result.data_phase_label }}（{{ result.data_phase }}）</p>
           <p class="muted">行情时间：{{ result.market_timestamp or '未知' }}</p>
           <p class="muted">本次运行时间：{{ result.run_time }}</p>
+          {% if result.data_warnings %}
+          <div class="data-warning-list">
+            <strong>数据容错说明</strong>
+            <ul>{% for warning in result.data_warnings %}<li>{{ warning }}</li>{% endfor %}</ul>
+          </div>
+          {% endif %}
         </div>
         <div class="status-wrap">
           <div class="status-badge status-{{ result.decision.status | lower }}">{{ result.decision.status }}</div>
@@ -155,10 +161,12 @@
             <p class="muted">
               {% if result.intraday_chart_data %}
                 09:30—15:00 分时价格；盘中数据尚未收盘。
-              {% elif result.data_phase == 'PRE_MARKET' %}
+              {% elif result.data_phase == 'PRE_OPEN' %}
                 当前尚未开盘，09:30 后显示分时数据。
-              {% elif result.data_phase == 'NON_TRADING_DAY' %}
+              {% elif result.data_phase == 'WEEKEND' %}
                 今日非交易日，暂无分时数据。
+              {% elif result.data_phase == 'MIDDAY_BREAK' %}
+                当前为午间休市；若分时接口暂不可用，图表保持为空，但上午最后实时价格仍可用于报告。
               {% else %}
                 当前暂无今日分时数据。
               {% endif %}

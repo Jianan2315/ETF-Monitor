@@ -26,7 +26,7 @@ def test_loads_legacy_latest_json_when_new_cache_missing(tmp_path: Path):
         "storage": {"latest_file": "data/latest.json"},
     }
 
-    frame, cached_at = _load_history_cache(
+    frame, cached_at, source = _load_history_cache(
         tmp_path,
         config,
         "561380",
@@ -36,6 +36,7 @@ def test_loads_legacy_latest_json_when_new_cache_missing(tmp_path: Path):
     assert len(frame) == 2
     assert frame.iloc[-1]["close"] == 1.02
     assert cached_at == "2026-07-15T15:10:00"
+    assert source == "data/latest.json"
 
 
 def test_intraday_argument_does_not_force_realtime_before_open():
@@ -46,5 +47,5 @@ def test_intraday_argument_does_not_force_realtime_before_open():
             datetime(2026, 7, 15, 8, 0),
             "intraday",
         )
-        == "PRE_MARKET"
+        == "PRE_OPEN"
     )

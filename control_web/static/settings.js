@@ -66,6 +66,7 @@ function fillSettings(data) {
   setValue("email_include_llm_summary", email.include_llm_summary);
   setValue("email_include_raw_metrics", email.include_raw_metrics);
   setValue("email_force_send", email.debug?.force_send_email);
+  setValue("email_data_error_dedup_minutes", email.data_error_dedup_minutes);
 
   ["WAIT", "WATCH", "HOLD", "REVIEW_BUY", "PARTIAL_SELL"]
     .forEach(key => setValue(`trigger_${key}`, triggers[key]));
@@ -114,6 +115,7 @@ function buildPayload() {
       include_llm_summary: getValue("email_include_llm_summary"),
       include_raw_metrics: getValue("email_include_raw_metrics"),
       force_send_email: getValue("email_force_send"),
+      data_error_dedup_minutes: getValue("email_data_error_dedup_minutes"),
       triggers: Object.fromEntries(
         triggerKeys.map(key => [key, getValue(`trigger_${key}`)])
       ),
@@ -174,6 +176,7 @@ function flattenForComparison(settings) {
     email_include_llm_summary: email.include_llm_summary,
     email_include_raw_metrics: email.include_raw_metrics,
     email_force_send: email.debug?.force_send_email,
+    email_data_error_dedup_minutes: email.data_error_dedup_minutes,
 
     trigger_WAIT: email.triggers?.WAIT,
     trigger_WATCH: email.triggers?.WATCH,
@@ -225,6 +228,7 @@ function previewChanges() {
     email_include_llm_summary: "包含模型摘要",
     email_include_raw_metrics: "包含原始指标",
     email_force_send: "强制发送邮件",
+    email_data_error_dedup_minutes: "DATA_ERROR邮件去重分钟",
     trigger_WAIT: "WAIT触发",
     trigger_WATCH: "WATCH触发",
     trigger_HOLD: "HOLD触发",

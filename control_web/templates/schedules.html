@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>ETF Monitor 定时运行计划</title>
+  <link rel="stylesheet" href="/control-static/control.css">
+</head>
+<body>
+  <main class="shell">
+    <header class="hero compact">
+      <div>
+        <p class="eyebrow">SCHEDULE MANAGER</p>
+        <h1>定时运行计划</h1>
+        <p>在控制台中新增、修改、停用或删除 Windows 定时任务。</p>
+      </div>
+      <a class="secondary-button" href="/">返回控制台</a>
+    </header>
+
+    <section class="card">
+      <div class="section-title-row">
+        <div>
+          <h2 id="form-title">新增计划</h2>
+          <p>保存后会同步到 Windows 任务计划程序。项目关闭时，计划仍可自动运行。</p>
+        </div>
+        <button id="sync-all" class="secondary-button">重新同步全部计划</button>
+      </div>
+
+      <form id="schedule-form">
+        <input id="plan-id" type="hidden">
+        <div class="form-grid">
+          <label>计划名称
+            <input id="plan-name" type="text" maxlength="60" placeholder="例如：14:45 盘中报告" required>
+          </label>
+
+          <label>报告模式
+            <select id="plan-mode">
+              <option value="auto">按当前时间自动判断</option>
+              <option value="intraday">盘中报告</option>
+              <option value="close">收盘报告</option>
+            </select>
+          </label>
+
+          <label>运行时间
+            <input id="plan-time" type="time" value="14:45" required>
+          </label>
+        </div>
+
+        <div class="schedule-days">
+          <strong>运行日期</strong>
+          <div class="checkbox-grid">
+            <label><input type="checkbox" name="weekday" value="MON" checked>周一</label>
+            <label><input type="checkbox" name="weekday" value="TUE" checked>周二</label>
+            <label><input type="checkbox" name="weekday" value="WED" checked>周三</label>
+            <label><input type="checkbox" name="weekday" value="THU" checked>周四</label>
+            <label><input type="checkbox" name="weekday" value="FRI" checked>周五</label>
+            <label><input type="checkbox" name="weekday" value="SAT">周六</label>
+            <label><input type="checkbox" name="weekday" value="SUN">周日</label>
+          </div>
+        </div>
+
+        <label class="checkbox-row schedule-enabled">
+          <input id="plan-enabled" type="checkbox" checked>
+          启用该定时计划
+        </label>
+
+        <div class="button-row">
+          <button type="submit">检查并保存</button>
+          <button id="cancel-edit" type="button" class="secondary-button" hidden>取消修改</button>
+        </div>
+        <div id="schedule-result" class="result-box" hidden></div>
+      </form>
+    </section>
+
+    <section class="card">
+      <div class="section-title-row">
+        <div>
+          <h2>现有计划</h2>
+          <p>“系统任务”用于确认计划是否已经写入 Windows 任务计划程序。</p>
+        </div>
+        <button id="refresh-plans" class="secondary-button">刷新列表</button>
+      </div>
+      <div id="platform-warning" class="result-box error" hidden></div>
+      <div id="plans-list" class="schedule-list"></div>
+    </section>
+  </main>
+
+  <dialog id="schedule-confirm-dialog">
+    <div class="dialog-content">
+      <h2>确认保存计划</h2>
+      <div id="schedule-confirm-summary"></div>
+      <div class="button-row">
+        <button id="cancel-schedule-confirm" class="secondary-button">取消</button>
+        <button id="confirm-schedule-save">确认保存</button>
+      </div>
+    </div>
+  </dialog>
+
+  <script src="/control-static/schedules.js"></script>
+</body>
+</html>

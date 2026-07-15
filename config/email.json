@@ -30,6 +30,8 @@
       "token_cache_file": "data/private/msal_token_cache.json",
       "timeout_seconds": 30,
       "save_to_sent_items": true
-    }
+    },
+    "data_error_dedup_minutes": 15,
+    "data_error_state_file": "data/notifications/data_error_state.json"
   }
 }

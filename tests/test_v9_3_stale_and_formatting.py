@@ -9,12 +9,12 @@ from src.data_fetcher import _history_is_fresh_enough
 
 def test_closed_market_time_is_date_only():
     value = datetime(2026, 7, 14, 0, 0, 0)
-    assert format_market_time(value, "CLOSED") == "2026-07-14"
+    assert format_market_time(value, "AFTER_CLOSE") == "2026-07-14"
 
 
 def test_intraday_market_time_keeps_clock():
     value = datetime(2026, 7, 15, 14, 45, 7)
-    assert format_market_time(value, "INTRADAY") == "2026-07-15 14:45:07"
+    assert format_market_time(value, "PM_SESSION") == "2026-07-15 14:45:07"
 
 
 def test_run_time_is_actual_datetime():
@@ -32,7 +32,7 @@ def test_stale_history_is_detected_before_market():
     fresh, latest, expected = _history_is_fresh_enough(
         frame,
         datetime(2026, 7, 15, 8, 0),
-        "PRE_MARKET",
+        "PRE_OPEN",
     )
     assert fresh is False
     assert latest == "2026-07-13"
@@ -49,7 +49,7 @@ def test_previous_business_day_is_fresh_before_market():
     fresh, latest, expected = _history_is_fresh_enough(
         frame,
         datetime(2026, 7, 15, 8, 0),
-        "PRE_MARKET",
+        "PRE_OPEN",
     )
     assert fresh is True
     assert latest == expected == "2026-07-14"
