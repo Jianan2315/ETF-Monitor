@@ -120,7 +120,7 @@ def package_missing(module_name: str) -> bool:
 
 
 def ensure_dependencies() -> bool:
-    required_modules = ["flask", "pandas", "requests", "akshare", "msal"]
+    required_modules = ["flask", "pandas", "requests", "akshare", "msal", "playwright"]
     missing = [name for name in required_modules if package_missing(name)]
     if not missing:
         print("[2/4] Dependencies are ready.")

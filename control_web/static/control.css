@@ -265,3 +265,10 @@ dialog::backdrop { background: rgba(15,23,42,.62); }
 .diagnostic-table th {
   background: #f3f6f8;
 }
+
+
+.url-cell {
+  max-width: 520px;
+  overflow-wrap: anywhere;
+  word-break: break-all;
+}

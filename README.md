@@ -842,3 +842,44 @@ logs/monitor.log
 ```
 
 该探测器只用于确认哪些候选接口当前可用，不会自动把未经验证的候选接口切换为正式生产数据源。
+
+
+## V11.3 浏览器接口检查
+
+控制台环境区域新增：
+
+```text
+浏览器接口检查
+```
+
+该功能会使用 Playwright 启动本机已经安装的 Google Chrome 或 Microsoft Edge，并使用一个临时、独立的浏览器上下文：
+
+1. 打开当前ETF的东方财富行情页面；
+2. 监听东方财富相关的 XHR、Fetch 和K线响应；
+3. 在页面上下文中直接请求历史K线URL；
+4. 记录HTTP状态、资源类型、请求与响应Headers、响应摘要；
+5. 对比浏览器上下文与普通 `requests` 的结果。
+
+浏览器窗口默认可见约12秒，然后自动关闭。请在检查结束前不要手动关闭该窗口。
+
+检查结果保存在：
+
+```text
+data/diagnostics/latest_browser_inspector.json
+```
+
+原始网络记录保存在：
+
+```text
+data/diagnostics/browser_network.har
+```
+
+HAR文件可能包含Cookie或其他本机会话数据，只应保存在本机，不要公开上传。控制台页面和JSON摘要会对Cookie、Authorization等敏感Header进行隐藏。
+
+解释原则：
+
+- 浏览器获得HTTP 200和K线，而普通 `requests` 被断开：更可能是请求指纹、TLS、Cookie或反自动化策略；
+- 浏览器也无法获得K线：更可能是接口本身、网络线路、区域访问策略或服务端限制；
+- 页面能打开但页面内跨域fetch失败：还需要结合监听到的页面自身XHR请求判断，不能仅凭CORS错误认定接口不可用。
+
+Playwright Python包已加入 `requirements.txt`。该功能优先使用本机Chrome，其次使用Edge，不要求下载Playwright自带浏览器。

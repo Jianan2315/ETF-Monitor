@@ -58,7 +58,7 @@ async function loadEnvironment() {
     }
     const data = await response.json();
 
-    if (data.control_version && data.control_version !== "11.2") {
+    if (data.control_version && data.control_version !== "11.3") {
       environmentGrid.innerHTML = `
         <div class="result-box error">
           当前浏览器连接的是旧版控制服务（${data.control_version}）。
@@ -279,5 +279,87 @@ document.getElementById("explore-api")
     } catch (error) {
       panel.classList.add("error");
       panel.textContent = `接口探测失败：${error}`;
+    }
+  });
+
+
+function renderBrowserInspector(result) {
+  const fetchResult = result?.browser_fetch_result || {};
+  const events = Array.isArray(result?.network_events)
+    ? result.network_events
+    : [];
+  const rows = events.map(item => `
+    <tr>
+      <td>${item.status ?? "-"}</td>
+      <td>${item.resource_type || "-"}</td>
+      <td class="url-cell">${item.url || "-"}</td>
+      <td>${item.method || "-"}</td>
+    </tr>
+  `).join("");
+
+  const cookieNames = Array.isArray(result?.eastmoney_cookie_summary)
+    ? result.eastmoney_cookie_summary.map(item => item.name).filter(Boolean)
+    : [];
+
+  return `
+    <strong>浏览器接口检查结果</strong>
+    <p>
+      浏览器：${result?.browser || "未知"} ·
+      页面：${result?.page_title || "未知"} ·
+      K线响应：${result?.successful_kline_response_count ?? 0}/
+      ${result?.kline_response_count ?? 0}
+    </p>
+    <p><strong>结论：</strong>${result?.interpretation || "未生成结论"}</p>
+    <p>
+      页面内直接fetch：
+      ${fetchResult.status ? `HTTP ${fetchResult.status}` : (fetchResult.errorMessage || "无结果")} ·
+      耗时 ${fetchResult.elapsedMs ?? "-"} ms ·
+      响应长度 ${fetchResult.bodyLength ?? "-"}
+    </p>
+    <p>
+      东方财富Cookie名称：
+      ${cookieNames.length ? cookieNames.join(", ") : "未检测到"}
+    </p>
+    <div class="diagnostic-table-wrap">
+      <table class="diagnostic-table">
+        <thead>
+          <tr><th>HTTP</th><th>资源类型</th><th>URL</th><th>方法</th></tr>
+        </thead>
+        <tbody>${rows || '<tr><td colspan="4">未捕获到相关网络响应</td></tr>'}</tbody>
+      </table>
+    </div>
+    <p class="muted">
+      完整摘要保存在 data/diagnostics/latest_browser_inspector.json；
+      原始网络记录保存在 data/diagnostics/browser_network.har。
+      HAR可能包含本机浏览器会话信息，请只在本机保存，不要公开上传。
+    </p>
+  `;
+}
+
+document.getElementById("browser-inspector")
+  .addEventListener("click", async () => {
+    const panel = document.getElementById("browser-inspector-result");
+    panel.hidden = false;
+    panel.className = "result-box";
+    panel.textContent =
+      "正在启动可见的Chrome或Edge并监听网络请求。浏览器窗口会自动关闭，请暂时不要手动关闭……";
+
+    try {
+      const response = await fetch("/api/data-sources/browser-inspect", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({visible_seconds: 12}),
+      });
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        throw new Error(data.message || `HTTP ${response.status}`);
+      }
+
+      panel.classList.add(data.inspection?.ok ? "success" : "error");
+      panel.innerHTML = renderBrowserInspector(data.inspection);
+    } catch (error) {
+      panel.classList.add("error");
+      panel.textContent = `浏览器接口检查失败：${error}`;
     }
   });

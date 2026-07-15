@@ -20,13 +20,14 @@ from flask import Flask, jsonify, redirect, render_template, request, send_from_
 
 from src.market_clock import build_market_context, expected_history_date, market_now, validate_run_mode
 from src.data_fetcher import diagnose_data_sources, explore_eastmoney_history_endpoints
+from src.browser_inspector import inspect_browser_requests
 from src.logger import configure_logging
 
 
 ROOT = Path(__file__).resolve().parent
 HOST = "127.0.0.1"
 PORT = 8765
-CONTROL_VERSION = "11.2"
+CONTROL_VERSION = "11.3"
 
 app = Flask(
     __name__,
@@ -405,7 +406,7 @@ def _environment_status() -> dict[str, Any]:
     report_path = ROOT / "output" / "report.html"
 
     packages = {}
-    for package in ["pandas", "akshare", "msal", "flask", "requests"]:
+    for package in ["pandas", "akshare", "msal", "flask", "requests", "playwright"]:
         try:
             __import__(package)
             packages[package] = True
@@ -1155,6 +1156,38 @@ def api_environment():
 
 
 
+
+@app.post("/api/data-sources/browser-inspect")
+def api_browser_inspect():
+    logger = configure_logging(
+        ROOT / "logs" / "monitor.log",
+        ROOT / "logs" / "email.log",
+    )
+    payload = request.get_json(silent=True) or {}
+    visible_seconds = payload.get("visible_seconds", 12)
+    try:
+        visible_seconds = max(5, min(60, int(visible_seconds)))
+    except (TypeError, ValueError):
+        visible_seconds = 12
+
+    try:
+        asset = _primary_asset()
+        result = inspect_browser_requests(
+            symbol=str(asset.get("symbol", "561380")),
+            project_root=ROOT,
+            logger=logger,
+            visible_seconds=visible_seconds,
+        )
+        return jsonify({
+            "success": True,
+            "inspection": result,
+        })
+    except Exception as exc:
+        logger.exception("Browser API inspector crashed")
+        return jsonify({
+            "success": False,
+            "message": f"{type(exc).__name__}: {exc}",
+        }), 500
 @app.post("/api/data-sources/explore")
 def api_data_sources_explore():
     logger = configure_logging(
