@@ -41,7 +41,7 @@ def generate_html_report(results, config, root: Path, *, run_mode: str, run_slot
         history_dir = root / report.get("history_directory", "output/history")
         history_dir.mkdir(parents=True, exist_ok=True)
         snapshot_path = history_dir / snapshot_name
-        snapshot_html = html.replace('../static/', '../../static/').replace('href="history.html"', 'href="../history.html"')
+        snapshot_html = html.replace('../static/', '../../static/')
         snapshot_path.write_text(snapshot_html, encoding="utf-8")
         _cleanup_history(history_dir, report)
         _generate_history_index(root, report, history_dir)
@@ -70,14 +70,14 @@ def _generate_history_index(root: Path, report: dict, history_dir: Path) -> None
         mode = parts[2] if len(parts) > 2 else ""
         rows.append((date, time, mode, path.name))
     body = "".join(
-        f'<tr><td>{date}</td><td>{time}</td><td>{mode}</td><td><a href="history/{name}">查看</a></td></tr>'
+        f'<tr><td>{date}</td><td>{time}</td><td>{mode}</td><td><a href="/history/{name}">查看</a></td></tr>'
         for date,time,mode,name in rows
     )
     index_path.write_text(
         f"""<!doctype html><html lang="zh-CN"><meta charset="utf-8"><title>历史报告</title>
         <style>body{{font-family:Arial,Microsoft YaHei,sans-serif;max-width:900px;margin:40px auto;padding:0 20px}}
         table{{width:100%;border-collapse:collapse}}th,td{{padding:10px;border-bottom:1px solid #ddd;text-align:left}}</style>
-        <h1>ETF Monitor 历史报告</h1><p><a href="index.html">返回最新报告</a></p>
+        <h1>ETF Monitor 历史报告</h1><p><a href="/report">返回最新报告</a> · <a href="/">返回控制台</a></p>
         <table><thead><tr><th>日期</th><th>时点</th><th>类型</th><th>报告</th></tr></thead><tbody>{body}</tbody></table></html>""",
         encoding="utf-8",
     )

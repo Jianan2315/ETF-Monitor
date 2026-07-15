@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>ETF Monitor 参数管理</title>
+  <link rel="stylesheet" href="/control-static/control.css">
+</head>
+<body>
+  <main class="shell">
+    <header class="hero compact">
+      <div>
+        <p class="eyebrow">LOCAL SETTINGS</p>
+        <h1>参数管理</h1>
+        <p>页面只允许修改预先开放的字段；保存前会显示修改摘要。</p>
+      </div>
+      <a class="secondary-button" href="/">返回控制台</a>
+    </header>
+
+    <section class="card">
+      <h2>录入交易</h2>
+      <div class="form-grid">
+        <label>类型
+          <select id="tx-type">
+            <option value="BUY">买入</option>
+            <option value="SELL">卖出</option>
+          </select>
+        </label>
+        <label>日期
+          <input id="tx-date" type="date">
+        </label>
+        <label>金额（元）
+          <input id="tx-amount" type="number" step="0.01">
+        </label>
+        <label>成交价格
+          <input id="tx-price" type="number" step="0.0001">
+        </label>
+        <label>卖出份额（可选）
+          <input id="tx-shares" type="number" step="0.0001">
+        </label>
+        <label class="wide">备注
+          <input id="tx-note" type="text">
+        </label>
+      </div>
+      <div class="button-row">
+        <button id="preview-transaction">检查交易记录</button>
+      </div>
+      <div id="transaction-preview" class="result-box" hidden></div>
+    </section>
+
+    <form id="settings-form">
+      <section class="card">
+        <h2>仓位与策略</h2>
+        <div class="form-grid">
+          <label>目标仓位
+            <input name="target_amount" type="number" step="0.01">
+          </label>
+          <label>回撤触发阈值（%）
+            <input name="drop_from_last_buy_trigger_pct" type="number" step="0.1">
+          </label>
+          <label>横盘确认天数
+            <input name="stable_days_required" type="number" step="1">
+          </label>
+          <label>横盘波动范围（%）
+            <input name="stable_range_pct" type="number" step="0.1">
+          </label>
+          <label>连续下跌警告天数
+            <input name="consecutive_down_warning_days" type="number" step="1">
+          </label>
+          <label>普通加仓额度
+            <input name="normal_add_amount" type="number" step="0.01">
+          </label>
+          <label>增强加仓额度
+            <input name="enhanced_add_amount" type="number" step="0.01">
+          </label>
+          <label>反转确认天数
+            <input name="reversal_confirmation_days" type="number" step="1">
+          </label>
+          <label>最小反弹幅度（%）
+            <input name="minimum_rebound_pct" type="number" step="0.1">
+          </label>
+          <label>第一止盈阈值（%）
+            <input name="first_take_profit_pct" type="number" step="0.1">
+          </label>
+          <label>第一卖出比例（%）
+            <input name="first_sell_position_pct" type="number" step="0.1">
+          </label>
+          <label>第二止盈阈值（%）
+            <input name="second_take_profit_pct" type="number" step="0.1">
+          </label>
+          <label>第二卖出比例（%）
+            <input name="second_sell_position_pct" type="number" step="0.1">
+          </label>
+          <label>最小核心仓位比例（%）
+            <input name="minimum_core_position_pct" type="number" step="0.1">
+          </label>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>本地模型</h2>
+        <div class="form-grid">
+          <label class="checkbox-row"><input name="llm_enabled" type="checkbox">启用本地模型</label>
+          <label>主模型
+            <input name="llm_model" type="text">
+          </label>
+          <label>模型超时（秒）
+            <input name="llm_timeout_seconds" type="number">
+          </label>
+          <label>最大摘要长度
+            <input name="llm_max_summary_chars" type="number">
+          </label>
+          <label>上下文长度
+            <input name="llm_num_ctx" type="number">
+          </label>
+          <label>最大生成Token
+            <input name="llm_num_predict" type="number">
+          </label>
+          <label>keep_alive
+            <input name="llm_keep_alive" type="text">
+          </label>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>邮件通知</h2>
+        <div class="form-grid">
+          <label class="checkbox-row"><input name="email_enabled" type="checkbox">启用邮件</label>
+          <label>收件人
+            <input name="email_recipient" type="email">
+          </label>
+          <label class="checkbox-row"><input name="email_include_llm_summary" type="checkbox">包含模型摘要</label>
+          <label class="checkbox-row"><input name="email_include_raw_metrics" type="checkbox">包含原始指标</label>
+          <label class="checkbox-row"><input name="email_force_send" type="checkbox">强制发送（调试）</label>
+        </div>
+        <h3>触发状态</h3>
+        <div class="checkbox-grid">
+          <label><input name="trigger_WAIT" type="checkbox">WAIT</label>
+          <label><input name="trigger_WATCH" type="checkbox">WATCH</label>
+          <label><input name="trigger_HOLD" type="checkbox">HOLD</label>
+          <label><input name="trigger_REVIEW_BUY" type="checkbox">REVIEW_BUY</label>
+          <label><input name="trigger_PARTIAL_SELL" type="checkbox">PARTIAL_SELL</label>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>数据、报告和调度</h2>
+        <div class="form-grid">
+          <label>历史交易日数量
+            <input name="history_days" type="number">
+          </label>
+          <label>数据重试次数
+            <input name="retry_max_attempts" type="number">
+          </label>
+          <label>报告保留天数
+            <input name="retention_days" type="number">
+          </label>
+          <label>历史报告最大数量
+            <input name="max_history_files" type="number">
+          </label>
+          <label>盘中时点（逗号分隔）
+            <input name="intraday_slots" type="text">
+          </label>
+          <label>收盘时点
+            <input name="close_slot" type="text">
+          </label>
+        </div>
+      </section>
+
+      <section class="card save-card">
+        <div class="button-row">
+          <button type="button" id="preview-settings">检查修改</button>
+          <button type="submit" id="save-settings" disabled>确认并保存</button>
+        </div>
+        <div id="settings-preview" class="result-box" hidden></div>
+      </section>
+    </form>
+  </main>
+
+  <dialog id="confirm-dialog">
+    <div class="dialog-content">
+      <h2>确认保存</h2>
+      <div id="confirm-summary"></div>
+      <div class="button-row">
+        <button id="cancel-confirm" class="secondary-button">取消</button>
+        <button id="confirm-save">确认保存</button>
+      </div>
+    </div>
+  </dialog>
+
+  <script src="/control-static/settings.js"></script>
+</body>
+</html>

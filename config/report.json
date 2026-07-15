@@ -1,7 +1,7 @@
 {
   "report": {
     "template_file": "templates/dashboard.html",
-    "output_file": "output/index.html",
+    "output_file": "output/report.html",
     "history_index_file": "output/history.html",
     "history_directory": "output/history",
     "keep_history": true,

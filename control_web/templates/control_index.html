@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>ETF Monitor 控制台</title>
+  <link rel="stylesheet" href="/control-static/control.css">
+</head>
+<body>
+  <main class="shell">
+    <header class="hero">
+      <div>
+        <p class="eyebrow">LOCAL CONTROL CENTER</p>
+        <h1>ETF Monitor 控制台</h1>
+        <p>生成报告、查看历史、录入交易和修改参数，都可以在这里完成。</p>
+      </div>
+      <a class="secondary-button" href="/report">查看最新报告</a>
+    </header>
+
+    <section class="action-grid">
+      <article class="card action-card">
+        <h2>生成报告</h2>
+        <p>后台运行现有 Python 监控流程，完成后自动跳转到最新报告。</p>
+        <div class="button-row">
+          <button data-run-mode="auto">按当前时间生成</button>
+          <button data-run-mode="intraday">生成盘中报告</button>
+          <button data-run-mode="close">生成收盘报告</button>
+        </div>
+        <div id="run-result" class="result-box" hidden></div>
+      </article>
+
+      <article class="card action-card">
+        <h2>管理</h2>
+        <p>录入买卖、修改目标仓位、策略、模型、邮件和数据参数。</p>
+        <div class="button-row">
+          <a class="button-link" href="/settings">进入参数管理</a>
+          <a class="button-link secondary" href="/history">查看历史报告</a>
+        </div>
+      </article>
+    </section>
+
+    <section class="card">
+      <div class="section-title-row">
+        <div>
+          <h2>环境状态</h2>
+          <p>检测 Python、依赖、网络、Microsoft Token、Ollama 和本地模型。</p>
+        </div>
+        <div class="button-row">
+          <button id="refresh-environment" class="secondary-button">重新检测</button>
+          <button id="start-ollama" class="secondary-button">启动 Ollama</button>
+        </div>
+      </div>
+      <div id="environment-grid" class="status-grid"></div>
+    </section>
+  </main>
+  <script src="/control-static/control.js"></script>
+</body>
+</html>
