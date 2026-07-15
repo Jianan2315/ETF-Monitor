@@ -239,6 +239,180 @@ def _fetch_history_direct_eastmoney(
     return _normalize_history(pd.DataFrame(rows), history_days)
 
 
+def explore_eastmoney_history_endpoints(
+    asset: dict,
+    config: dict,
+    logger: logging.Logger | None = None,
+    now: datetime | None = None,
+) -> dict[str, Any]:
+    current = now or datetime.now()
+    symbol = str(asset.get("symbol", "")).strip()
+    if not symbol:
+        raise ValueError("Asset symbol is missing")
+
+    data_cfg = config["data"]
+    timeout = float(data_cfg.get("request_timeout_seconds", 20))
+    history_days = int(data_cfg.get("history_days", 1000))
+    start = current - timedelta(days=max(history_days * 2, 240))
+
+    user_agent = (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) "
+        "Chrome/149.0.0.0 Safari/537.36"
+    )
+    common_headers = {
+        "User-Agent": user_agent,
+        "Accept": "application/json,text/plain,*/*",
+        "Referer": "https://quote.eastmoney.com/",
+    }
+    common_params = {
+        "ut": "7eea3edcaed734bea9cbfc24409ed989",
+        "fields1": "f1,f2,f3,f4,f5,f6",
+        "fields2": "f51,f52,f53,f54,f55,f56,f57,f58,f59,f60,f61",
+        "klt": "101",
+        "fqt": "1",
+        "beg": start.strftime("%Y%m%d"),
+        "end": current.strftime("%Y%m%d"),
+        "lmt": str(max(history_days, 200)),
+    }
+
+    market_prefixes = ["1", "0"]
+    endpoint_paths = [
+        ("push2his-stock-kline", "https://push2his.eastmoney.com/api/qt/stock/kline/get"),
+        ("push2his-fund-kline", "https://push2his.eastmoney.com/api/qt/fund/kline/get"),
+        ("push2his-quote-kline", "https://push2his.eastmoney.com/api/qt/quote/kline/get"),
+        ("push2-stock-kline", "https://push2.eastmoney.com/api/qt/stock/kline/get"),
+    ]
+    connection_modes = [
+        ("keep-alive", {}),
+        ("connection-close", {"Connection": "close"}),
+    ]
+
+    attempts: list[dict[str, Any]] = []
+
+    for endpoint_name, url in endpoint_paths:
+        for market_prefix in market_prefixes:
+            for connection_name, extra_headers in connection_modes:
+                headers = {**common_headers, **extra_headers}
+                params = {**common_params, "secid": f"{market_prefix}.{symbol}"}
+                started = time.perf_counter()
+                attempt: dict[str, Any] = {
+                    "endpoint_name": endpoint_name,
+                    "url": url,
+                    "secid": params["secid"],
+                    "connection_mode": connection_name,
+                    "method": "GET",
+                    "params": params,
+                    "headers": _redacted_headers(headers),
+                }
+
+                _log_request_start(
+                    logger,
+                    provider=f"API Explorer: {endpoint_name}",
+                    method="GET",
+                    url=url,
+                    params=params,
+                    headers=headers,
+                )
+
+                try:
+                    response = requests.get(
+                        url,
+                        params=params,
+                        headers=headers,
+                        timeout=timeout,
+                    )
+                    elapsed = time.perf_counter() - started
+                    _log_response(
+                        logger,
+                        provider=f"API Explorer: {endpoint_name}",
+                        response=response,
+                        elapsed_seconds=elapsed,
+                    )
+
+                    attempt.update({
+                        "elapsed_seconds": round(elapsed, 3),
+                        "http_status": response.status_code,
+                        "final_url": response.url,
+                        "response_bytes": len(response.content),
+                        "content_type": response.headers.get("Content-Type"),
+                        "server": response.headers.get("Server"),
+                        "body_preview": response.text[:500].replace("\r", " ").replace("\n", " "),
+                    })
+
+                    response.raise_for_status()
+                    payload = response.json()
+                    data = payload.get("data") if isinstance(payload, dict) else None
+                    klines = data.get("klines", []) if isinstance(data, dict) else []
+                    attempt["json_ok"] = True
+                    attempt["has_data"] = bool(data)
+                    attempt["kline_count"] = len(klines)
+                    attempt["parse_success"] = bool(klines)
+                    attempt["ok"] = bool(klines)
+                    attempt["message"] = (
+                        f"成功解析{len(klines)}条K线"
+                        if klines
+                        else "HTTP和JSON正常，但未返回K线数据"
+                    )
+                except Exception as exc:
+                    elapsed = time.perf_counter() - started
+                    attempt.update({
+                        "ok": False,
+                        "elapsed_seconds": round(elapsed, 3),
+                        "error_category": classify_data_exception(exc),
+                        "error_type": type(exc).__name__,
+                        "message": str(exc),
+                    })
+                    if logger:
+                        logger.error(
+                            "API explorer attempt failed | Endpoint=%s | Secid=%s | "
+                            "ConnectionMode=%s | Category=%s | Error=%s",
+                            endpoint_name,
+                            params["secid"],
+                            connection_name,
+                            classify_data_exception(exc),
+                            exc,
+                        )
+                        logger.debug(
+                            "API explorer traceback | Endpoint=%s | Secid=%s\n%s",
+                            endpoint_name,
+                            params["secid"],
+                            traceback.format_exc(),
+                        )
+
+                attempts.append(attempt)
+
+    successful = [item for item in attempts if item.get("ok")]
+    return {
+        "symbol": symbol,
+        "checked_at": current.isoformat(timespec="seconds"),
+        "akshare_version": _safe_akshare_version(),
+        "attempt_count": len(attempts),
+        "success_count": len(successful),
+        "successful_candidates": [
+            {
+                "endpoint_name": item["endpoint_name"],
+                "url": item["url"],
+                "secid": item["secid"],
+                "connection_mode": item["connection_mode"],
+                "http_status": item.get("http_status"),
+                "kline_count": item.get("kline_count"),
+                "elapsed_seconds": item.get("elapsed_seconds"),
+            }
+            for item in successful
+        ],
+        "attempts": attempts,
+        "ok": bool(successful),
+    }
+
+
+def _safe_akshare_version() -> str:
+    try:
+        import akshare as ak
+        return getattr(ak, "__version__", "unknown")
+    except Exception:
+        return "unavailable"
+
 def diagnose_data_sources(
     asset: dict,
     config: dict,

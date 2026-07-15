@@ -798,3 +798,47 @@ SCHEMA_CHANGED
 ```text
 11.1
 ```
+
+
+## V11.2 东方财富接口探测器
+
+控制台环境区域新增：
+
+```text
+接口探测器
+```
+
+该工具不会生成策略报告，而是针对当前ETF代码测试多种东方财富历史K线请求组合：
+
+- `push2his.eastmoney.com/api/qt/stock/kline/get`
+- `push2his.eastmoney.com/api/qt/fund/kline/get`
+- `push2his.eastmoney.com/api/qt/quote/kline/get`
+- `push2.eastmoney.com/api/qt/stock/kline/get`
+- `secid=1.<代码>` 与 `secid=0.<代码>`
+- 默认长连接与 `Connection: close`
+
+总计测试16种组合。页面会显示：
+
+- 接口路径；
+- `secid`；
+- 连接模式；
+- 是否成功；
+- HTTP状态码；
+- 错误分类；
+- 请求耗时；
+- 返回K线数量；
+- 错误或解析说明。
+
+完整结果保存到：
+
+```text
+data/diagnostics/latest_api_explorer.json
+```
+
+详细URL、参数、Headers、响应摘要和异常堆栈继续写入：
+
+```text
+logs/monitor.log
+```
+
+该探测器只用于确认哪些候选接口当前可用，不会自动把未经验证的候选接口切换为正式生产数据源。

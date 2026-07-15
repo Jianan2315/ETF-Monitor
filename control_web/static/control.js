@@ -58,7 +58,7 @@ async function loadEnvironment() {
     }
     const data = await response.json();
 
-    if (data.control_version && data.control_version !== "11.1") {
+    if (data.control_version && data.control_version !== "11.2") {
       environmentGrid.innerHTML = `
         <div class="result-box error">
           当前浏览器连接的是旧版控制服务（${data.control_version}）。
@@ -192,5 +192,92 @@ document.getElementById("diagnose-data-sources")
     } catch (error) {
       panel.classList.add("error");
       panel.textContent = `数据源诊断失败：${error}`;
+    }
+  });
+
+
+function renderApiExplorer(explorer) {
+  const attempts = Array.isArray(explorer?.attempts) ? explorer.attempts : [];
+  const rows = attempts.map(item => `
+    <tr>
+      <td>${item.endpoint_name || "-"}</td>
+      <td>${item.secid || "-"}</td>
+      <td>${item.connection_mode || "-"}</td>
+      <td>${item.ok ? "成功" : "失败"}</td>
+      <td>${item.http_status ?? "-"}</td>
+      <td>${item.error_category || "-"}</td>
+      <td>${item.elapsed_seconds ?? "-"} 秒</td>
+      <td>${item.kline_count ?? "-"}</td>
+      <td>${item.message || "-"}</td>
+    </tr>
+  `).join("");
+
+  const successful = Array.isArray(explorer?.successful_candidates)
+    ? explorer.successful_candidates
+    : [];
+  const successSummary = successful.length
+    ? `<ol class="change-list">${
+        successful.map(item => `
+          <li>
+            ${item.endpoint_name} · secid=${item.secid} ·
+            ${item.connection_mode} · HTTP ${item.http_status} ·
+            ${item.kline_count}条K线
+          </li>
+        `).join("")
+      }</ol>`
+    : "<p>没有探测到可正常返回K线的候选接口。</p>";
+
+  return `
+    <strong>东方财富历史接口探测结果</strong>
+    <p>
+      标的：${explorer?.symbol || "未知"} ·
+      AKShare版本：${explorer?.akshare_version || "未知"} ·
+      共测试${explorer?.attempt_count ?? attempts.length}种组合 ·
+      成功${explorer?.success_count ?? successful.length}种
+    </p>
+    <h3>成功候选</h3>
+    ${successSummary}
+    <div class="diagnostic-table-wrap">
+      <table class="diagnostic-table">
+        <thead>
+          <tr>
+            <th>接口</th><th>secid</th><th>连接模式</th><th>状态</th>
+            <th>HTTP</th><th>错误分类</th><th>耗时</th><th>K线数</th><th>说明</th>
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>
+    <p class="muted">
+      每次请求的完整URL、参数、Headers、HTTP状态、响应摘要和异常堆栈已写入
+      logs/monitor.log；完整探测结果保存在
+      data/diagnostics/latest_api_explorer.json。
+    </p>
+  `;
+}
+
+document.getElementById("explore-api")
+  .addEventListener("click", async () => {
+    const panel = document.getElementById("api-explorer-result");
+    panel.hidden = false;
+    panel.className = "result-box";
+    panel.textContent = "正在测试不同接口路径、市场前缀和连接模式。该过程可能需要几十秒……";
+
+    try {
+      const response = await fetch("/api/data-sources/explore", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+      });
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        throw new Error(data.message || `HTTP ${response.status}`);
+      }
+
+      panel.classList.add(data.explorer?.ok ? "success" : "error");
+      panel.innerHTML = renderApiExplorer(data.explorer);
+    } catch (error) {
+      panel.classList.add("error");
+      panel.textContent = `接口探测失败：${error}`;
     }
   });

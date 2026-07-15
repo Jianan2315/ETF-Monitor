@@ -19,14 +19,14 @@ import requests
 from flask import Flask, jsonify, redirect, render_template, request, send_from_directory, url_for
 
 from src.market_clock import build_market_context, expected_history_date, market_now, validate_run_mode
-from src.data_fetcher import diagnose_data_sources
+from src.data_fetcher import diagnose_data_sources, explore_eastmoney_history_endpoints
 from src.logger import configure_logging
 
 
 ROOT = Path(__file__).resolve().parent
 HOST = "127.0.0.1"
 PORT = 8765
-CONTROL_VERSION = "11.1"
+CONTROL_VERSION = "11.2"
 
 app = Flask(
     __name__,
@@ -1154,6 +1154,40 @@ def api_environment():
 
 
 
+
+@app.post("/api/data-sources/explore")
+def api_data_sources_explore():
+    logger = configure_logging(
+        ROOT / "logs" / "monitor.log",
+        ROOT / "logs" / "email.log",
+    )
+    try:
+        full_config = {
+            "data": _read_json(
+                ROOT / "config" / "data.json",
+                {},
+            ).get("data", {}),
+        }
+        asset = _primary_asset()
+        result = explore_eastmoney_history_endpoints(
+            asset,
+            full_config,
+            logger=logger,
+            now=market_now(_schedule_config()),
+        )
+        output_path = ROOT / "data" / "diagnostics" / "latest_api_explorer.json"
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        _atomic_write_json(output_path, result)
+        return jsonify({
+            "success": True,
+            "explorer": result,
+        })
+    except Exception as exc:
+        logger.exception("EastMoney API explorer crashed")
+        return jsonify({
+            "success": False,
+            "message": f"{type(exc).__name__}: {exc}",
+        }), 500
 @app.post("/api/data-sources/diagnose")
 def api_data_sources_diagnose():
     logger = configure_logging(
