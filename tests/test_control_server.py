@@ -53,3 +53,12 @@ def test_schedule_weekday_validation():
     assert control_server._normalize_weekdays(["FRI", "MON", "MON"]) == ["MON", "FRI"]
     with pytest.raises(ValueError):
         control_server._normalize_weekdays([])
+
+
+def test_control_version_endpoint():
+    client = control_server.app.test_client()
+    response = client.get("/api/version")
+    assert response.status_code == 200
+    data = response.get_json()
+    assert data["version"] == "10.4"
+    assert "pid" in data

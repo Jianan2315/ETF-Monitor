@@ -4,13 +4,25 @@ const runButtons = [...document.querySelectorAll("[data-run-mode]")];
 const modeGuidance = document.getElementById("mode-guidance");
 
 function statusCard(title, entry) {
-  const extra = entry.models?.length
-    ? `<p>模型：${entry.models.join(", ")}</p>`
+  const safeEntry = entry && typeof entry === "object"
+    ? entry
+    : {
+        ok: false,
+        message: "后台没有返回这一项检测结果。可能仍在运行旧版控制服务，请关闭旧服务后重新启动当前版本。",
+        models: [],
+      };
+
+  const models = Array.isArray(safeEntry.models)
+    ? safeEntry.models
+    : [];
+  const extra = models.length
+    ? `<p>模型：${models.join(", ")}</p>`
     : "";
+
   return `
-    <article class="status-item ${entry.ok ? "ok" : "bad"}">
+    <article class="status-item ${safeEntry.ok ? "ok" : "bad"}">
       <strong>● ${title}</strong>
-      <p>${entry.message}</p>
+      <p>${safeEntry.message || "未返回说明"}</p>
       ${extra}
     </article>
   `;
@@ -38,8 +50,24 @@ function updateRunButtons(market) {
 async function loadEnvironment() {
   environmentGrid.innerHTML = "<p>正在检测……</p>";
   try {
-    const response = await fetch("/api/environment");
+    const response = await fetch(`/api/environment?t=${Date.now()}`, {
+      cache: "no-store",
+    });
+    if (!response.ok) {
+      throw new Error(`后台返回 HTTP ${response.status}`);
+    }
     const data = await response.json();
+
+    if (data.control_version && data.control_version !== "10.4") {
+      environmentGrid.innerHTML = `
+        <div class="result-box error">
+          当前浏览器连接的是旧版控制服务（${data.control_version}）。
+          请关闭旧的 ETF Monitor 命令窗口，再重新运行 Start ETF Monitor.bat。
+        </div>
+      `;
+      return;
+    }
+
     environmentGrid.innerHTML = [
       statusCard("当前市场阶段", data.market),
       statusCard("Python", data.python),

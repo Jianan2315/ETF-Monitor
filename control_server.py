@@ -24,6 +24,7 @@ from src.market_clock import build_market_context, expected_history_date, market
 ROOT = Path(__file__).resolve().parent
 HOST = "127.0.0.1"
 PORT = 8765
+CONTROL_VERSION = "10.4"
 
 app = Flask(
     __name__,
@@ -410,6 +411,7 @@ def _environment_status() -> dict[str, Any]:
             packages[package] = False
 
     return {
+        "control_version": CONTROL_VERSION,
         "python": {"ok": True, "message": sys.version.split()[0]},
         "packages": {
             "ok": all(packages.values()),
@@ -1133,6 +1135,15 @@ def project_static(filename: str):
         ROOT / "static",
         filename,
     )
+
+
+@app.get("/api/version")
+def api_version():
+    return jsonify({
+        "name": "ETF Monitor Control Server",
+        "version": CONTROL_VERSION,
+        "pid": os.getpid(),
+    })
 
 
 @app.get("/api/environment")
