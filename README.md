@@ -666,3 +666,52 @@ logs/launcher.log
 ```text
 logs/control_server_console.log
 ```
+
+
+## V11 可靠启动器
+
+V11 不再使用 PowerShell 管道或 `Tee-Object` 启动控制服务，也不再依赖 VBS。
+
+正常使用只需要双击：
+
+```text
+Start ETF Monitor.bat
+```
+
+BAT 文件使用纯 ASCII、无 BOM 编码，避免 Windows CMD 把首行识别成：
+
+```text
+ï»¿@echo off
+```
+
+BAT 只负责：
+
+1. 查找 Python；
+2. 创建或复用 `.venv`；
+3. 调用 `launcher.py`。
+
+`launcher.py` 使用 Python 标准库完成：
+
+- 检查 8765 端口；
+- 查找并关闭旧控制服务；
+- 检查和安装依赖；
+- 编译检查 `control_server.py`；
+- 启动控制服务；
+- 同时把控制台输出显示在窗口并写入日志。
+
+不再使用容易出错的 PowerShell 重定向：
+
+```text
+2>&1 | Tee-Object
+```
+
+服务器停止或启动失败后，BAT 窗口会停留，直到手动按键关闭。
+
+日志文件：
+
+```text
+logs/launcher.log
+logs/control_server_console.log
+```
+
+如果固定日志文件正被其他程序占用，启动器会自动改用带时间戳的备用日志文件，不会因为日志锁定而终止。
