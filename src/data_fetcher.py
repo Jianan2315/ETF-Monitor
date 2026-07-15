@@ -5,6 +5,8 @@ from pathlib import Path
 import json
 import logging
 import time
+import traceback
+import requests
 from typing import Any, Callable
 
 import numpy as np
@@ -60,6 +62,271 @@ def fetch_asset_data(
     )
 
 
+def classify_data_exception(exc: Exception) -> str:
+    name = type(exc).__name__
+    message = str(exc).lower()
+    if isinstance(exc, requests.exceptions.Timeout) or "timed out" in message:
+        return "TIMEOUT"
+    if isinstance(exc, requests.exceptions.SSLError) or "ssl" in message:
+        return "SSL_ERROR"
+    if isinstance(exc, requests.exceptions.ConnectionError):
+        if "remote end closed connection" in message or "remotedisconnected" in message:
+            return "REMOTE_DISCONNECTED"
+        return "CONNECTION_ERROR"
+    if isinstance(exc, requests.exceptions.HTTPError):
+        response = exc.response
+        return f"HTTP_{response.status_code}" if response is not None else "HTTP_ERROR"
+    if isinstance(exc, (json.JSONDecodeError, ValueError)) and "json" in message:
+        return "JSON_PARSE_ERROR"
+    if "no data" in message or "empty" in message:
+        return "EMPTY_RESPONSE"
+    if "unexpected columns" in message:
+        return "SCHEMA_CHANGED"
+    if "not found" in message or "invalid" in message:
+        return "INVALID_SYMBOL_OR_RESPONSE"
+    return name.upper()
+
+
+def _redacted_headers(headers: dict[str, Any] | None) -> dict[str, str]:
+    safe: dict[str, str] = {}
+    for key, value in (headers or {}).items():
+        if key.lower() in {"authorization", "cookie", "set-cookie"}:
+            safe[key] = "<redacted>"
+        else:
+            safe[key] = str(value)
+    return safe
+
+
+def _log_request_start(
+    logger: logging.Logger | None,
+    *,
+    provider: str,
+    method: str,
+    url: str,
+    params: dict[str, Any] | None = None,
+    headers: dict[str, Any] | None = None,
+) -> None:
+    if not logger:
+        return
+    logger.info(
+        "HTTP request start | Provider=%s | Method=%s | URL=%s | Params=%s | Headers=%s",
+        provider,
+        method,
+        url,
+        params or {},
+        _redacted_headers(headers),
+    )
+
+
+def _log_response(
+    logger: logging.Logger | None,
+    *,
+    provider: str,
+    response: requests.Response,
+    elapsed_seconds: float,
+) -> None:
+    if not logger:
+        return
+    response_headers = {
+        key: value
+        for key, value in response.headers.items()
+        if key.lower() in {
+            "content-type",
+            "content-length",
+            "server",
+            "date",
+            "via",
+            "x-cache",
+        }
+    }
+    preview = response.text[:300].replace("\r", " ").replace("\n", " ")
+    logger.info(
+        "HTTP response | Provider=%s | Status=%s | FinalURL=%s | Elapsed=%.3fs | "
+        "Bytes=%s | Headers=%s | BodyPreview=%r",
+        provider,
+        response.status_code,
+        response.url,
+        elapsed_seconds,
+        len(response.content),
+        response_headers,
+        preview,
+    )
+
+
+def _eastmoney_secid(symbol: str) -> str:
+    return f"{'1' if str(symbol).startswith(('5', '6', '9')) else '0'}.{symbol}"
+
+
+def _fetch_history_direct_eastmoney(
+    asset: dict,
+    config: dict,
+    now: datetime,
+    logger: logging.Logger | None = None,
+) -> pd.DataFrame:
+    data_cfg = config["data"]
+    history_days = int(data_cfg.get("history_days", 1000))
+    start = now - timedelta(days=max(history_days * 2, 240))
+    adjust = str(data_cfg.get("adjust", "qfq")).lower()
+    fqt = {"": "0", "none": "0", "qfq": "1", "hfq": "2"}.get(adjust, "1")
+    timeout = float(data_cfg.get("request_timeout_seconds", 20))
+
+    url = "https://push2his.eastmoney.com/api/qt/stock/kline/get"
+    params = {
+        "secid": _eastmoney_secid(str(asset["symbol"])),
+        "ut": "7eea3edcaed734bea9cbfc24409ed989",
+        "fields1": "f1,f2,f3,f4,f5,f6",
+        "fields2": "f51,f52,f53,f54,f55,f56,f57,f58,f59,f60,f61",
+        "klt": "101",
+        "fqt": fqt,
+        "beg": start.strftime("%Y%m%d"),
+        "end": now.strftime("%Y%m%d"),
+        "lmt": str(max(history_days, 200)),
+    }
+    headers = {
+        "User-Agent": (
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+            "AppleWebKit/537.36 (KHTML, like Gecko) "
+            "Chrome/149.0.0.0 Safari/537.36"
+        ),
+        "Accept": "application/json,text/plain,*/*",
+        "Referer": "https://quote.eastmoney.com/",
+        "Connection": "close",
+    }
+
+    _log_request_start(
+        logger,
+        provider="EastMoney direct historical",
+        method="GET",
+        url=url,
+        params=params,
+        headers=headers,
+    )
+    started = time.perf_counter()
+    response = requests.get(url, params=params, headers=headers, timeout=timeout)
+    elapsed = time.perf_counter() - started
+    _log_response(
+        logger,
+        provider="EastMoney direct historical",
+        response=response,
+        elapsed_seconds=elapsed,
+    )
+    response.raise_for_status()
+
+    payload = response.json()
+    data = payload.get("data") if isinstance(payload, dict) else None
+    klines = data.get("klines", []) if isinstance(data, dict) else []
+    if not klines:
+        raise RuntimeError("EastMoney direct historical endpoint returned empty response")
+
+    rows = []
+    for line in klines:
+        fields = str(line).split(",")
+        if len(fields) < 11:
+            continue
+        rows.append({
+            "日期": fields[0],
+            "开盘": fields[1],
+            "收盘": fields[2],
+            "最高": fields[3],
+            "最低": fields[4],
+            "成交量": fields[5],
+            "成交额": fields[6],
+            "涨跌幅": fields[8],
+        })
+
+    if not rows:
+        raise RuntimeError("EastMoney direct historical endpoint returned unusable rows")
+    return _normalize_history(pd.DataFrame(rows), history_days)
+
+
+def diagnose_data_sources(
+    asset: dict,
+    config: dict,
+    logger: logging.Logger | None = None,
+    now: datetime | None = None,
+) -> dict[str, Any]:
+    current = now or datetime.now()
+    result: dict[str, Any] = {
+        "symbol": str(asset.get("symbol", "")),
+        "checked_at": current.isoformat(timespec="seconds"),
+        "call_chain": {
+            "historical_primary": "AKShare fund_etf_hist_em → EastMoney",
+            "historical_secondary": "Direct requests → EastMoney kline API",
+            "realtime_primary": "AKShare fund_etf_spot_em → EastMoney",
+            "intraday_primary": "AKShare fund_etf_hist_min_em → EastMoney",
+        },
+        "checks": [],
+    }
+
+    try:
+        import akshare as ak
+        result["akshare_version"] = getattr(ak, "__version__", "unknown")
+    except Exception as exc:
+        result["akshare_version"] = "unavailable"
+        result["checks"].append({
+            "name": "AKShare import",
+            "ok": False,
+            "category": classify_data_exception(exc),
+            "message": f"{type(exc).__name__}: {exc}",
+        })
+        return result
+
+    checks = [
+        (
+            "AKShare historical wrapper",
+            "AKShare → EastMoney",
+            lambda: _fetch_history(ak, asset, config, current, logger),
+        ),
+        (
+            "EastMoney direct historical",
+            "requests → EastMoney",
+            lambda: _fetch_history_direct_eastmoney(asset, config, current, logger),
+        ),
+        (
+            "AKShare realtime wrapper",
+            "AKShare → EastMoney",
+            lambda: _fetch_spot(ak, asset, current),
+        ),
+    ]
+
+    for name, provider, operation in checks:
+        started = time.perf_counter()
+        try:
+            value = operation()
+            elapsed = time.perf_counter() - started
+            if isinstance(value, tuple):
+                value = value[0]
+            rows = len(value) if hasattr(value, "__len__") else None
+            result["checks"].append({
+                "name": name,
+                "provider": provider,
+                "ok": True,
+                "elapsed_seconds": round(elapsed, 3),
+                "rows": rows,
+                "message": "成功",
+            })
+        except Exception as exc:
+            elapsed = time.perf_counter() - started
+            if logger:
+                logger.error(
+                    "Data source diagnostic failed | Check=%s | Category=%s | Error=%s",
+                    name,
+                    classify_data_exception(exc),
+                    exc,
+                )
+                logger.debug("Diagnostic traceback:\n%s", traceback.format_exc())
+            result["checks"].append({
+                "name": name,
+                "provider": provider,
+                "ok": False,
+                "elapsed_seconds": round(elapsed, 3),
+                "category": classify_data_exception(exc),
+                "message": f"{type(exc).__name__}: {exc}",
+            })
+
+    result["ok"] = any(item.get("ok") for item in result["checks"])
+    return result
+
 def _retry_call(
     operation: Callable[[], Any],
     retry_cfg: dict,
@@ -79,10 +346,21 @@ def _retry_call(
                 logger.info("Data request succeeded | Source=%s | Attempt=%s", label, attempt)
             return result, errors
         except Exception as exc:
-            message = f"{label} attempt {attempt}: {type(exc).__name__}: {exc}"
+            category = classify_data_exception(exc)
+            message = (
+                f"{label} attempt {attempt}: {category}: "
+                f"{type(exc).__name__}: {exc}"
+            )
             errors.append(message)
             if logger:
                 logger.warning("Data request failed | %s", message)
+                logger.debug(
+                    "Data request traceback | Source=%s | Attempt=%s/%s\n%s",
+                    label,
+                    attempt,
+                    max_attempts,
+                    traceback.format_exc(),
+                )
             if attempt < max_attempts:
                 delay = delays[min(attempt - 1, len(delays) - 1)] if delays else 5
                 if logger:
@@ -265,11 +543,26 @@ def _normalize_history(df: pd.DataFrame, history_days: int) -> pd.DataFrame:
     return normalized
 
 
-def _fetch_history(ak, asset: dict, config: dict, now: datetime) -> pd.DataFrame:
+def _fetch_history(
+    ak,
+    asset: dict,
+    config: dict,
+    now: datetime,
+    logger: logging.Logger | None = None,
+) -> pd.DataFrame:
     data_cfg = config["data"]
     history_days = int(data_cfg.get("history_days", 1000))
     start = now - timedelta(days=max(history_days * 2, 240))
 
+    if logger:
+        logger.info(
+            "Provider call | Layer=AKShare | Function=fund_etf_hist_em | "
+            "UnderlyingProvider=EastMoney | Symbol=%s | Start=%s | End=%s | Adjust=%s",
+            asset["symbol"],
+            start.strftime("%Y%m%d"),
+            now.strftime("%Y%m%d"),
+            data_cfg.get("adjust", "qfq"),
+        )
     frame = ak.fund_etf_hist_em(
         symbol=asset["symbol"],
         period="daily",
@@ -541,12 +834,46 @@ def _ak(
         now.strftime("%Y-%m-%d %H:%M:%S"),
     )
 
-    history, history_errors = _retry_call(
-        lambda: _fetch_history(ak, asset, config, now),
+    logger.info(
+        "Data library versions | AKShare=%s | Requests=%s | Pandas=%s",
+        getattr(ak, "__version__", "unknown"),
+        getattr(requests, "__version__", "unknown"),
+        getattr(pd, "__version__", "unknown"),
+    )
+    logger.info(
+        "Historical call chain | Primary=AKShare fund_etf_hist_em -> EastMoney | "
+        "Secondary=Direct requests -> EastMoney kline API | FinalFallback=Local cache"
+    )
+
+    history, akshare_history_errors = _retry_call(
+        lambda: _fetch_history(ak, asset, config, now, logger),
         retry_cfg,
-        "historical",
+        "historical-akshare-eastmoney",
         logger,
     )
+    direct_history_errors: list[str] = []
+    history_provider = None
+    if history is not None:
+        history_provider = "AKShare历史日线(EastMoney)"
+    else:
+        logger.warning(
+            "AKShare historical wrapper failed; trying direct EastMoney historical API"
+        )
+        history, direct_history_errors = _retry_call(
+            lambda: _fetch_history_direct_eastmoney(
+                asset,
+                config,
+                now,
+                logger,
+            ),
+            retry_cfg,
+            "historical-direct-eastmoney",
+            logger,
+        )
+        if history is not None:
+            history_provider = "东方财富直接历史日线"
+
+    history_errors = akshare_history_errors + direct_history_errors
 
     using_local_cache = False
     cache_date = None
@@ -557,7 +884,7 @@ def _ak(
 
     if history is not None:
         _save_history_cache(project_root, config, asset["symbol"], history, now)
-        data_sources.append("AKShare历史日线")
+        data_sources.append(history_provider or "历史日线")
     else:
         history, cached_at, cache_source = _load_history_cache(project_root, config, asset["symbol"])
         if history is None:

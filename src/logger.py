@@ -4,7 +4,7 @@ import logging
 from pathlib import Path
 
 
-def _build_file_handler(path: Path, level: int = logging.INFO) -> logging.Handler:
+def _build_file_handler(path: Path, level: int = logging.DEBUG) -> logging.Handler:
     path.parent.mkdir(parents=True, exist_ok=True)
     handler = logging.FileHandler(path, encoding="utf-8")
     handler.setLevel(level)
@@ -27,7 +27,7 @@ def configure_logging(monitor_path: Path, email_path: Path | None = None) -> log
     monitor_path.parent.mkdir(parents=True, exist_ok=True)
 
     monitor_logger = logging.getLogger("etf_monitor")
-    monitor_logger.setLevel(logging.INFO)
+    monitor_logger.setLevel(logging.DEBUG)
     monitor_logger.handlers.clear()
     monitor_logger.propagate = False
 

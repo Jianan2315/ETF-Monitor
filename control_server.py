@@ -19,12 +19,14 @@ import requests
 from flask import Flask, jsonify, redirect, render_template, request, send_from_directory, url_for
 
 from src.market_clock import build_market_context, expected_history_date, market_now, validate_run_mode
+from src.data_fetcher import diagnose_data_sources
+from src.logger import configure_logging
 
 
 ROOT = Path(__file__).resolve().parent
 HOST = "127.0.0.1"
 PORT = 8765
-CONTROL_VERSION = "10.4"
+CONTROL_VERSION = "11.1"
 
 app = Flask(
     __name__,
@@ -1151,6 +1153,39 @@ def api_environment():
     return jsonify(_environment_status())
 
 
+
+@app.post("/api/data-sources/diagnose")
+def api_data_sources_diagnose():
+    logger = configure_logging(
+        ROOT / "logs" / "monitor.log",
+        ROOT / "logs" / "email.log",
+    )
+    try:
+        config = {
+            **_read_json(ROOT / "config" / "app.json", {}),
+            "data": _read_json(ROOT / "config" / "data.json", {}).get("data", {}),
+        }
+        # data_fetcher expects the merged config shape used by run.py.
+        full_config = {
+            "data": config.get("data", {}),
+        }
+        asset = _primary_asset()
+        result = diagnose_data_sources(
+            asset,
+            full_config,
+            logger=logger,
+            now=market_now(_schedule_config()),
+        )
+        diagnostic_path = ROOT / "data" / "diagnostics" / "latest_data_source.json"
+        diagnostic_path.parent.mkdir(parents=True, exist_ok=True)
+        _atomic_write_json(diagnostic_path, result)
+        return jsonify({"success": True, "diagnostic": result})
+    except Exception as exc:
+        logger.exception("Data source diagnostic crashed")
+        return jsonify({
+            "success": False,
+            "message": f"{type(exc).__name__}: {exc}",
+        }), 500
 @app.post("/api/ollama/start")
 def api_ollama_start():
     return jsonify(_start_ollama())

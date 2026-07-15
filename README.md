@@ -715,3 +715,86 @@ logs/control_server_console.log
 ```
 
 如果固定日志文件正被其他程序占用，启动器会自动改用带时间戳的备用日志文件，不会因为日志锁定而终止。
+
+
+## V11.1 数据源稳定性与诊断
+
+控制台环境区域新增：
+
+```text
+诊断数据源
+```
+
+该诊断会分别测试：
+
+1. `AKShare fund_etf_hist_em`：AKShare封装层，底层数据源为东方财富；
+2. 东方财富历史K线接口：程序通过 `requests` 直接请求；
+3. `AKShare fund_etf_spot_em`：AKShare实时ETF列表，底层数据源为东方财富。
+
+这可以区分：
+
+```text
+AKShare封装调用失败
+```
+
+和：
+
+```text
+东方财富底层接口本身失败
+```
+
+最近一次诊断保存到：
+
+```text
+data/diagnostics/latest_data_source.json
+```
+
+详细日志写入：
+
+```text
+logs/monitor.log
+```
+
+日志现在包含：
+
+- AKShare、Requests和Pandas版本；
+- 明确的调用链；
+- 东方财富直接请求URL；
+- 请求参数和非敏感Headers；
+- HTTP状态码；
+- 最终URL；
+- 响应时间和响应字节数；
+- 关键响应Headers；
+- 响应内容前300字符；
+- 错误分类；
+- 完整异常堆栈。
+
+历史数据获取顺序调整为：
+
+```text
+AKShare fund_etf_hist_em（底层东方财富）
+→ 东方财富历史K线接口直接请求
+→ 日期符合要求的本地缓存
+```
+
+因此，AKShare封装层临时异常时，程序会尝试绕过AKShare，直接请求同一底层数据接口。需要注意，这两个网络路径最终都依赖东方财富；如果东方财富服务器本身拒绝连接，程序仍会回退到本地缓存，而不会把二者误称为两个完全独立的数据提供商。
+
+错误会被分类为：
+
+```text
+REMOTE_DISCONNECTED
+CONNECTION_ERROR
+TIMEOUT
+SSL_ERROR
+HTTP_403
+HTTP_404
+JSON_PARSE_ERROR
+EMPTY_RESPONSE
+SCHEMA_CHANGED
+```
+
+控制服务版本更新为：
+
+```text
+11.1
+```

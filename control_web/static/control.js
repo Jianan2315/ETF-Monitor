@@ -58,7 +58,7 @@ async function loadEnvironment() {
     }
     const data = await response.json();
 
-    if (data.control_version && data.control_version !== "10.4") {
+    if (data.control_version && data.control_version !== "11.1") {
       environmentGrid.innerHTML = `
         <div class="result-box error">
           当前浏览器连接的是旧版控制服务（${data.control_version}）。
@@ -134,3 +134,63 @@ document.getElementById("start-ollama")
   });
 
 loadEnvironment();
+
+
+function renderDataSourceDiagnostic(diagnostic) {
+  const checks = Array.isArray(diagnostic?.checks) ? diagnostic.checks : [];
+  const chain = diagnostic?.call_chain || {};
+  const rows = checks.map(item => `
+    <tr>
+      <td>${item.name || "未知"}</td>
+      <td>${item.provider || "未知"}</td>
+      <td>${item.ok ? "成功" : "失败"}</td>
+      <td>${item.category || "-"}</td>
+      <td>${item.elapsed_seconds ?? "-"} 秒</td>
+      <td>${item.rows ?? "-"}</td>
+      <td>${item.message || "-"}</td>
+    </tr>
+  `).join("");
+
+  return `
+    <strong>数据源诊断结果</strong>
+    <p>标的：${diagnostic?.symbol || "未知"} · AKShare版本：${diagnostic?.akshare_version || "未知"}</p>
+    <p>历史主调用链：${chain.historical_primary || "未知"}</p>
+    <p>历史备用调用链：${chain.historical_secondary || "未知"}</p>
+    <p>实时调用链：${chain.realtime_primary || "未知"}</p>
+    <div class="diagnostic-table-wrap">
+      <table class="diagnostic-table">
+        <thead>
+          <tr>
+            <th>检测项</th><th>数据路径</th><th>状态</th><th>错误分类</th>
+            <th>耗时</th><th>记录数</th><th>说明</th>
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>
+    <p class="muted">详细URL、请求参数、响应状态和异常堆栈已写入 logs/monitor.log；最近诊断也保存到 data/diagnostics/latest_data_source.json。</p>
+  `;
+}
+
+document.getElementById("diagnose-data-sources")
+  .addEventListener("click", async () => {
+    const panel = document.getElementById("data-source-diagnostic");
+    panel.hidden = false;
+    panel.className = "result-box";
+    panel.textContent = "正在分别检测 AKShare 历史接口、东方财富直接历史接口和 AKShare 实时接口……";
+    try {
+      const response = await fetch("/api/data-sources/diagnose", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+      });
+      const data = await response.json();
+      if (!response.ok || !data.success) {
+        throw new Error(data.message || `HTTP ${response.status}`);
+      }
+      panel.classList.add(data.diagnostic?.ok ? "success" : "error");
+      panel.innerHTML = renderDataSourceDiagnostic(data.diagnostic);
+    } catch (error) {
+      panel.classList.add("error");
+      panel.textContent = `数据源诊断失败：${error}`;
+    }
+  });
