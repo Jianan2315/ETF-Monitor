@@ -372,8 +372,10 @@ python run.py --mode intraday --slot 14:45
 双击：
 
 ```text
-Start ETF Monitor.vbs
+Start ETF Monitor.bat
 ```
+
+双击后会打开一个可见的命令窗口。该窗口会逐步显示环境检查、依赖安装和服务器启动状态。
 
 程序会自动：
 
@@ -582,3 +584,38 @@ logs/scheduled_tasks.log
 - `auto`：全天可设置，由程序在运行时判断市场阶段。
 
 `config/schedule.json` 中的盘中和收盘时点仍作为默认配置使用，但不会自动建立 Windows 系统任务。实际计划统一在“定时运行计划”页面管理。
+
+
+## V10.3 可见启动器
+
+VBS 启动方式已经移除。请直接双击：
+
+```text
+Start ETF Monitor.bat
+```
+
+启动窗口会依次显示：
+
+```text
+[1/5] 检查 Python
+[2/5] 检查或创建 .venv
+[3/5] 检查或安装依赖
+[4/5] 检查 control_server.py
+[5/5] 启动控制台
+```
+
+服务器运行期间，请保持这个命令窗口打开。关闭窗口或按 `Ctrl+C` 会停止本地控制台。
+
+发生错误时，窗口不会立即消失，而会停留并显示错误信息。启动过程同时记录到：
+
+```text
+logs/launcher.log
+```
+
+原来的 `launch_monitor.bat` 仍然保留，用于兼容旧快捷方式，但它只是调用新的：
+
+```text
+Start ETF Monitor.bat
+```
+
+桌面快捷方式工具现在也会指向 BAT 文件，不再依赖 Windows Script Host 或 VBS。
