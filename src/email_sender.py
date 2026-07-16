@@ -124,6 +124,21 @@ def _plain_body(result: dict, include_raw: bool = True, forced: bool = False) ->
     )
     parts.append(metadata)
 
+    data_status = result.get("data_status", {}) or {}
+    status_lines = []
+    for key, label in [
+        ("history", "历史日线"),
+        ("realtime", "实时快照"),
+        ("intraday", "一分钟分时"),
+    ]:
+        item = data_status.get(key, {}) or {}
+        status_lines.append(
+            f"{label}：{item.get('status', 'UNKNOWN')}｜"
+            f"{item.get('message', '无说明')}"
+        )
+    if status_lines:
+        parts.append("数据状态：\n" + "\n".join(status_lines))
+
     if forced:
         parts.append(
             "邮件测试模式已开启：本邮件绕过状态触发条件，用于验证 Microsoft Graph 通知。"
@@ -219,6 +234,31 @@ def _html_body(result: dict, include_raw: bool = True, forced: bool = False) -> 
             + "</table>"
         )
 
+    data_status = result.get("data_status", {}) or {}
+    data_status_rows = "".join(
+        (
+            '<div style="padding:6px 0;border-bottom:1px solid #edf2f7">'
+            f'<b>{html.escape(label)}：</b>'
+            f'{html.escape(str((data_status.get(key) or {}).get("status", "UNKNOWN")))}'
+            '<br>'
+            f'<span style="color:#64748b">'
+            f'{html.escape(str((data_status.get(key) or {}).get("message", "无说明")))}'
+            '</span></div>'
+        )
+        for key, label in [
+            ("history", "历史日线"),
+            ("realtime", "实时快照"),
+            ("intraday", "一分钟分时"),
+        ]
+    )
+    data_status_html = (
+        '<div style="padding:14px 16px;background:#fff;border:1px solid #e2e8f0;'
+        'border-radius:10px;margin-bottom:16px">'
+        '<b>数据状态</b>'
+        f'{data_status_rows}'
+        '</div>'
+    )
+
     metadata = f"""
     <div style="padding:14px 16px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;margin-bottom:16px;line-height:1.8">
       <div><b>数据源：</b>{html.escape(str(result.get('data_source', '未知')))}</div>
@@ -234,6 +274,7 @@ def _html_body(result: dict, include_raw: bool = True, forced: bool = False) -> 
 <body style="font-family:Arial,Microsoft YaHei,sans-serif;color:#172033;background:#f4f6f8;padding:24px">
   <div style="max-width:680px;margin:auto;background:white;border-radius:16px;padding:24px">
     {metadata}
+    {data_status_html}
     {test_banner}
     {summary}
     <h2 style="margin:0 0 4px">{html.escape(asset['name'])}</h2>

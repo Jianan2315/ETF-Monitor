@@ -68,13 +68,29 @@ function validatePayload(payload) {
   return null;
 }
 
+function formatScheduleTime(value) {
+  if (!value) return "尚无";
+  return String(value).replace("T", " ");
+}
+
+function resultLabel(plan) {
+  if (plan.running) return "正在运行";
+  if (plan.last_result === "SUCCESS") return "成功";
+  if (plan.last_result === "FAILED") return "失败";
+  return "尚未运行";
+}
+
 function planCard(plan) {
   const statusClass = plan.enabled ? "active" : "inactive";
   const taskClass = plan.system_task_exists ? "ok-text" : "bad-text";
+  const resultClass = plan.last_result === "FAILED"
+    ? "bad-text"
+    : (plan.last_result === "SUCCESS" ? "ok-text" : "");
+
   return `
     <article class="schedule-item ${statusClass}">
       <div class="schedule-main">
-        <div>
+        <div class="schedule-details">
           <div class="schedule-title-row">
             <h3>${plan.name}</h3>
             <span class="schedule-badge">${plan.enabled ? "已启用" : "已停用"}</span>
@@ -82,8 +98,18 @@ function planCard(plan) {
           <p><strong>${plan.time}</strong> · ${modeLabels[plan.mode] || plan.mode}</p>
           <p>${weekdayText(plan)}</p>
           <p class="${taskClass}">
-            系统任务：${plan.system_task_exists ? "已同步" : "未找到"}
+            系统任务：${plan.system_task_exists ? "已同步（隐藏后台运行）" : "未找到"}
           </p>
+          <div class="schedule-runtime-grid">
+            <div><span>下次运行</span><strong>${formatScheduleTime(plan.next_run)}</strong></div>
+            <div><span>上次开始</span><strong>${formatScheduleTime(plan.last_run_started)}</strong></div>
+            <div><span>上次结束</span><strong>${formatScheduleTime(plan.last_run_finished)}</strong></div>
+            <div><span>执行结果</span><strong class="${resultClass}">${resultLabel(plan)}</strong></div>
+            <div><span>退出码</span><strong>${plan.last_return_code ?? "-"}</strong></div>
+            <div><span>报告</span><strong>${plan.last_report_generated ? "已生成" : "未生成/无记录"}</strong></div>
+            <div><span>邮件</span><strong>${plan.last_email_status || "无记录"}</strong></div>
+          </div>
+          <p class="schedule-last-message">${plan.last_message || "尚无执行记录"}</p>
         </div>
         <div class="button-row schedule-actions">
           <button data-action="run" data-id="${plan.id}" class="secondary-button">立即运行</button>
@@ -177,8 +203,8 @@ async function savePlan() {
   dialog.close();
   showResult(
     data.system_message
-      ? `${data.message}\n${data.system_message}`
-      : data.message,
+      ? `${data.message}\n${data.system_message}\n保存操作本身不会立即运行。`
+      : `${data.message}\n保存操作本身不会立即运行。`,
     data.success
   );
   if (data.success) {

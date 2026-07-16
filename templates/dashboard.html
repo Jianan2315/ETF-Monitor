@@ -43,6 +43,22 @@
             <ul>{% for warning in result.data_warnings %}<li>{{ warning }}</li>{% endfor %}</ul>
           </div>
           {% endif %}
+          {% if result.data_status %}
+          <div class="data-status-grid">
+            {% for key, label in [('history', '历史日线'), ('realtime', '实时快照'), ('intraday', '一分钟分时')] %}
+              {% set item = result.data_status.get(key, {}) %}
+              <article class="data-status-item status-data-{{ item.get('status', 'unknown')|lower }}">
+                <span>{{ label }}</span>
+                <strong>{{ item.get('status', 'UNKNOWN') }}</strong>
+                <p>{{ item.get('message', '无说明') }}</p>
+                {% if item.get('source') %}<small>来源：{{ item.get('source') }}</small>{% endif %}
+                {% if key == 'intraday' and item.get('points') is not none %}
+                  <small>数据点：{{ item.get('points') }}{% if item.get('approximate') %} · 近似图{% endif %}</small>
+                {% endif %}
+              </article>
+            {% endfor %}
+          </div>
+          {% endif %}
         </div>
         <div class="status-wrap">
           <div class="status-badge status-{{ result.decision.status | lower }}">{{ result.decision.status }}</div>
@@ -147,7 +163,19 @@
           {% for item in result.operation_history %}
           <article class="operation-item operation-{{ item.type|lower }}">
             <div class="operation-dot"></div>
-            <div><strong>{{ item.date }} · {{ '买入' if item.type == 'BUY' else '卖出' }}</strong><p>{{ "%.2f"|format(item.amount) }} 元 · 价格 {{ "%.4f"|format(item.price) }}{% if item.note %} · {{ item.note }}{% endif %}</p></div>
+            <div>
+              <strong>
+                {{ item.date }} · {{ '买入' if item.type == 'BUY' else '卖出' }}
+                · {{ item.status or 'CONFIRMED' }}
+              </strong>
+              <p>
+                金额 {{ "%.2f"|format(item.amount or 0) }} 元 ·
+                份额 {{ "%.4f"|format(item.shares or 0) }} ·
+                均价 {{ "%.4f"|format(item.price or 0) }}
+                {% if item.estimated %} · 收盘价估算{% endif %}
+                {% if item.note %} · {{ item.note }}{% endif %}
+              </p>
+            </div>
           </article>
           {% endfor %}
         </div>
@@ -159,16 +187,15 @@
           <div>
             <h3 class="chart-title">今日走势</h3>
             <p class="muted">
-              {% if result.intraday_chart_data %}
-                09:30—15:00 分时价格；盘中数据尚未收盘。
-              {% elif result.data_phase == 'PRE_OPEN' %}
-                当前尚未开盘，09:30 后显示分时数据。
-              {% elif result.data_phase == 'WEEKEND' %}
-                今日非交易日，暂无分时数据。
-              {% elif result.data_phase == 'MIDDAY_BREAK' %}
-                当前为午间休市；若分时接口暂不可用，图表保持为空，但上午最后实时价格仍可用于报告。
+              {% set intraday_status = result.data_status.get('intraday', {}) if result.data_status else {} %}
+              {% if intraday_status.get('status') == 'SUCCESS' %}
+                {{ intraday_status.get('message') }}；来源：{{ intraday_status.get('source') }}。
+              {% elif intraday_status.get('status') == 'APPROXIMATE' %}
+                {{ intraday_status.get('message') }}。图中仅为近似线，不代表完整分钟走势。
+              {% elif intraday_status.get('status') == 'NOT_REQUIRED' %}
+                {{ intraday_status.get('message') }}。
               {% else %}
-                当前暂无今日分时数据。
+                分时数据不可用：{{ intraday_status.get('message', '接口未返回数据') }}。
               {% endif %}
             </p>
           </div>

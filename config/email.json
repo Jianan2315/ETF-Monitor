@@ -17,8 +17,8 @@
     "include_raw_metrics": true,
     "html": true,
     "debug": {
-      "enabled": true,
-      "force_send_email": true,
+      "enabled": false,
+      "force_send_email": false,
       "verbose_logging": true
     },
     "graph": {

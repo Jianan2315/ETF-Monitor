@@ -58,7 +58,7 @@ async function loadEnvironment() {
     }
     const data = await response.json();
 
-    if (data.control_version && data.control_version !== "11.5") {
+    if (data.control_version && data.control_version !== "11.6") {
       environmentGrid.innerHTML = `
         <div class="result-box error">
           当前浏览器连接的是旧版控制服务（${data.control_version}）。
@@ -87,6 +87,55 @@ async function loadEnvironment() {
   }
 }
 
+
+function runStepStatusLabel(status) {
+  return {
+    SUCCESS: "成功",
+    WARNING: "警告",
+    FAILED: "失败",
+    SKIPPED: "跳过",
+  }[status] || status || "未知";
+}
+
+function renderRunResult(data) {
+  const steps = Array.isArray(data.steps) ? data.steps : [];
+  const stepHtml = steps.length
+    ? `
+      <div class="run-step-list">
+        ${steps.map(step => `
+          <article class="run-step ${String(step.status || "").toLowerCase()}">
+            <div class="run-step-title">
+              <strong>${step.label || step.key || "步骤"}</strong>
+              <span>${runStepStatusLabel(step.status)}</span>
+            </div>
+            <p>${step.message || "-"}</p>
+          </article>
+        `).join("")}
+      </div>
+    `
+    : "<p>后台没有返回步骤明细。</p>";
+
+  const errorHtml = Array.isArray(data.errors) && data.errors.length
+    ? `
+      <details class="run-error-details">
+        <summary>查看错误明细</summary>
+        <pre>${data.errors.join("\n")}</pre>
+      </details>
+    `
+    : "";
+
+  return `
+    <strong>${data.message || (data.success ? "运行成功" : "运行失败")}</strong>
+    <p>
+      返回码：${data.return_code ?? "-"} ·
+      阶段：${data.phase || "-"} ·
+      邮件：${data.email_status || "UNKNOWN"}
+    </p>
+    ${stepHtml}
+    ${errorHtml}
+  `;
+}
+
 async function runReport(mode) {
   runResult.hidden = false;
   runResult.className = "result-box";
@@ -102,7 +151,7 @@ async function runReport(mode) {
     const data = await response.json();
 
     runResult.classList.add(data.success ? "success" : "error");
-    runResult.textContent = data.message;
+    runResult.innerHTML = renderRunResult(data);
 
     if (data.success && data.report_url) {
       setTimeout(() => {

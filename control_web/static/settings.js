@@ -1,6 +1,7 @@
 let originalSettings = null;
 let pendingSettingsPayload = null;
 let pendingTransaction = null;
+let transactionRecords = [];
 
 const form = document.getElementById("settings-form");
 const previewBox = document.getElementById("settings-preview");
@@ -292,43 +293,166 @@ async function saveSettings() {
 
 function transactionPayload() {
   return {
+    id: document.getElementById("tx-id").value || undefined,
     type: document.getElementById("tx-type").value,
     date: document.getElementById("tx-date").value,
+    pricing_mode: document.getElementById("tx-pricing-mode").value,
     amount: document.getElementById("tx-amount").value,
-    price: document.getElementById("tx-price").value,
     shares: document.getElementById("tx-shares").value,
     note: document.getElementById("tx-note").value,
   };
 }
 
+function pricingModeLabel(mode) {
+  return {
+    CONFIRMED: "已确认",
+    PENDING: "待确认",
+    CLOSE_ESTIMATE: "按收盘价估算",
+  }[mode] || mode;
+}
+
+function transactionStatusLabel(status) {
+  return {
+    CONFIRMED: "真实确认",
+    PENDING: "待确认",
+    PENDING_CLOSE: "等待收盘价",
+    ESTIMATED: "收盘价估算",
+  }[status] || status || "未知";
+}
+
+function formatNumber(value, digits = 4) {
+  const number = Number(value);
+  return Number.isFinite(number) && number !== 0
+    ? number.toFixed(digits)
+    : "-";
+}
+
+function updateTransactionMode() {
+  const type = document.getElementById("tx-type").value;
+  const mode = document.getElementById("tx-pricing-mode").value;
+  const amountLabel = document.getElementById("tx-amount-label");
+  const sharesLabel = document.getElementById("tx-shares-label");
+  const guidance = document.getElementById("transaction-mode-guidance");
+
+  amountLabel.childNodes[0].nodeValue =
+    type === "BUY"
+      ? "实际投入/到账金额（元） "
+      : "实际卖出到账金额（元） ";
+  sharesLabel.childNodes[0].nodeValue =
+    type === "BUY"
+      ? "实际确认份额 "
+      : "实际卖出份额 ";
+
+  if (mode === "CONFIRMED") {
+    guidance.textContent =
+      "已确认模式需要同时填写实际金额和实际份额，系统自动计算平均成交价。";
+  } else if (mode === "PENDING") {
+    guidance.textContent =
+      type === "BUY"
+        ? "待确认买入只需先填写投入金额；收到平台确认份额后再修改记录。"
+        : "待确认卖出只需先填写卖出份额；收到实际到账金额后再修改记录。";
+  } else {
+    guidance.textContent =
+      type === "BUY"
+        ? "先填写买入金额；当该日期的正式或临时收盘数据可用后，系统按收盘价估算份额。"
+        : "先填写卖出份额；当该日期的收盘数据可用后，系统按收盘价估算到账金额。";
+  }
+  updateCalculatedPrice();
+}
+
+function updateCalculatedPrice() {
+  const mode = document.getElementById("tx-pricing-mode").value;
+  const amount = Number(document.getElementById("tx-amount").value);
+  const shares = Number(document.getElementById("tx-shares").value);
+  const output = document.getElementById("tx-calculated-price");
+
+  if (mode === "CONFIRMED" && amount > 0 && shares > 0) {
+    output.value = (amount / shares).toFixed(6);
+  } else if (mode === "CLOSE_ESTIMATE") {
+    output.value = "等待当日收盘价";
+  } else if (mode === "PENDING") {
+    output.value = "待确认后计算";
+  } else {
+    output.value = "";
+  }
+}
+
+function resetTransactionForm() {
+  document.getElementById("tx-id").value = "";
+  document.getElementById("tx-type").value = "BUY";
+  document.getElementById("tx-pricing-mode").value = "CONFIRMED";
+  resetTransactionForm();
+loadTransactions();
+  document.getElementById("tx-amount").value = "";
+  document.getElementById("tx-shares").value = "";
+  document.getElementById("tx-note").value = "";
+  document.getElementById("transaction-form-title").textContent = "新增交易记录";
+  document.getElementById("cancel-transaction-edit").hidden = true;
+  pendingTransaction = null;
+  updateTransactionMode();
+}
+
+function validateTransactionPayload(payload) {
+  if (!payload.date) return "交易日期不能为空。";
+  const amount = Number(payload.amount || 0);
+  const shares = Number(payload.shares || 0);
+
+  if (payload.pricing_mode === "CONFIRMED") {
+    if (!(amount > 0 && shares > 0)) {
+      return "已确认交易需要同时填写实际金额和实际份额。";
+    }
+  } else if (payload.type === "BUY" && !(amount > 0)) {
+    return "待确认或收盘价估算的买入至少需要填写投入金额。";
+  } else if (payload.type === "SELL" && !(shares > 0)) {
+    return "待确认或收盘价估算的卖出至少需要填写卖出份额。";
+  }
+  return null;
+}
+
 function previewTransaction() {
   const payload = transactionPayload();
   const preview = document.getElementById("transaction-preview");
-  const amount = Number(payload.amount);
-  const price = Number(payload.price);
-  const estimatedShares = amount > 0 && price > 0 ? amount / price : 0;
+  const error = validateTransactionPayload(payload);
+  if (error) {
+    preview.hidden = false;
+    preview.className = "result-box error";
+    preview.textContent = error;
+    return;
+  }
+
+  const amount = Number(payload.amount || 0);
+  const shares = Number(payload.shares || 0);
+  const calculatedPrice =
+    payload.pricing_mode === "CONFIRMED" && amount > 0 && shares > 0
+      ? (amount / shares).toFixed(6)
+      : (
+          payload.pricing_mode === "CLOSE_ESTIMATE"
+            ? "等待收盘价后估算"
+            : "待确认后计算"
+        );
 
   pendingTransaction = payload;
   preview.hidden = false;
   preview.className = "result-box success";
   preview.innerHTML = `
-    <strong>待新增交易记录</strong>
+    <strong>${payload.id ? "待修改交易记录" : "待新增交易记录"}</strong>
     <ol class="change-list">
       <li>类型：${payload.type === "BUY" ? "买入" : "卖出"}</li>
-      <li>日期：${payload.date || "未填写"}</li>
-      <li>金额：${payload.amount || "未填写"} 元</li>
-      <li>成交价格：${payload.price || "未填写"}</li>
-      <li>预计份额：${estimatedShares ? estimatedShares.toFixed(4) : "无法计算"}</li>
+      <li>日期：${payload.date}</li>
+      <li>价格方式：${pricingModeLabel(payload.pricing_mode)}</li>
+      <li>金额：${amount > 0 ? amount.toFixed(2) : "待确认"} 元</li>
+      <li>份额：${shares > 0 ? shares.toFixed(4) : "待确认"}</li>
+      <li>自动成交均价：${calculatedPrice}</li>
       <li>备注：${payload.note || "无"}</li>
     </ol>
-    <button id="confirm-transaction">确认保存交易记录</button>
+    <button id="confirm-transaction">${payload.id ? "确认修改" : "确认保存"}</button>
   `;
   document.getElementById("confirm-transaction")
     .addEventListener("click", saveTransaction);
 }
 
 async function saveTransaction() {
-  const response = await fetch("/api/transactions/add", {
+  const response = await fetch("/api/transactions/save", {
     method: "POST",
     headers: {"Content-Type": "application/json"},
     body: JSON.stringify(pendingTransaction),
@@ -337,7 +461,140 @@ async function saveTransaction() {
   const preview = document.getElementById("transaction-preview");
   preview.className = `result-box ${data.success ? "success" : "error"}`;
   preview.textContent = data.message;
+
+  if (data.success) {
+    resetTransactionForm();
+    await loadTransactions();
+  }
 }
+
+function transactionCard(record) {
+  const statusClass =
+    record.status === "CONFIRMED"
+      ? "ok-text"
+      : (
+          record.status === "ESTIMATED"
+            ? "warning-text"
+            : "bad-text"
+        );
+
+  return `
+    <article class="transaction-item">
+      <div class="transaction-item-main">
+        <div>
+          <div class="transaction-title-row">
+            <strong>${record.type === "BUY" ? "买入" : "卖出"} · ${record.date}</strong>
+            <span class="transaction-badge ${record.estimated ? "estimated" : ""}">
+              ${transactionStatusLabel(record.status)}
+            </span>
+          </div>
+          <p>
+            金额：${formatNumber(record.amount, 2)} 元 ·
+            份额：${formatNumber(record.shares, 4)} ·
+            均价：${formatNumber(record.price, 6)}
+          </p>
+          <p class="${statusClass}">
+            价格来源：${record.price_source || "-"} ·
+            ${record.note || "无备注"}
+          </p>
+        </div>
+        <div class="button-row">
+          <button class="secondary-button" data-tx-action="edit" data-id="${record.id}">修改</button>
+          <button class="danger-button" data-tx-action="delete" data-id="${record.id}">删除</button>
+        </div>
+      </div>
+    </article>
+  `;
+}
+
+async function loadTransactions() {
+  const list = document.getElementById("transaction-list");
+  list.innerHTML = "<p>正在读取交易记录……</p>";
+  try {
+    const response = await fetch(`/api/transactions?t=${Date.now()}`, {
+      cache: "no-store",
+    });
+    const data = await response.json();
+    if (!response.ok || !data.success) {
+      throw new Error(data.message || `HTTP ${response.status}`);
+    }
+    transactionRecords = data.records || [];
+    list.innerHTML = transactionRecords.length
+      ? transactionRecords.map(transactionCard).join("")
+      : '<div class="empty-state">尚无交易记录。</div>';
+  } catch (error) {
+    list.innerHTML = `<div class="result-box error">读取交易记录失败：${error}</div>`;
+  }
+}
+
+function editTransaction(id) {
+  const record = transactionRecords.find(item => item.id === id);
+  if (!record) return;
+
+  document.getElementById("tx-id").value = record.id;
+  document.getElementById("tx-type").value = record.type;
+  document.getElementById("tx-date").value = record.date;
+  document.getElementById("tx-pricing-mode").value =
+    record.pricing_mode || (
+      record.status === "ESTIMATED"
+        ? "CLOSE_ESTIMATE"
+        : "CONFIRMED"
+    );
+  document.getElementById("tx-amount").value = record.amount || "";
+  document.getElementById("tx-shares").value = record.shares || "";
+  document.getElementById("tx-note").value = record.note || "";
+  document.getElementById("transaction-form-title").textContent = "修改交易记录";
+  document.getElementById("cancel-transaction-edit").hidden = false;
+  updateTransactionMode();
+  window.scrollTo({top: 0, behavior: "smooth"});
+}
+
+async function deleteTransaction(id) {
+  const record = transactionRecords.find(item => item.id === id);
+  if (!record) return;
+  if (!confirm(`确定删除 ${record.date} 的这笔${record.type === "BUY" ? "买入" : "卖出"}记录吗？`)) {
+    return;
+  }
+
+  const response = await fetch("/api/transactions/delete", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({id}),
+  });
+  const data = await response.json();
+  const preview = document.getElementById("transaction-preview");
+  preview.hidden = false;
+  preview.className = `result-box ${data.success ? "success" : "error"}`;
+  preview.textContent = data.message;
+  if (data.success) {
+    resetTransactionForm();
+    await loadTransactions();
+  }
+}
+
+document.getElementById("transaction-list")
+  .addEventListener("click", event => {
+    const button = event.target.closest("button[data-tx-action]");
+    if (!button) return;
+    if (button.dataset.txAction === "edit") {
+      editTransaction(button.dataset.id);
+    } else if (button.dataset.txAction === "delete") {
+      deleteTransaction(button.dataset.id);
+    }
+  });
+
+document.getElementById("tx-type")
+  .addEventListener("change", updateTransactionMode);
+document.getElementById("tx-pricing-mode")
+  .addEventListener("change", updateTransactionMode);
+document.getElementById("tx-amount")
+  .addEventListener("input", updateCalculatedPrice);
+document.getElementById("tx-shares")
+  .addEventListener("input", updateCalculatedPrice);
+document.getElementById("cancel-transaction-edit")
+  .addEventListener("click", resetTransactionForm);
+document.getElementById("refresh-transactions")
+  .addEventListener("click", loadTransactions);
 
 document.getElementById("preview-settings")
   .addEventListener("click", previewChanges);
@@ -361,7 +618,8 @@ document.getElementById("confirm-save")
 document.getElementById("preview-transaction")
   .addEventListener("click", previewTransaction);
 
-document.getElementById("tx-date").valueAsDate = new Date();
+resetTransactionForm();
+loadTransactions();
 
 fetch("/api/settings")
   .then(response => response.json())

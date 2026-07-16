@@ -21,7 +21,7 @@
       <div class="section-title-row">
         <div>
           <h2 id="form-title">新增计划</h2>
-          <p>保存后会同步到 Windows 任务计划程序。项目关闭时，计划仍可自动运行。</p>
+          <p>保存后只会同步到 Windows 任务计划程序，不会立即生成报告或发送邮件。只有到达设定时间，或点击“立即运行”，计划才会执行。</p>
         </div>
         <button id="sync-all" class="secondary-button">重新同步全部计划</button>
       </div>
@@ -76,7 +76,7 @@
       <div class="section-title-row">
         <div>
           <h2>现有计划</h2>
-          <p>“系统任务”用于确认计划是否已经写入 Windows 任务计划程序。</p>
+          <p>列表会显示系统任务、下次运行时间、上次运行时间和最近执行结果。</p>
         </div>
         <button id="refresh-plans" class="secondary-button">刷新列表</button>
       </div>

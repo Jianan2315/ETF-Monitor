@@ -37,6 +37,7 @@ class MarketBundle:
     cache_date: str | None = None
     data_warnings: list[str] | None = None
     phase_label: str | None = None
+    data_status: dict[str, Any] | None = None
 
 
 @dataclass

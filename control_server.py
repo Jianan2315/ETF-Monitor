@@ -2,6 +2,9 @@ from __future__ import annotations
 
 import json
 import os
+import csv
+import html
+import io
 import shutil
 import socket
 import subprocess
@@ -26,6 +29,11 @@ from src.data_fetcher import (
 )
 from src.browser_inspector import inspect_browser_requests
 from src.logger import configure_logging
+from src.transactions import (
+    delete_transaction,
+    load_transactions,
+    save_transaction,
+)
 from src.power_management import (
     disable_keep_awake,
     enable_keep_awake,
@@ -36,7 +44,7 @@ from src.power_management import (
 ROOT = Path(__file__).resolve().parent
 HOST = "127.0.0.1"
 PORT = 8765
-CONTROL_VERSION = "11.5"
+CONTROL_VERSION = "11.6"
 
 app = Flask(
     __name__,
@@ -77,6 +85,38 @@ def _backup_file(path: Path) -> Path | None:
     shutil.copy2(path, backup_path)
     return backup_path
 
+
+def _disable_legacy_force_email_once() -> None:
+    marker = (
+        ROOT
+        / "data"
+        / "migrations"
+        / "v11_6_force_email_disabled"
+    )
+    if marker.exists():
+        return
+
+    email_path = ROOT / "config" / "email.json"
+    email_doc = _read_json(email_path, {"email": {}})
+    debug = email_doc.setdefault("email", {}).setdefault(
+        "debug",
+        {},
+    )
+    changed = bool(
+        debug.get("enabled")
+        or debug.get("force_send_email")
+    )
+    debug["enabled"] = False
+    debug["force_send_email"] = False
+    if changed:
+        _backup_file(email_path)
+        _atomic_write_json(email_path, email_doc)
+
+    marker.parent.mkdir(parents=True, exist_ok=True)
+    marker.write_text(
+        datetime.now().isoformat(timespec="seconds"),
+        encoding="utf-8",
+    )
 
 def _migrate_legacy_report() -> None:
     old_path = ROOT / "output" / "index.html"
@@ -175,6 +215,10 @@ def _run_monitor(mode: str, slot: str) -> dict[str, Any]:
             "phase": status.get("phase"),
             "stdout": completed.stdout[-4000:],
             "stderr": completed.stderr[-4000:],
+            "steps": status.get("steps", []),
+            "data_status": status.get("data_status", {}),
+            "email_status": status.get("email_status", "UNKNOWN"),
+            "errors": status.get("errors", []),
             "report_url": "/report" if success else None,
         }
     except subprocess.TimeoutExpired:
@@ -475,9 +519,9 @@ def _load_settings() -> dict[str, Any]:
         "data": data_doc.get("data", {}),
         "report": report_doc.get("report", {}),
         "schedule": schedule_doc.get("schedule", {}),
-        "transactions": transactions_doc.get(
+        "transactions": load_transactions(
+            ROOT / "data" / "transactions.json",
             str(asset.get("symbol", "")),
-            [],
         ),
     }
 
@@ -714,54 +758,60 @@ def _save_settings(payload: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def _add_transaction(payload: dict[str, Any]) -> dict[str, Any]:
+def _transaction_context() -> tuple[str, Path]:
     assets_doc = _read_json(
         ROOT / "config" / "assets.json",
         {"assets": []},
     )
     if not assets_doc.get("assets"):
         raise ValueError("没有配置标的")
+    symbol = str(assets_doc["assets"][0]["symbol"])
+    return symbol, ROOT / "data" / "transactions.json"
 
-    asset = assets_doc["assets"][0]
-    symbol = str(asset["symbol"])
-    transaction_path = ROOT / "data" / "transactions.json"
-    transactions_doc = _read_json(transaction_path, {})
-    records = transactions_doc.setdefault(symbol, [])
 
-    tx_type = str(payload.get("type", "")).upper()
-    if tx_type not in {"BUY", "SELL"}:
-        raise ValueError("交易类型必须是 BUY 或 SELL")
-
-    date = str(payload.get("date", "")).strip()
-    if not date:
-        raise ValueError("交易日期不能为空")
-
-    amount = _coerce_float(payload.get("amount"), "交易金额")
-    price = _coerce_float(payload.get("price"), "成交价格")
-    if amount <= 0 or price <= 0:
-        raise ValueError("交易金额和价格必须大于0")
-
-    record = {
-        "date": date,
-        "type": tx_type,
-        "amount": amount,
-        "price": price,
-        "note": str(payload.get("note", "")).strip(),
-    }
-
-    shares = payload.get("shares")
-    if shares not in (None, ""):
-        record["shares"] = _coerce_float(shares, "卖出份额")
-
-    _backup_file(transaction_path)
-    records.append(record)
-    records.sort(key=lambda item: str(item.get("date", "")))
-    _atomic_write_json(transaction_path, transactions_doc)
-
+def _list_transactions() -> dict[str, Any]:
+    symbol, transaction_path = _transaction_context()
     return {
         "success": True,
-        "message": "交易记录已保存。",
+        "symbol": symbol,
+        "records": list(reversed(
+            load_transactions(transaction_path, symbol)
+        )),
+    }
+
+
+def _save_transaction_record(payload: dict[str, Any]) -> dict[str, Any]:
+    symbol, transaction_path = _transaction_context()
+    _backup_file(transaction_path)
+    record = save_transaction(
+        transaction_path,
+        symbol,
+        payload,
+    )
+    return {
+        "success": True,
+        "message": (
+            "交易记录已更新。"
+            if payload.get("id")
+            else "交易记录已新增。"
+        ),
         "record": record,
+    }
+
+
+def _delete_transaction_record(transaction_id: str) -> dict[str, Any]:
+    symbol, transaction_path = _transaction_context()
+    _backup_file(transaction_path)
+    deleted = delete_transaction(
+        transaction_path,
+        symbol,
+        transaction_id,
+    )
+    if not deleted:
+        raise ValueError("没有找到该交易记录")
+    return {
+        "success": True,
+        "message": "交易记录已删除。",
     }
 
 
@@ -909,6 +959,180 @@ def _task_exists(task_name: str) -> bool:
     return completed.returncode == 0
 
 
+def _schedule_status_path(plan_id: str) -> Path:
+    return ROOT / "data" / "schedule_status" / f"{plan_id}.json"
+
+
+def _schedule_task_xml_path(plan_id: str) -> Path:
+    return SCHEDULE_WRAPPER_DIR / f"{plan_id}.xml"
+
+
+def _schedule_pythonw() -> Path:
+    candidate = ROOT / ".venv" / "Scripts" / "pythonw.exe"
+    if candidate.exists():
+        return candidate
+    fallback = Path(sys.executable).with_name("pythonw.exe")
+    return fallback if fallback.exists() else Path(sys.executable)
+
+
+def _current_user_sid() -> str:
+    completed = subprocess.run(
+        ["whoami", "/user", "/fo", "csv", "/nh"],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        errors="replace",
+        timeout=15,
+        creationflags=(
+            subprocess.CREATE_NO_WINDOW
+            if os.name == "nt"
+            else 0
+        ),
+    )
+    if completed.returncode != 0:
+        raise RuntimeError(
+            completed.stderr.strip()
+            or "无法读取当前Windows用户SID"
+        )
+    rows = list(
+        csv.reader(io.StringIO(completed.stdout.strip()))
+    )
+    if not rows or len(rows[0]) < 2:
+        raise RuntimeError("无法解析当前Windows用户SID")
+    return rows[0][1].strip()
+
+
+def _days_xml(weekdays: list[str]) -> str:
+    mapping = {
+        "MON": "Monday",
+        "TUE": "Tuesday",
+        "WED": "Wednesday",
+        "THU": "Thursday",
+        "FRI": "Friday",
+        "SAT": "Saturday",
+        "SUN": "Sunday",
+    }
+    return "".join(
+        f"<{mapping[day]} />"
+        for day in weekdays
+        if day in mapping
+    )
+
+
+def _schedule_task_xml(plan: dict[str, Any]) -> str:
+    start_boundary = (
+        datetime.now().strftime("%Y-%m-%d")
+        + f"T{plan['time']}:00"
+    )
+    command = html.escape(str(_schedule_pythonw()))
+    runner = ROOT / "scheduled_runner.py"
+    safe_plan_name = str(plan["name"]).replace('"', "'")
+    arguments = html.escape(
+        f'"{runner}" '
+        f'--plan-id "{plan["id"]}" '
+        f'--mode "{plan["mode"]}" '
+        f'--slot "{plan["time"]}" '
+        f'--name "{safe_plan_name}"'
+    )
+    working_dir = html.escape(str(ROOT))
+    sid = html.escape(_current_user_sid())
+    enabled = "true" if plan.get("enabled", True) else "false"
+
+    return f"""<?xml version="1.0" encoding="UTF-16"?>
+<Task version="1.4" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
+  <RegistrationInfo>
+    <Description>ETF Monitor定时报告：{html.escape(plan["name"])}</Description>
+  </RegistrationInfo>
+  <Triggers>
+    <CalendarTrigger>
+      <StartBoundary>{start_boundary}</StartBoundary>
+      <Enabled>{enabled}</Enabled>
+      <ScheduleByWeek>
+        <WeeksInterval>1</WeeksInterval>
+        <DaysOfWeek>{_days_xml(plan["weekdays"])}</DaysOfWeek>
+      </ScheduleByWeek>
+    </CalendarTrigger>
+  </Triggers>
+  <Principals>
+    <Principal id="Author">
+      <UserId>{sid}</UserId>
+      <LogonType>InteractiveToken</LogonType>
+      <RunLevel>LeastPrivilege</RunLevel>
+    </Principal>
+  </Principals>
+  <Settings>
+    <MultipleInstancesPolicy>IgnoreNew</MultipleInstancesPolicy>
+    <DisallowStartIfOnBatteries>false</DisallowStartIfOnBatteries>
+    <StopIfGoingOnBatteries>false</StopIfGoingOnBatteries>
+    <AllowHardTerminate>true</AllowHardTerminate>
+    <StartWhenAvailable>true</StartWhenAvailable>
+    <RunOnlyIfNetworkAvailable>false</RunOnlyIfNetworkAvailable>
+    <IdleSettings>
+      <StopOnIdleEnd>false</StopOnIdleEnd>
+      <RestartOnIdle>false</RestartOnIdle>
+    </IdleSettings>
+    <AllowStartOnDemand>true</AllowStartOnDemand>
+    <Enabled>{enabled}</Enabled>
+    <Hidden>true</Hidden>
+    <WakeToRun>true</WakeToRun>
+    <ExecutionTimeLimit>PT30M</ExecutionTimeLimit>
+    <Priority>7</Priority>
+  </Settings>
+  <Actions Context="Author">
+    <Exec>
+      <Command>{command}</Command>
+      <Arguments>{arguments}</Arguments>
+      <WorkingDirectory>{working_dir}</WorkingDirectory>
+    </Exec>
+  </Actions>
+</Task>
+"""
+
+
+def _next_schedule_run(plan: dict[str, Any]) -> str | None:
+    if not plan.get("enabled", True):
+        return None
+    day_index = {
+        "MON": 0,
+        "TUE": 1,
+        "WED": 2,
+        "THU": 3,
+        "FRI": 4,
+        "SAT": 5,
+        "SUN": 6,
+    }
+    allowed = {
+        day_index[day]
+        for day in plan.get("weekdays", [])
+        if day in day_index
+    }
+    if not allowed:
+        return None
+
+    hour, minute = [
+        int(part) for part in plan["time"].split(":")
+    ]
+    now = datetime.now()
+    for offset in range(0, 8):
+        candidate_date = now.date() + timedelta(days=offset)
+        if candidate_date.weekday() not in allowed:
+            continue
+        candidate = datetime.combine(
+            candidate_date,
+            datetime.min.time(),
+        ).replace(hour=hour, minute=minute)
+        if candidate > now:
+            return candidate.isoformat(timespec="minutes")
+    return None
+
+
+def _schedule_runtime_status(plan_id: str) -> dict[str, Any]:
+    payload = _read_json(
+        _schedule_status_path(plan_id),
+        {},
+    )
+    return payload if isinstance(payload, dict) else {}
+
 def _sync_plan_to_windows(plan: dict[str, Any]) -> dict[str, Any]:
     if os.name != "nt":
         return {
@@ -916,57 +1140,61 @@ def _sync_plan_to_windows(plan: dict[str, Any]) -> dict[str, Any]:
             "message": "计划已保存，但当前不是Windows，无法创建系统定时任务。",
         }
 
-    wrapper_path = _write_plan_wrapper(plan)
-    task_name = plan["task_name"]
-    day_argument = ",".join(plan["weekdays"])
-    task_command = f'cmd.exe /d /c ""{wrapper_path}""'
-
+    SCHEDULE_WRAPPER_DIR.mkdir(parents=True, exist_ok=True)
+    xml_path = _schedule_task_xml_path(plan["id"])
+    xml_path.write_text(
+        _schedule_task_xml(plan),
+        encoding="utf-16",
+    )
     completed = _run_schtasks([
         "/Create",
         "/TN",
-        task_name,
-        "/TR",
-        task_command,
-        "/SC",
-        "WEEKLY",
-        "/D",
-        day_argument,
-        "/ST",
-        plan["time"],
+        plan["task_name"],
+        "/XML",
+        str(xml_path),
         "/F",
-        "/RL",
-        "LIMITED",
     ])
-
     if completed.returncode != 0:
         combined = f"{completed.stdout}\n{completed.stderr}".strip()
         return {
             "ok": False,
             "message": combined or "创建Windows定时任务失败",
         }
-
-    if not plan.get("enabled", True):
-        disabled = _run_schtasks(["/Change", "/TN", task_name, "/Disable"])
-        if disabled.returncode != 0:
-            combined = f"{disabled.stdout}\n{disabled.stderr}".strip()
-            return {
-                "ok": False,
-                "message": combined or "任务已创建，但禁用任务失败",
-            }
-
     return {
         "ok": True,
-        "message": "Windows定时任务已同步",
+        "message": (
+            "Windows定时任务已同步。保存计划不会立即运行；"
+            "只有到达设定时间或点击“立即运行”才会执行。"
+        ),
     }
 
 
 def _schedule_plan_view(plan: dict[str, Any]) -> dict[str, Any]:
-    task_exists = _task_exists(plan["task_name"]) if os.name == "nt" else False
+    task_exists = (
+        _task_exists(plan["task_name"])
+        if os.name == "nt"
+        else False
+    )
+    runtime = _schedule_runtime_status(plan["id"])
     return {
         **plan,
-        "weekday_labels": [DAY_LABELS[day] for day in plan["weekdays"]],
+        "weekday_labels": [
+            DAY_LABELS[day]
+            for day in plan["weekdays"]
+        ],
         "system_task_exists": task_exists,
         "platform_supported": os.name == "nt",
+        "next_run": _next_schedule_run(plan),
+        "last_run_started": runtime.get("started_at"),
+        "last_run_finished": runtime.get("finished_at"),
+        "last_result": runtime.get("status"),
+        "last_message": runtime.get("message"),
+        "last_return_code": runtime.get("return_code"),
+        "last_report_generated": runtime.get(
+            "report_generated"
+        ),
+        "last_email_status": runtime.get("email_status"),
+        "running": runtime.get("status") == "RUNNING",
     }
 
 
@@ -1037,6 +1265,8 @@ def _delete_schedule_plan(plan_id: str) -> dict[str, Any]:
         raise RuntimeError(delete_result["message"])
 
     _plan_wrapper_path(plan_id).unlink(missing_ok=True)
+    _schedule_task_xml_path(plan_id).unlink(missing_ok=True)
+    _schedule_status_path(plan_id).unlink(missing_ok=True)
     plans = [item for item in plans if item.get("id") != plan_id]
     _save_schedule_plans(plans)
     return {
@@ -1430,18 +1660,55 @@ def api_settings_save():
         ), 400
 
 
-@app.post("/api/transactions/add")
-def api_transactions_add():
+@app.get("/api/transactions")
+def api_transactions_get():
+    try:
+        return jsonify(_list_transactions())
+    except ValueError as exc:
+        return jsonify({
+            "success": False,
+            "message": str(exc),
+        }), 400
+
+
+@app.post("/api/transactions/save")
+def api_transactions_save():
     payload = request.get_json(silent=True) or {}
     try:
-        return jsonify(_add_transaction(payload))
+        return jsonify(_save_transaction_record(payload))
     except ValueError as exc:
+        return jsonify({
+            "success": False,
+            "message": str(exc),
+        }), 400
+
+
+@app.post("/api/transactions/delete")
+def api_transactions_delete():
+    payload = request.get_json(silent=True) or {}
+    try:
         return jsonify(
-            {
-                "success": False,
-                "message": str(exc),
-            }
-        ), 400
+            _delete_transaction_record(
+                str(payload.get("id", ""))
+            )
+        )
+    except ValueError as exc:
+        return jsonify({
+            "success": False,
+            "message": str(exc),
+        }), 400
+
+
+@app.post("/api/transactions/add")
+def api_transactions_add_legacy():
+    payload = request.get_json(silent=True) or {}
+    try:
+        return jsonify(_save_transaction_record(payload))
+    except ValueError as exc:
+        return jsonify({
+            "success": False,
+            "message": str(exc),
+        }), 400
 
 
 def _open_browser() -> None:
@@ -1457,6 +1724,7 @@ def _port_is_open() -> bool:
 
 if __name__ == "__main__":
     _migrate_legacy_report()
+    _disable_legacy_force_email_once()
 
     if _port_is_open():
         webbrowser.open(f"http://{HOST}:{PORT}/")
