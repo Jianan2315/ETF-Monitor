@@ -10,12 +10,15 @@ import socket
 import subprocess
 import re
 import uuid
+import xml.etree.ElementTree as ET
 import sys
 import threading
 import time
 import webbrowser
 from datetime import datetime, timedelta
 from pathlib import Path
+
+import pandas as pd
 from typing import Any
 
 import requests
@@ -32,6 +35,7 @@ from src.logger import configure_logging
 from src.transactions import (
     delete_transaction,
     load_transactions,
+    reconcile_pending_transactions,
     save_transaction,
 )
 from src.power_management import (
@@ -44,7 +48,7 @@ from src.power_management import (
 ROOT = Path(__file__).resolve().parent
 HOST = "127.0.0.1"
 PORT = 8765
-CONTROL_VERSION = "11.6"
+CONTROL_VERSION = "11.7"
 
 app = Flask(
     __name__,
@@ -788,12 +792,51 @@ def _save_transaction_record(payload: dict[str, Any]) -> dict[str, Any]:
         symbol,
         payload,
     )
+
+    # When the selected trade date already exists in the local daily cache,
+    # calculate shares and price immediately. Otherwise the record remains
+    # pending and run.py will reconcile it after fresh daily data is available.
+    cache_path = ROOT / "data" / "cache" / f"{symbol}_daily.json"
+    cache_doc = _read_json(cache_path, {})
+    rows = cache_doc.get("rows", [])
+    if rows:
+        history = pd.DataFrame(rows)
+        if "date" in history:
+            history["date"] = pd.to_datetime(
+                history["date"],
+                errors="coerce",
+            )
+            records = reconcile_pending_transactions(
+                transaction_path,
+                symbol,
+                history,
+            )
+            record = next(
+                (
+                    item
+                    for item in records
+                    if item.get("id") == record.get("id")
+                ),
+                record,
+            )
+
+    calculated = record.get("status") == "ESTIMATED"
     return {
         "success": True,
         "message": (
-            "交易记录已更新。"
-            if payload.get("id")
-            else "交易记录已新增。"
+            (
+                "交易记录已更新，并已根据该交易日收盘价自动计算份额和均价。"
+                if payload.get("id")
+                else "交易记录已新增，并已根据该交易日收盘价自动计算份额和均价。"
+            )
+            if calculated
+            else (
+                (
+                    "交易记录已更新；该日期收盘数据尚不可用，将在后续报告运行时自动计算。"
+                    if payload.get("id")
+                    else "交易记录已新增；该日期收盘数据尚不可用，将在后续报告运行时自动计算。"
+                )
+            )
         ),
         "record": record,
     }
@@ -831,10 +874,178 @@ DAY_LABELS = {
 }
 
 
-def _load_schedule_plans() -> list[dict[str, Any]]:
+def _system_task_names() -> list[str]:
+    if os.name != "nt":
+        return []
+    completed = _run_schtasks([
+        "/Query",
+        "/FO",
+        "CSV",
+        "/NH",
+    ])
+    if completed.returncode != 0:
+        return []
+
+    names: list[str] = []
+    rows = csv.reader(io.StringIO(completed.stdout))
+    for row in rows:
+        if not row:
+            continue
+        name = str(row[0]).strip().lstrip("\\")
+        if (
+            name.startswith(TASK_PREFIX)
+            and name != "ETFMonitor_KeepAwake"
+        ):
+            names.append(name)
+    return names
+
+
+def _xml_text(root, local_name: str) -> str | None:
+    for node in root.iter():
+        if node.tag.rsplit("}", 1)[-1] == local_name:
+            return node.text
+    return None
+
+
+def _import_plan_from_windows_task(
+    task_name: str,
+) -> dict[str, Any] | None:
+    completed = _run_schtasks([
+        "/Query",
+        "/TN",
+        task_name,
+        "/XML",
+    ])
+    if completed.returncode != 0 or not completed.stdout.strip():
+        return None
+
+    try:
+        root = ET.fromstring(completed.stdout)
+    except ET.ParseError:
+        return None
+
+    start_boundary = _xml_text(root, "StartBoundary")
+    if not start_boundary:
+        return None
+    try:
+        run_time = datetime.fromisoformat(start_boundary).strftime("%H:%M")
+    except ValueError:
+        return None
+
+    day_map = {
+        "Monday": "MON",
+        "Tuesday": "TUE",
+        "Wednesday": "WED",
+        "Thursday": "THU",
+        "Friday": "FRI",
+        "Saturday": "SAT",
+        "Sunday": "SUN",
+    }
+    weekdays = []
+    for node in root.iter():
+        local = node.tag.rsplit("}", 1)[-1]
+        if local in day_map:
+            weekdays.append(day_map[local])
+    if not weekdays:
+        weekdays = ["MON", "TUE", "WED", "THU", "FRI"]
+
+    arguments = _xml_text(root, "Arguments") or ""
+    description = _xml_text(root, "Description") or ""
+    mode_match = re.search(
+        r"--mode\s+[\"']?(auto|intraday|close)",
+        arguments,
+        re.IGNORECASE,
+    )
+    slot_match = re.search(
+        r"--slot\s+[\"']?(\d{2}:\d{2})",
+        arguments,
+    )
+    plan_id_match = re.search(
+        r"--plan-id\s+[\"']?([0-9a-fA-F-]{36})",
+        arguments,
+    )
+
+    mode = (
+        mode_match.group(1).lower()
+        if mode_match
+        else (
+            "close"
+            if run_time >= "15:05"
+            else "intraday"
+        )
+    )
+    if slot_match:
+        run_time = slot_match.group(1)
+
+    plan_id = (
+        _normalize_plan_id(plan_id_match.group(1))
+        if plan_id_match
+        else str(uuid.uuid4())
+    )
+    enabled_text = _xml_text(root, "Enabled")
+    enabled = str(enabled_text or "true").lower() != "false"
+
+    name = description.strip()
+    if name.startswith("ETF Monitor定时报告："):
+        name = name.split("：", 1)[1].strip()
+    if not name:
+        name = f"导入的系统计划 {run_time}"
+
+    now_text = datetime.now().isoformat(timespec="seconds")
+    return {
+        "id": plan_id,
+        "name": name[:60],
+        "mode": mode,
+        "time": run_time,
+        "weekdays": _normalize_weekdays(weekdays),
+        "enabled": enabled,
+        "task_name": task_name,
+        "created_at": now_text,
+        "updated_at": now_text,
+        "imported_from_windows": True,
+    }
+
+
+def _import_existing_windows_plans() -> dict[str, Any]:
+    if os.name != "nt":
+        return {
+            "imported": 0,
+            "message": "当前不是Windows，未扫描系统任务。",
+        }
+
+    plans = _load_schedule_plans_raw()
+    known_tasks = {
+        str(item.get("task_name", ""))
+        for item in plans
+    }
+    imported = []
+    for task_name in _system_task_names():
+        if task_name in known_tasks:
+            continue
+        plan = _import_plan_from_windows_task(task_name)
+        if plan is not None:
+            plans.append(plan)
+            imported.append(plan)
+
+    if imported:
+        _save_schedule_plans(plans)
+    return {
+        "imported": len(imported),
+        "message": (
+            f"已从Windows任务计划程序导入{len(imported)}个旧计划。"
+            if imported
+            else "未发现需要导入的旧计划。"
+        ),
+    }
+
+
+def _load_schedule_plans_raw() -> list[dict[str, Any]]:
     payload = _read_json(SCHEDULE_PLANS_FILE, {"plans": []})
     plans = payload.get("plans", [])
     return plans if isinstance(plans, list) else []
+
+def _load_schedule_plans() -> list[dict[str, Any]]:
+    return _load_schedule_plans_raw()
 
 
 def _save_schedule_plans(plans: list[dict[str, Any]]) -> None:
@@ -1303,6 +1514,7 @@ def _run_schedule_plan_now(plan_id: str) -> dict[str, Any]:
 
 
 def _sync_all_schedule_plans() -> dict[str, Any]:
+    import_result = _import_existing_windows_plans()
     plans = _load_schedule_plans()
     results = []
     failures = []
@@ -1324,6 +1536,7 @@ def _sync_all_schedule_plans() -> dict[str, Any]:
             else "部分定时计划同步失败：" + "；".join(failures)
         ),
         "results": results,
+        "import_result": import_result,
     }
 
 @app.get("/")
@@ -1594,11 +1807,13 @@ def api_report_run():
 
 @app.get("/api/schedules")
 def api_schedules_get():
+    import_result = _import_existing_windows_plans()
     plans = [_schedule_plan_view(plan) for plan in _load_schedule_plans()]
     return jsonify({
         "success": True,
         "platform_supported": os.name == "nt",
         "plans": plans,
+        "import_result": import_result,
     })
 
 
@@ -1633,6 +1848,25 @@ def api_schedules_run():
         return jsonify({"success": False, "message": str(exc)}), 400
     except RuntimeError as exc:
         return jsonify({"success": False, "message": str(exc)}), 500
+
+
+@app.post("/api/schedules/import")
+def api_schedules_import():
+    try:
+        result = _import_existing_windows_plans()
+        return jsonify({
+            "success": True,
+            **result,
+            "plans": [
+                _schedule_plan_view(plan)
+                for plan in _load_schedule_plans()
+            ],
+        })
+    except RuntimeError as exc:
+        return jsonify({
+            "success": False,
+            "message": str(exc),
+        }), 500
 
 
 @app.post("/api/schedules/sync")

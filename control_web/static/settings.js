@@ -298,7 +298,6 @@ function transactionPayload() {
     date: document.getElementById("tx-date").value,
     pricing_mode: document.getElementById("tx-pricing-mode").value,
     amount: document.getElementById("tx-amount").value,
-    shares: document.getElementById("tx-shares").value,
     note: document.getElementById("tx-note").value,
   };
 }
@@ -327,64 +326,32 @@ function formatNumber(value, digits = 4) {
     : "-";
 }
 
+
 function updateTransactionMode() {
   const type = document.getElementById("tx-type").value;
   const mode = document.getElementById("tx-pricing-mode").value;
   const amountLabel = document.getElementById("tx-amount-label");
-  const sharesLabel = document.getElementById("tx-shares-label");
   const guidance = document.getElementById("transaction-mode-guidance");
 
   amountLabel.childNodes[0].nodeValue =
     type === "BUY"
-      ? "实际投入/到账金额（元） "
-      : "实际卖出到账金额（元） ";
-  sharesLabel.childNodes[0].nodeValue =
-    type === "BUY"
-      ? "实际确认份额 "
-      : "实际卖出份额 ";
+      ? "买入金额（元） "
+      : "卖出到账金额（元） ";
 
-  if (mode === "CONFIRMED") {
-    guidance.textContent =
-      "已确认模式需要同时填写实际金额和实际份额，系统自动计算平均成交价。";
-  } else if (mode === "PENDING") {
-    guidance.textContent =
-      type === "BUY"
-        ? "待确认买入只需先填写投入金额；收到平台确认份额后再修改记录。"
-        : "待确认卖出只需先填写卖出份额；收到实际到账金额后再修改记录。";
-  } else {
-    guidance.textContent =
-      type === "BUY"
-        ? "先填写买入金额；当该日期的正式或临时收盘数据可用后，系统按收盘价估算份额。"
-        : "先填写卖出份额；当该日期的收盘数据可用后，系统按收盘价估算到账金额。";
-  }
-  updateCalculatedPrice();
+  guidance.textContent =
+    mode === "CLOSE_ESTIMATE"
+      ? "系统会读取该交易日收盘价，自动计算份额和均价。若当天收盘数据尚不可用，将暂存并在后续报告运行时自动补齐。"
+      : "这笔记录先作为待确认保存，不进入正式仓位计算；之后可修改为按收盘价自动计算。";
 }
 
-function updateCalculatedPrice() {
-  const mode = document.getElementById("tx-pricing-mode").value;
-  const amount = Number(document.getElementById("tx-amount").value);
-  const shares = Number(document.getElementById("tx-shares").value);
-  const output = document.getElementById("tx-calculated-price");
-
-  if (mode === "CONFIRMED" && amount > 0 && shares > 0) {
-    output.value = (amount / shares).toFixed(6);
-  } else if (mode === "CLOSE_ESTIMATE") {
-    output.value = "等待当日收盘价";
-  } else if (mode === "PENDING") {
-    output.value = "待确认后计算";
-  } else {
-    output.value = "";
-  }
-}
 
 function resetTransactionForm() {
   document.getElementById("tx-id").value = "";
   document.getElementById("tx-type").value = "BUY";
-  document.getElementById("tx-pricing-mode").value = "CONFIRMED";
+  document.getElementById("tx-pricing-mode").value = "CLOSE_ESTIMATE";
   resetTransactionForm();
 loadTransactions();
   document.getElementById("tx-amount").value = "";
-  document.getElementById("tx-shares").value = "";
   document.getElementById("tx-note").value = "";
   document.getElementById("transaction-form-title").textContent = "新增交易记录";
   document.getElementById("cancel-transaction-edit").hidden = true;
@@ -392,22 +359,14 @@ loadTransactions();
   updateTransactionMode();
 }
 
+
 function validateTransactionPayload(payload) {
   if (!payload.date) return "交易日期不能为空。";
   const amount = Number(payload.amount || 0);
-  const shares = Number(payload.shares || 0);
-
-  if (payload.pricing_mode === "CONFIRMED") {
-    if (!(amount > 0 && shares > 0)) {
-      return "已确认交易需要同时填写实际金额和实际份额。";
-    }
-  } else if (payload.type === "BUY" && !(amount > 0)) {
-    return "待确认或收盘价估算的买入至少需要填写投入金额。";
-  } else if (payload.type === "SELL" && !(shares > 0)) {
-    return "待确认或收盘价估算的卖出至少需要填写卖出份额。";
-  }
+  if (!(amount > 0)) return "交易金额必须大于0。";
   return null;
 }
+
 
 function previewTransaction() {
   const payload = transactionPayload();
@@ -421,15 +380,10 @@ function previewTransaction() {
   }
 
   const amount = Number(payload.amount || 0);
-  const shares = Number(payload.shares || 0);
   const calculatedPrice =
-    payload.pricing_mode === "CONFIRMED" && amount > 0 && shares > 0
-      ? (amount / shares).toFixed(6)
-      : (
-          payload.pricing_mode === "CLOSE_ESTIMATE"
-            ? "等待收盘价后估算"
-            : "待确认后计算"
-        );
+    payload.pricing_mode === "CLOSE_ESTIMATE"
+      ? "由交易日收盘价自动计算"
+      : "待确认后处理";
 
   pendingTransaction = payload;
   preview.hidden = false;
@@ -441,8 +395,7 @@ function previewTransaction() {
       <li>日期：${payload.date}</li>
       <li>价格方式：${pricingModeLabel(payload.pricing_mode)}</li>
       <li>金额：${amount > 0 ? amount.toFixed(2) : "待确认"} 元</li>
-      <li>份额：${shares > 0 ? shares.toFixed(4) : "待确认"}</li>
-      <li>自动成交均价：${calculatedPrice}</li>
+      <li>份额与均价：${calculatedPrice}</li>
       <li>备注：${payload.note || "无"}</li>
     </ol>
     <button id="confirm-transaction">${payload.id ? "确认修改" : "确认保存"}</button>
@@ -535,13 +488,10 @@ function editTransaction(id) {
   document.getElementById("tx-type").value = record.type;
   document.getElementById("tx-date").value = record.date;
   document.getElementById("tx-pricing-mode").value =
-    record.pricing_mode || (
-      record.status === "ESTIMATED"
-        ? "CLOSE_ESTIMATE"
-        : "CONFIRMED"
-    );
+    record.pricing_mode === "PENDING"
+      ? "PENDING"
+      : "CLOSE_ESTIMATE";
   document.getElementById("tx-amount").value = record.amount || "";
-  document.getElementById("tx-shares").value = record.shares || "";
   document.getElementById("tx-note").value = record.note || "";
   document.getElementById("transaction-form-title").textContent = "修改交易记录";
   document.getElementById("cancel-transaction-edit").hidden = false;
@@ -587,10 +537,6 @@ document.getElementById("tx-type")
   .addEventListener("change", updateTransactionMode);
 document.getElementById("tx-pricing-mode")
   .addEventListener("change", updateTransactionMode);
-document.getElementById("tx-amount")
-  .addEventListener("input", updateCalculatedPrice);
-document.getElementById("tx-shares")
-  .addEventListener("input", updateCalculatedPrice);
 document.getElementById("cancel-transaction-edit")
   .addEventListener("click", resetTransactionForm);
 document.getElementById("refresh-transactions")

@@ -21,6 +21,7 @@
       <div><span>计划时点</span><strong>{{ run_slot or '手动/自动识别' }}</strong></div>
       <div><span>报告生成时间</span><strong>{{ report_generated_at }}</strong></div>
       <div><a href="/history">查看历史报告</a></div>
+      <div><a class="control-return-link" href="http://127.0.0.1:8765/">返回控制台</a></div>
     </section>
 
     {% for result in results %}
@@ -45,7 +46,7 @@
           {% endif %}
           {% if result.data_status %}
           <div class="data-status-grid">
-            {% for key, label in [('history', '历史日线'), ('realtime', '实时快照'), ('intraday', '一分钟分时')] %}
+            {% for key, label in [('history', '历史日线'), ('realtime', '实时快照'), ('intraday', '今日一分钟分时'), ('previous_intraday', '昨日走势')] %}
               {% set item = result.data_status.get(key, {}) %}
               <article class="data-status-item status-data-{{ item.get('status', 'unknown')|lower }}">
                 <span>{{ label }}</span>
@@ -205,6 +206,24 @@
           <div class="chart-tooltip" hidden></div>
         </div>
         <script type="application/json" id="intraday-data-{{ result.asset.symbol }}">{{ result.intraday_chart_data | tojson }}</script>
+      </section>
+
+      <section class="panel chart-panel intraday-panel">
+        <div class="chart-header">
+          <div>
+            <h3 class="chart-title">昨日走势</h3>
+            <p class="muted">
+              {% set previous_status = result.data_status.get('previous_intraday', {}) if result.data_status else {} %}
+              {{ previous_status.get('message', '暂无昨日走势说明') }}
+              {% if previous_status.get('source') %}；来源：{{ previous_status.get('source') }}。{% endif %}
+            </p>
+          </div>
+        </div>
+        <div class="chart-wrap">
+          <canvas class="intraday-chart" data-source-id="previous-intraday-data-{{ result.asset.symbol }}"></canvas>
+          <div class="chart-tooltip" hidden></div>
+        </div>
+        <script type="application/json" id="previous-intraday-data-{{ result.asset.symbol }}">{{ result.previous_intraday_chart_data | tojson }}</script>
       </section>
 
       <section class="panel chart-panel">

@@ -161,7 +161,8 @@ def _data_steps(data_status: dict[str, Any]) -> list[dict[str, Any]]:
     labels = {
         "history": "历史日线",
         "realtime": "实时快照",
-        "intraday": "一分钟分时",
+        "intraday": "今日一分钟分时",
+        "previous_intraday": "昨日走势",
     }
     success_statuses = {
         "SUCCESS",
@@ -174,7 +175,7 @@ def _data_steps(data_status: dict[str, Any]) -> list[dict[str, Any]]:
         "NOT_REQUIRED",
     }
     steps = []
-    for key in ["history", "realtime", "intraday"]:
+    for key in ["history", "realtime", "intraday", "previous_intraday"]:
         item = data_status.get(key, {})
         raw_status = str(item.get("status", "UNKNOWN"))
         step_status = (
@@ -520,6 +521,9 @@ def main(argv: list[str] | None = None) -> int:
             "intraday_chart_data": build_intraday_data(
                 bundle.intraday
             ),
+            "previous_intraday_chart_data": build_intraday_data(
+                bundle.previous_intraday
+            ),
             "operation_history": list(
                 reversed(transactions[-10:])
             ),
@@ -685,11 +689,16 @@ def main(argv: list[str] | None = None) -> int:
                 "intraday",
                 {},
             ).get("status", "UNKNOWN")
+            previous_intraday_state = combined_data_status.get(
+                "previous_intraday",
+                {},
+            ).get("status", "UNKNOWN")
             message = (
                 "报告已生成。"
                 f"历史日线={history_state}；"
                 f"实时快照={realtime_state}；"
                 f"一分钟分时={intraday_state}；"
+                f"昨日走势={previous_intraday_state}；"
                 f"邮件={email_status}。"
             )
             _write_run_status(

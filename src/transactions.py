@@ -134,6 +134,7 @@ def load_transactions(path: Path, symbol: str) -> list[dict[str, Any]]:
     return normalized
 
 
+
 def save_transaction(
     path: Path,
     symbol: str,
@@ -158,60 +159,40 @@ def save_transaction(
         raise ValueError("交易日期必须使用YYYY-MM-DD格式") from exc
 
     pricing_mode = str(
-        payload.get("pricing_mode", "CONFIRMED")
+        payload.get("pricing_mode", "CLOSE_ESTIMATE")
     ).upper()
-    if pricing_mode not in VALID_PRICING_MODES:
-        raise ValueError("价格方式无效")
+    if pricing_mode not in {"PENDING", "CLOSE_ESTIMATE"}:
+        pricing_mode = "CLOSE_ESTIMATE"
 
     amount = _as_float(payload.get("amount"))
-    shares = _as_float(payload.get("shares"))
-    if amount < 0 or shares < 0:
-        raise ValueError("金额和份额不能为负数")
-
-    if pricing_mode == "CONFIRMED":
-        if amount <= 0 or shares <= 0:
-            raise ValueError(
-                "已确认交易需要同时填写实际金额和实际份额"
-            )
-        price = amount / shares
-        status = "CONFIRMED"
-        price_source = "confirmed_amount_div_shares"
-        estimated = False
-    elif pricing_mode == "PENDING":
-        if tx_type == "BUY" and amount <= 0:
-            raise ValueError("待确认买入至少需要填写投入金额")
-        if tx_type == "SELL" and shares <= 0:
-            raise ValueError("待确认卖出至少需要填写卖出份额")
-        price = 0.0
-        status = "PENDING"
-        price_source = "pending"
-        estimated = False
-    else:
-        if tx_type == "BUY" and amount <= 0:
-            raise ValueError("按收盘价估算的买入需要填写投入金额")
-        if tx_type == "SELL" and shares <= 0:
-            raise ValueError("按收盘价估算的卖出需要填写卖出份额")
-        price = 0.0
-        status = "PENDING_CLOSE"
-        price_source = "waiting_close"
-        estimated = True
+    if amount <= 0:
+        raise ValueError("交易金额必须大于0")
 
     existing = next(
         (item for item in records if item.get("id") == tx_id),
         None,
     )
     now_text = datetime.now().isoformat(timespec="seconds")
+
     record = {
         "id": tx_id,
         "date": date,
         "type": tx_type,
         "amount": round(amount, 8),
-        "shares": round(shares, 8),
-        "price": round(price, 8),
+        "shares": 0.0,
+        "price": 0.0,
         "pricing_mode": pricing_mode,
-        "status": status,
-        "price_source": price_source,
-        "estimated": estimated,
+        "status": (
+            "PENDING"
+            if pricing_mode == "PENDING"
+            else "PENDING_CLOSE"
+        ),
+        "price_source": (
+            "pending"
+            if pricing_mode == "PENDING"
+            else "waiting_close"
+        ),
+        "estimated": pricing_mode == "CLOSE_ESTIMATE",
         "note": str(payload.get("note", "")).strip(),
         "created_at": (
             existing.get("created_at", now_text)
@@ -238,7 +219,6 @@ def save_transaction(
     doc[str(symbol)] = records
     _atomic_write_json(path, doc)
     return record
-
 
 def delete_transaction(
     path: Path,
@@ -309,10 +289,7 @@ def reconcile_pending_transactions(
 
         amount = _as_float(record.get("amount"))
         shares = _as_float(record.get("shares"))
-        if record.get("type") == "BUY":
-            shares = amount / close_price if amount > 0 else 0
-        else:
-            amount = shares * close_price if shares > 0 else 0
+        shares = amount / close_price if amount > 0 else 0
 
         record.update({
             "amount": round(amount, 8),

@@ -535,6 +535,23 @@ def _save_provider_state(
     temp.replace(path)
 
 
+def _history_api_success_today(
+    project_root: Path,
+    config: dict,
+    now: datetime,
+) -> bool:
+    state = _load_provider_state(project_root, config)
+    last_success = (
+        state.get("eastmoney_history", {})
+        .get("last_success")
+    )
+    if not last_success:
+        return False
+    try:
+        return datetime.fromisoformat(str(last_success)).date() == now.date()
+    except ValueError:
+        return False
+
 def _history_circuit_status(
     project_root: Path,
     config: dict,
@@ -1072,37 +1089,90 @@ def _normalize_intraday(frame: pd.DataFrame | None) -> pd.DataFrame:
     )
 
 
-def _fetch_intraday(ak, asset: dict, now: datetime) -> pd.DataFrame:
-    start = now.strftime("%Y-%m-%d") + " 09:30:00"
-    end = now.strftime("%Y-%m-%d") + " 15:00:00"
+def _fetch_intraday_for_date(
+    ak,
+    asset: dict,
+    target_date: datetime,
+) -> pd.DataFrame:
+    date_text = target_date.strftime("%Y-%m-%d")
     frame = ak.fund_etf_hist_min_em(
         symbol=asset["symbol"],
-        start_date=start,
-        end_date=end,
+        start_date=date_text + " 09:30:00",
+        end_date=date_text + " 15:00:00",
         period="1",
         adjust="",
     )
     normalized = _normalize_intraday(frame)
     if normalized.empty:
-        raise RuntimeError("ETF minute endpoint returned no usable intraday data")
+        raise RuntimeError(
+            f"ETF minute endpoint returned no usable data for {date_text}"
+        )
     return normalized
+
+
+def _fetch_intraday_stock_for_date(
+    ak,
+    asset: dict,
+    target_date: datetime,
+) -> pd.DataFrame:
+    date_text = target_date.strftime("%Y-%m-%d")
+    frame = ak.stock_zh_a_hist_min_em(
+        symbol=str(asset["symbol"]),
+        start_date=date_text + " 09:30:00",
+        end_date=date_text + " 15:00:00",
+        period="1",
+        adjust="",
+    )
+    normalized = _normalize_intraday(frame)
+    if normalized.empty:
+        raise RuntimeError(
+            f"Stock minute fallback returned no usable data for {date_text}"
+        )
+    return normalized
+
+
+def _build_daily_ohlc_approximation(
+    history: pd.DataFrame,
+    target_date: datetime,
+) -> pd.DataFrame:
+    target = pd.Timestamp(target_date.date())
+    dates = pd.to_datetime(
+        history["date"],
+        errors="coerce",
+    ).dt.normalize()
+    rows = history.loc[dates == target]
+    if rows.empty:
+        return _empty_intraday()
+
+    row = rows.iloc[-1]
+    values = [
+        ("09:30", float(row["open"])),
+        ("10:30", float(row["high"])),
+        ("13:30", float(row["low"])),
+        ("15:00", float(row["close"])),
+    ]
+    return pd.DataFrame([
+        {
+            "time": datetime.combine(
+                target.date(),
+                datetime.strptime(clock, "%H:%M").time(),
+            ),
+            "price": price,
+            "volume": 0.0,
+            "amount": 0.0,
+            "open": float(row["open"]),
+            "high": float(row["high"]),
+            "low": float(row["low"]),
+        }
+        for clock, price in values
+    ])
+
+def _fetch_intraday(ak, asset: dict, now: datetime) -> pd.DataFrame:
+    return _fetch_intraday_for_date(ak, asset, now)
 
 
 def _fetch_intraday_stock_wrapper(ak, asset: dict, now: datetime) -> pd.DataFrame:
-    """Fallback through AKShare's stock minute wrapper for exchange-traded ETFs."""
-    start = now.strftime("%Y-%m-%d") + " 09:30:00"
-    end = now.strftime("%Y-%m-%d") + " 15:00:00"
-    frame = ak.stock_zh_a_hist_min_em(
-        symbol=str(asset["symbol"]),
-        start_date=start,
-        end_date=end,
-        period="1",
-        adjust="",
-    )
-    normalized = _normalize_intraday(frame)
-    if normalized.empty:
-        raise RuntimeError("Stock minute fallback returned no usable intraday data")
-    return normalized
+    return _fetch_intraday_stock_for_date(ak, asset, now)
 
 
 def _build_intraday_snapshot_approximation(
@@ -1356,6 +1426,15 @@ def _ak(
             "message": "当前阶段不需要今日分时",
             "errors": [],
         },
+        "previous_intraday": {
+            "status": "PENDING",
+            "source": None,
+            "points": 0,
+            "approximate": False,
+            "date": None,
+            "message": "尚未获取昨日走势",
+            "errors": [],
+        },
     }
 
     logger.info(
@@ -1392,6 +1471,11 @@ def _ak(
         config,
         now,
     )
+    history_success_today = _history_api_success_today(
+        project_root,
+        config,
+        now,
+    )
 
     history = None
     history_provider = None
@@ -1412,7 +1496,7 @@ def _ak(
     # Before the market is close-ready, a date-valid cache is the primary source.
     # This prevents pre-open and intraday runs from touching the wind-controlled
     # EastMoney history endpoint without a real need.
-    if cached_history is not None and (
+    if history_success_today and cached_history is not None and (
         (realtime_required and cache_covers_previous)
         or (not context.close_ready and cache_fresh_for_phase)
     ):
@@ -1426,9 +1510,14 @@ def _ak(
             "api_requested": False,
             "latest_date": cache_latest_date,
             "message": (
-                "缓存覆盖上一交易日；盘中只获取实时行情"
+                f"今天已成功刷新过历史接口；缓存内最新交易日="
+                f"{cache_latest_date}，盘中只获取实时行情"
                 if realtime_required
-                else "开盘前缓存日期有效；未请求历史接口"
+                else (
+                    f"今天已成功刷新过历史接口；缓存内最新交易日="
+                    f"{cache_latest_date}，当前盘前要求>={cache_required_date}，"
+                    "未再次请求历史接口"
+                )
             ),
         })
         warnings.append(status["history"]["message"])
@@ -1454,6 +1543,10 @@ def _ak(
         warnings.append(status["history"]["message"])
     else:
         status["history"]["api_requested"] = True
+        if not history_success_today:
+            logger.info(
+                "Historical API requested | Reason=no successful history refresh today"
+            )
         providers = [
             (
                 "AKShare历史日线(EastMoney)",
@@ -1589,6 +1682,7 @@ def _ak(
 
     spot = None
     intraday = _empty_intraday()
+    previous_intraday = _empty_intraday()
     spot_errors: list[str] = []
     intraday_errors: list[str] = []
 
@@ -1740,6 +1834,78 @@ def _ak(
             "message": "当前阶段无需今日分时",
         })
 
+    previous_date = _previous_business_date(now).to_pydatetime()
+    status["previous_intraday"]["date"] = previous_date.strftime("%Y-%m-%d")
+    previous_errors: list[str] = []
+    for source_name, label, operation in [
+        (
+            "AKShare fund_etf_hist_min_em",
+            "previous-intraday-etf-wrapper",
+            lambda: _fetch_intraday_for_date(
+                ak,
+                asset,
+                previous_date,
+            ),
+        ),
+        (
+            "AKShare stock_zh_a_hist_min_em",
+            "previous-intraday-stock-wrapper",
+            lambda: _fetch_intraday_stock_for_date(
+                ak,
+                asset,
+                previous_date,
+            ),
+        ),
+    ]:
+        previous_result, errors = _retry_call(
+            operation,
+            {"max_attempts": 1, "delays_seconds": []},
+            label,
+            logger,
+        )
+        previous_errors.extend(errors)
+        if previous_result is not None and not previous_result.empty:
+            previous_intraday = previous_result
+            status["previous_intraday"].update({
+                "status": "SUCCESS",
+                "source": source_name,
+                "points": len(previous_intraday),
+                "approximate": False,
+                "message": (
+                    f"{previous_date:%Y-%m-%d}一分钟走势获取成功，"
+                    f"共{len(previous_intraday)}个点"
+                ),
+                "errors": previous_errors,
+            })
+            break
+
+    if previous_intraday.empty:
+        previous_intraday = _build_daily_ohlc_approximation(
+            history,
+            previous_date,
+        )
+        if not previous_intraday.empty:
+            status["previous_intraday"].update({
+                "status": "APPROXIMATE",
+                "source": "历史日线OHLC示意",
+                "points": len(previous_intraday),
+                "approximate": True,
+                "message": (
+                    f"{previous_date:%Y-%m-%d}分钟数据不可用；"
+                    "仅用开、高、低、收生成示意线，不代表真实日内先后顺序"
+                ),
+                "errors": previous_errors,
+            })
+        else:
+            status["previous_intraday"].update({
+                "status": "FAILED",
+                "source": None,
+                "points": 0,
+                "approximate": False,
+                "message": f"{previous_date:%Y-%m-%d}没有可用走势数据",
+                "errors": previous_errors,
+            })
+
     for warning in dict.fromkeys(warnings):
         logger.warning(
             "Market data warning | Asset=%s | %s",
@@ -1754,6 +1920,7 @@ def _ak(
         data_source=" + ".join(data_sources),
         generated_at=now,
         intraday=intraday,
+        previous_intraday=previous_intraday,
         data_phase=context.phase,
         market_timestamp=latest.timestamp,
         using_local_cache=using_local_cache,

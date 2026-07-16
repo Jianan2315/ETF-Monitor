@@ -31,6 +31,7 @@ class MarketBundle:
     data_source: str
     generated_at: datetime
     intraday: pd.DataFrame | None = None
+    previous_intraday: pd.DataFrame | None = None
     data_phase: str = "CLOSED"
     market_timestamp: datetime | None = None
     using_local_cache: bool = False
