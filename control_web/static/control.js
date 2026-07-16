@@ -58,7 +58,7 @@ async function loadEnvironment() {
     }
     const data = await response.json();
 
-    if (data.control_version && data.control_version !== "11.3") {
+    if (data.control_version && data.control_version !== "11.4") {
       environmentGrid.innerHTML = `
         <div class="result-box error">
           当前浏览器连接的是旧版控制服务（${data.control_version}）。
@@ -306,7 +306,8 @@ function renderBrowserInspector(result) {
     <p>
       浏览器：${result?.browser || "未知"} ·
       页面：${result?.page_title || "未知"} ·
-      K线响应：${result?.successful_kline_response_count ?? 0}/
+      滑动验证：${result?.anti_bot_challenge ? "检测到" : "未检测到"} ·
+      历史K线数据响应：${result?.successful_kline_response_count ?? 0}/
       ${result?.kline_response_count ?? 0}
     </p>
     <p><strong>结论：</strong>${result?.interpretation || "未生成结论"}</p>
@@ -361,5 +362,29 @@ document.getElementById("browser-inspector")
     } catch (error) {
       panel.classList.add("error");
       panel.textContent = `浏览器接口检查失败：${error}`;
+    }
+  });
+
+
+document.getElementById("refresh-history-cache")
+  .addEventListener("click", async () => {
+    const panel = document.getElementById("browser-inspector-result");
+    panel.hidden = false;
+    panel.className = "result-box";
+    panel.textContent =
+      "正在立即刷新历史缓存。请在完成滑动验证后尽快点击此按钮……";
+
+    try {
+      const response = await fetch("/api/data-sources/refresh-history", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+      });
+      const data = await response.json();
+      panel.classList.add(data.success ? "success" : "error");
+      panel.textContent = data.message || "刷新结束。";
+      await loadEnvironment();
+    } catch (error) {
+      panel.classList.add("error");
+      panel.textContent = `历史缓存刷新请求失败：${error}`;
     }
   });

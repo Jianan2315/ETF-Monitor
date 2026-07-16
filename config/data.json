@@ -12,6 +12,8 @@
         30
       ]
     },
-    "cache_directory": "data/cache"
+    "cache_directory": "data/cache",
+    "history_circuit_breaker_hours": 6,
+    "provider_state_file": "data/provider_state.json"
   }
 }

@@ -19,7 +19,11 @@ import requests
 from flask import Flask, jsonify, redirect, render_template, request, send_from_directory, url_for
 
 from src.market_clock import build_market_context, expected_history_date, market_now, validate_run_mode
-from src.data_fetcher import diagnose_data_sources, explore_eastmoney_history_endpoints
+from src.data_fetcher import (
+    diagnose_data_sources,
+    explore_eastmoney_history_endpoints,
+    refresh_history_cache_now,
+)
 from src.browser_inspector import inspect_browser_requests
 from src.logger import configure_logging
 
@@ -27,7 +31,7 @@ from src.logger import configure_logging
 ROOT = Path(__file__).resolve().parent
 HOST = "127.0.0.1"
 PORT = 8765
-CONTROL_VERSION = "11.3"
+CONTROL_VERSION = "11.4"
 
 app = Flask(
     __name__,
@@ -1157,6 +1161,39 @@ def api_environment():
 
 
 
+
+@app.post("/api/data-sources/refresh-history")
+def api_refresh_history_cache():
+    logger = configure_logging(
+        ROOT / "logs" / "monitor.log",
+        ROOT / "logs" / "email.log",
+    )
+    try:
+        full_config = {
+            "data": _read_json(
+                ROOT / "config" / "data.json",
+                {},
+            ).get("data", {}),
+            "storage": _read_json(
+                ROOT / "config" / "storage.json",
+                {},
+            ).get("storage", {}),
+        }
+        result = refresh_history_cache_now(
+            _primary_asset(),
+            full_config,
+            ROOT,
+            logger,
+            market_now(_schedule_config()),
+        )
+        status = 200 if result.get("success") else 409
+        return jsonify(result), status
+    except Exception as exc:
+        logger.exception("Manual history cache refresh crashed")
+        return jsonify({
+            "success": False,
+            "message": f"{type(exc).__name__}: {exc}",
+        }), 500
 @app.post("/api/data-sources/browser-inspect")
 def api_browser_inspect():
     logger = configure_logging(

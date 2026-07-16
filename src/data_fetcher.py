@@ -501,6 +501,187 @@ def diagnose_data_sources(
     result["ok"] = any(item.get("ok") for item in result["checks"])
     return result
 
+def _provider_state_path(project_root: Path, config: dict) -> Path:
+    relative = config.get("data", {}).get(
+        "provider_state_file",
+        "data/provider_state.json",
+    )
+    return project_root / relative
+
+
+def _load_provider_state(project_root: Path, config: dict) -> dict[str, Any]:
+    path = _provider_state_path(project_root, config)
+    if not path.exists():
+        return {}
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        return payload if isinstance(payload, dict) else {}
+    except Exception:
+        return {}
+
+
+def _save_provider_state(
+    project_root: Path,
+    config: dict,
+    payload: dict[str, Any],
+) -> None:
+    path = _provider_state_path(project_root, config)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temp = path.with_suffix(path.suffix + ".tmp")
+    temp.write_text(
+        json.dumps(payload, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+    temp.replace(path)
+
+
+def _history_circuit_status(
+    project_root: Path,
+    config: dict,
+    now: datetime,
+) -> tuple[bool, str | None]:
+    state = _load_provider_state(project_root, config)
+    record = state.get("eastmoney_history", {})
+    blocked_until = record.get("blocked_until")
+    if not blocked_until:
+        return False, None
+    try:
+        until = datetime.fromisoformat(str(blocked_until))
+    except ValueError:
+        return False, None
+    if now < until:
+        return True, until.isoformat(timespec="seconds")
+    return False, None
+
+
+def _open_history_circuit(
+    project_root: Path,
+    config: dict,
+    now: datetime,
+    reason: str,
+    errors: list[str],
+) -> None:
+    hours = float(
+        config.get("data", {}).get(
+            "history_circuit_breaker_hours",
+            6,
+        )
+    )
+    state = _load_provider_state(project_root, config)
+    state["eastmoney_history"] = {
+        "blocked_until": (now + timedelta(hours=hours)).isoformat(
+            timespec="seconds"
+        ),
+        "reason": reason,
+        "last_failure": now.isoformat(timespec="seconds"),
+        "errors": errors[-6:],
+    }
+    _save_provider_state(project_root, config, state)
+
+
+def _close_history_circuit(
+    project_root: Path,
+    config: dict,
+    now: datetime,
+) -> None:
+    state = _load_provider_state(project_root, config)
+    state["eastmoney_history"] = {
+        "blocked_until": None,
+        "reason": None,
+        "last_success": now.isoformat(timespec="seconds"),
+        "errors": [],
+    }
+    _save_provider_state(project_root, config, state)
+
+
+def _looks_like_antibot(errors: list[str]) -> bool:
+    joined = " ".join(errors).upper()
+    return (
+        "REMOTE_DISCONNECTED" in joined
+        or "ERR_EMPTY_RESPONSE" in joined
+        or "ANTI_BOT_CHALLENGE" in joined
+    )
+
+
+def _previous_business_date(now: datetime) -> pd.Timestamp:
+    return (
+        pd.Timestamp(now.date()) - pd.tseries.offsets.BDay(1)
+    ).normalize()
+
+
+def _cache_covers_previous_business_day(
+    history: pd.DataFrame,
+    now: datetime,
+) -> tuple[bool, str, str]:
+    latest = pd.Timestamp(history["date"].max()).normalize()
+    required = _previous_business_date(now)
+    return (
+        latest >= required,
+        latest.strftime("%Y-%m-%d"),
+        required.strftime("%Y-%m-%d"),
+    )
+
+
+def refresh_history_cache_now(
+    asset: dict,
+    config: dict,
+    project_root: Path,
+    logger: logging.Logger,
+    now: datetime,
+) -> dict[str, Any]:
+    import akshare as ak
+
+    retry_cfg = {"max_attempts": 1, "delays_seconds": []}
+    history, errors = _retry_call(
+        lambda: _fetch_history(ak, asset, config, now, logger),
+        retry_cfg,
+        "manual-history-refresh-akshare",
+        logger,
+    )
+    if history is None:
+        history, direct_errors = _retry_call(
+            lambda: _fetch_history_direct_eastmoney(
+                asset,
+                config,
+                now,
+                logger,
+            ),
+            retry_cfg,
+            "manual-history-refresh-direct",
+            logger,
+        )
+        errors.extend(direct_errors)
+
+    if history is None:
+        if _looks_like_antibot(errors):
+            _open_history_circuit(
+                project_root,
+                config,
+                now,
+                "ANTI_BOT_CHALLENGE",
+                errors,
+            )
+        return {
+            "success": False,
+            "message": "历史数据刷新失败，可能仍处于东方财富风控限制中。",
+            "errors": errors,
+        }
+
+    _save_history_cache(
+        project_root,
+        config,
+        str(asset["symbol"]),
+        history,
+        now,
+    )
+    _close_history_circuit(project_root, config, now)
+    latest = pd.Timestamp(history["date"].max()).strftime("%Y-%m-%d")
+    return {
+        "success": True,
+        "message": f"历史缓存已刷新至{latest}。",
+        "latest_date": latest,
+    }
+
 def _retry_call(
     operation: Callable[[], Any],
     retry_cfg: dict,
@@ -535,6 +716,14 @@ def _retry_call(
                     max_attempts,
                     traceback.format_exc(),
                 )
+            if category == "REMOTE_DISCONNECTED":
+                if logger:
+                    logger.warning(
+                        "Data retry stopped early | Source=%s | "
+                        "Reason=possible anti-bot challenge",
+                        label,
+                    )
+                break
             if attempt < max_attempts:
                 delay = delays[min(attempt - 1, len(delays) - 1)] if delays else 5
                 if logger:
@@ -931,7 +1120,12 @@ def _enrich_spot(
     return enriched, warnings
 
 
-def _merge_spot_into_history(history: pd.DataFrame, spot: dict) -> pd.DataFrame:
+def _merge_spot_into_history(
+    history: pd.DataFrame,
+    spot: dict,
+    *,
+    provisional: bool = False,
+) -> pd.DataFrame:
     data = history.copy()
     today = pd.Timestamp(spot["timestamp"]).normalize()
     same_day = data["date"].dt.normalize() == today
@@ -944,6 +1138,12 @@ def _merge_spot_into_history(history: pd.DataFrame, spot: dict) -> pd.DataFrame:
         "volume": float(spot["volume"] or 0),
         "amount": float(spot["amount"] or 0),
         "daily_change_pct": float(spot["daily_change_pct"] or 0),
+        "provisional": bool(provisional),
+        "source": (
+            "realtime_close_snapshot"
+            if provisional
+            else "realtime_intraday_snapshot"
+        ),
     }
     if same_day.any():
         index = data.index[same_day][-1]
@@ -999,102 +1199,247 @@ def _ak(
     context = build_market_context(now)
     retry_cfg = config.get("data", {}).get("retry", {})
     realtime_required = should_request_realtime(mode, context)
+    close_snapshot_allowed = (
+        context.phase == "AFTER_CLOSE"
+        and context.close_ready
+    )
+
     logger.info(
-        "Market context | Mode=%s | Phase=%s | Label=%s | Realtime=%s | Time=%s",
+        "Market context | Mode=%s | Phase=%s | Label=%s | "
+        "Realtime=%s | CloseSnapshotAllowed=%s | Time=%s",
         mode,
         context.phase,
         context.phase_label,
         realtime_required,
+        close_snapshot_allowed,
         now.strftime("%Y-%m-%d %H:%M:%S"),
     )
-
     logger.info(
         "Data library versions | AKShare=%s | Requests=%s | Pandas=%s",
         getattr(ak, "__version__", "unknown"),
         getattr(requests, "__version__", "unknown"),
         getattr(pd, "__version__", "unknown"),
     )
-    logger.info(
-        "Historical call chain | Primary=AKShare fund_etf_hist_em -> EastMoney | "
-        "Secondary=Direct requests -> EastMoney kline API | FinalFallback=Local cache"
+
+    cached_history, cached_at, cache_source = _load_history_cache(
+        project_root,
+        config,
+        asset["symbol"],
+    )
+    cache_covers_previous = False
+    cache_latest_date = None
+    cache_required_date = None
+    if cached_history is not None:
+        (
+            cache_covers_previous,
+            cache_latest_date,
+            cache_required_date,
+        ) = _cache_covers_previous_business_day(
+            cached_history,
+            now,
+        )
+
+    circuit_open, blocked_until = _history_circuit_status(
+        project_root,
+        config,
+        now,
     )
 
-    history, akshare_history_errors = _retry_call(
-        lambda: _fetch_history(ak, asset, config, now, logger),
-        retry_cfg,
-        "historical-akshare-eastmoney",
-        logger,
-    )
-    direct_history_errors: list[str] = []
+    history = None
     history_provider = None
-    if history is not None:
-        history_provider = "AKShare历史日线(EastMoney)"
-    else:
-        logger.warning(
-            "AKShare historical wrapper failed; trying direct EastMoney historical API"
+    history_errors: list[str] = []
+    using_local_cache = False
+    cache_date = None
+    data_sources: list[str] = []
+    warnings: list[str] = []
+
+    cache_fresh_for_phase = False
+    if cached_history is not None:
+        cache_fresh_for_phase, _, _ = _history_is_fresh_enough(
+            cached_history,
+            now,
+            context.phase,
         )
-        history, direct_history_errors = _retry_call(
-            lambda: _fetch_history_direct_eastmoney(
+
+    # Before close-ready, a cache covering the required prior trading day is
+    # already sufficient. During a session, append the current realtime row.
+    if cached_history is not None and (
+        (realtime_required and cache_covers_previous)
+        or (not context.close_ready and cache_fresh_for_phase)
+    ):
+        history = cached_history
+        using_local_cache = True
+        cache_date = cache_latest_date
+        history_provider = f"本地日线缓存({cache_source})"
+        if realtime_required:
+            warnings.append(
+                "盘中报告使用上一交易日历史缓存，并以实时行情拼接今日临时日线"
+            )
+        else:
+            warnings.append(
+                "当前阶段无需重复下载完整历史日线，已使用符合日期要求的本地缓存"
+            )
+        logger.info(
+            "Historical request skipped | Reason=cache_first | "
+            "Latest=%s | RequiredPrevious=%s | Phase=%s",
+            cache_latest_date,
+            cache_required_date,
+            context.phase,
+        )
+    elif circuit_open and cached_history is not None:
+        history = cached_history
+        using_local_cache = True
+        cache_date = cache_latest_date
+        history_provider = f"本地日线缓存({cache_source})"
+        warnings.append(
+            f"东方财富历史接口处于熔断期（至{blocked_until}），已直接使用本地缓存"
+        )
+        logger.warning(
+            "Historical request skipped | Reason=circuit_open | Until=%s",
+            blocked_until,
+        )
+    else:
+        logger.info(
+            "Historical call chain | Primary=AKShare fund_etf_hist_em "
+            "-> EastMoney | Secondary=Direct requests -> EastMoney "
+            "kline API | FinalFallback=Local cache"
+        )
+        history, ak_errors = _retry_call(
+            lambda: _fetch_history(
+                ak,
                 asset,
                 config,
                 now,
                 logger,
             ),
             retry_cfg,
-            "historical-direct-eastmoney",
+            "historical-akshare-eastmoney",
             logger,
         )
+        history_errors.extend(ak_errors)
+
         if history is not None:
-            history_provider = "东方财富直接历史日线"
-
-    history_errors = akshare_history_errors + direct_history_errors
-
-    using_local_cache = False
-    cache_date = None
-    cache_source = None
-    cache_note = None
-    data_sources: list[str] = []
-    warnings: list[str] = []
-
-    if history is not None:
-        _save_history_cache(project_root, config, asset["symbol"], history, now)
-        data_sources.append(history_provider or "历史日线")
-    else:
-        history, cached_at, cache_source = _load_history_cache(project_root, config, asset["symbol"])
-        if history is None:
-            raise DataFetchError(
-                f"Historical data unavailable for {asset['symbol']} and no local cache exists",
-                attempts=history_errors,
-            )
-        fresh, latest_date, expected_date = _history_is_fresh_enough(history, now, context.phase)
-        if not fresh:
-            raise DataFetchError(
-                (
-                    f"Only stale local data is available for {asset['symbol']}: "
-                    f"latest={latest_date}, expected>={expected_date}"
+            history_provider = "AKShare历史日线(EastMoney)"
+        else:
+            history, direct_errors = _retry_call(
+                lambda: _fetch_history_direct_eastmoney(
+                    asset,
+                    config,
+                    now,
+                    logger,
                 ),
-                attempts=history_errors,
-                last_available_date=latest_date,
-                expected_date=expected_date,
-                cache_source=cache_source,
+                {"max_attempts": 1, "delays_seconds": []},
+                "historical-direct-eastmoney",
+                logger,
             )
-        using_local_cache = True
-        cache_date = latest_date
-        cache_note = cached_at or "unknown"
-        data_sources.append(f"本地日线缓存({cache_source})")
-        warnings.append("历史接口不可用，已使用日期符合要求的本地日线缓存")
-        logger.warning(
-            "Historical API unavailable; using fresh local cache | Source=%s | Latest=%s | CachedAt=%s",
-            cache_source,
-            latest_date,
-            cache_note,
+            history_errors.extend(direct_errors)
+            if history is not None:
+                history_provider = "东方财富直接历史日线"
+
+        if history is not None:
+            _save_history_cache(
+                project_root,
+                config,
+                asset["symbol"],
+                history,
+                now,
+            )
+            _close_history_circuit(
+                project_root,
+                config,
+                now,
+            )
+        else:
+            if _looks_like_antibot(history_errors):
+                _open_history_circuit(
+                    project_root,
+                    config,
+                    now,
+                    "ANTI_BOT_CHALLENGE",
+                    history_errors,
+                )
+                warnings.append(
+                    "东方财富历史接口疑似触发滑动验证或风控，已开启6小时熔断"
+                )
+
+            if cached_history is None:
+                raise DataFetchError(
+                    (
+                        f"Historical data unavailable for "
+                        f"{asset['symbol']} and no local cache exists"
+                    ),
+                    attempts=history_errors,
+                )
+
+            # A close report may use yesterday's cache and append a provisional
+            # closing snapshot. Other phases still require the appropriate date.
+            if close_snapshot_allowed and cache_covers_previous:
+                history = cached_history
+                using_local_cache = True
+                cache_date = cache_latest_date
+                history_provider = f"本地日线缓存({cache_source})"
+                warnings.append(
+                    "正式收盘日线暂不可用，将使用实时收盘快照生成待验证日线"
+                )
+            else:
+                fresh, latest_date, expected_date = (
+                    _history_is_fresh_enough(
+                        cached_history,
+                        now,
+                        context.phase,
+                    )
+                )
+                if not fresh:
+                    raise DataFetchError(
+                        (
+                            f"Only stale local data is available for "
+                            f"{asset['symbol']}: latest={latest_date}, "
+                            f"expected>={expected_date}"
+                        ),
+                        attempts=history_errors,
+                        last_available_date=latest_date,
+                        expected_date=expected_date,
+                        cache_source=cache_source,
+                    )
+                history = cached_history
+                using_local_cache = True
+                cache_date = latest_date
+                history_provider = f"本地日线缓存({cache_source})"
+                warnings.append(
+                    "历史接口不可用，已使用日期符合要求的本地日线缓存"
+                )
+
+    if history is None:
+        raise DataFetchError(
+            f"No usable history data for {asset['symbol']}",
+            attempts=history_errors,
         )
 
-    spot = None
-    intraday = pd.DataFrame(columns=["time", "price", "volume", "amount", "open", "high", "low"])
-    spot_errors: list[str] = []
+    data_sources.append(history_provider or "历史日线")
 
-    if realtime_required:
+    spot = None
+    intraday = pd.DataFrame(
+        columns=[
+            "time",
+            "price",
+            "volume",
+            "amount",
+            "open",
+            "high",
+            "low",
+        ]
+    )
+    spot_errors: list[str] = []
+    intraday_errors: list[str] = []
+
+    need_snapshot = realtime_required or (
+        close_snapshot_allowed
+        and using_local_cache
+        and pd.Timestamp(history["date"].max()).normalize()
+        < pd.Timestamp(now.date())
+    )
+
+    if need_snapshot:
         spot_result, spot_errors = _retry_call(
             lambda: _fetch_spot(ak, asset, now),
             retry_cfg,
@@ -1105,8 +1450,6 @@ def _ak(
             spot, field_warnings = spot_result
             warnings.extend(field_warnings)
 
-        # Minute data is useful for the chart and provides a fallback if the
-        # market-wide realtime table is incomplete or temporarily unavailable.
         intraday_result, intraday_errors = _retry_call(
             lambda: _fetch_intraday(ak, asset, now),
             {"max_attempts": 1, "delays_seconds": []},
@@ -1119,31 +1462,74 @@ def _ak(
             warnings.extend(intraday_errors)
 
         if spot is None:
-            spot = _derive_spot_from_intraday(intraday, history, now)
+            spot = _derive_spot_from_intraday(
+                intraday,
+                history,
+                now,
+            )
             if spot is not None:
-                warnings.append("实时快照接口失败，已使用当天分时最后一笔数据")
-                logger.warning("Realtime spot fallback succeeded from intraday data")
+                warnings.append(
+                    "实时快照接口失败，已使用当天分时最后一笔数据"
+                )
 
         if spot is None:
-            latest_date = pd.Timestamp(history["date"].max()).strftime("%Y-%m-%d")
-            expected_date = expected_history_date(now, context).strftime("%Y-%m-%d")
+            latest_date = pd.Timestamp(
+                history["date"].max()
+            ).strftime("%Y-%m-%d")
+            expected_date = expected_history_date(
+                now,
+                context,
+            ).strftime("%Y-%m-%d")
             raise DataFetchError(
-                f"Realtime data unavailable for {asset['symbol']} during {context.phase}",
-                attempts=history_errors + spot_errors + intraday_errors,
+                (
+                    f"Realtime data unavailable for "
+                    f"{asset['symbol']} during {context.phase}"
+                ),
+                attempts=history_errors
+                + spot_errors
+                + intraday_errors,
                 last_available_date=latest_date,
                 expected_date=expected_date,
                 cache_source=cache_source,
             )
 
-        spot, fallback_warnings = _enrich_spot(spot, history, intraday)
+        spot, fallback_warnings = _enrich_spot(
+            spot,
+            history,
+            intraday,
+        )
         warnings.extend(fallback_warnings)
-        history = _merge_spot_into_history(history, spot)
+
+        provisional = bool(close_snapshot_allowed)
+        history = _merge_spot_into_history(
+            history,
+            spot,
+            provisional=provisional,
+        )
         data_sources.append("AKShare实时行情")
-        if intraday is not None and not intraday.empty:
+        if not intraday.empty:
             data_sources.append("AKShare一分钟分时")
 
+        if provisional:
+            _save_history_cache(
+                project_root,
+                config,
+                asset["symbol"],
+                history,
+                now,
+            )
+            cache_date = now.strftime("%Y-%m-%d")
+            warnings.append(
+                "今日收盘行来自实时快照，已标记为待验证；"
+                "后续正式历史数据恢复后会自动覆盖"
+            )
+
     for warning in dict.fromkeys(warnings):
-        logger.warning("Market data warning | Asset=%s | %s", asset["symbol"], warning)
+        logger.warning(
+            "Market data warning | Asset=%s | %s",
+            asset["symbol"],
+            warning,
+        )
 
     latest = _build_latest(asset, history, spot)
     return MarketBundle(
@@ -1159,7 +1545,6 @@ def _ak(
         data_warnings=list(dict.fromkeys(warnings)),
         phase_label=context.phase_label,
     )
-
 
 def _mock(asset: dict, config: dict) -> MarketBundle:
     n = config["data"].get("history_days", 120)

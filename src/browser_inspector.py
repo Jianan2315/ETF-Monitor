@@ -94,13 +94,17 @@ def historical_api_url(symbol: str, now: datetime) -> str:
 
 def _is_interesting_url(url: str) -> bool:
     lower = url.lower()
+    return "eastmoney.com" in lower and (
+        "push2his" in lower
+        or "/api/qt/" in lower
+    )
+
+
+def _is_history_kline_api(url: str) -> bool:
+    lower = url.lower()
     return (
-        "eastmoney.com" in lower
-        and (
-            "kline" in lower
-            or "push2his" in lower
-            or "/api/qt/" in lower
-        )
+        "/api/qt/stock/kline/get" in lower
+        and "eastmoney.com" in lower
     )
 
 
@@ -292,6 +296,19 @@ def inspect_browser_requests(
         page.wait_for_timeout(max(0, int(visible_seconds)) * 1000)
         final_title = page.title()
         final_url = page.url
+        try:
+            page_text = page.locator("body").inner_text(timeout=3000)
+        except Exception:
+            page_text = ""
+        challenge_terms = [
+            "拖动下方滑块完成拼图",
+            "滑动验证",
+            "安全验证",
+            "完成拼图",
+        ]
+        anti_bot_challenge = any(
+            term in page_text for term in challenge_terms
+        )
         cookies = context.cookies()
         cookie_summary = [
             {
@@ -310,7 +327,7 @@ def inspect_browser_requests(
 
     kline_events = [
         item for item in network_events
-        if "kline" in str(item.get("url", "")).lower()
+        if _is_history_kline_api(str(item.get("url", "")))
     ]
     successful_kline_events = [
         item for item in kline_events
@@ -326,6 +343,7 @@ def inspect_browser_requests(
         "final_page_url": final_url,
         "page_title": final_title,
         "navigation_error": navigation_error,
+        "anti_bot_challenge": anti_bot_challenge,
         "browser_fetch_url": api_url,
         "browser_fetch_result": browser_fetch_result,
         "interesting_response_count": len(network_events),
@@ -342,12 +360,18 @@ def inspect_browser_requests(
             or browser_fetch_result.get("status") == 200
         ),
         "interpretation": (
-            "浏览器上下文成功取得历史K线响应，普通requests失败更可能与请求指纹、"
-            "Cookie、TLS或反自动化策略有关。"
-            if successful_kline_events or browser_fetch_result.get("status") == 200
-            else
-            "浏览器上下文也没有取得历史K线响应，问题更可能是接口、网络线路、"
-            "区域访问策略或东方财富服务端限制，而不仅是普通requests请求头。"
+            "页面检测到东方财富滑动验证或安全验证。历史K线失败应归类为"
+            "ANTI_BOT_CHALLENGE，而不是普通网络错误。"
+            if anti_bot_challenge
+            else (
+                "浏览器上下文成功取得历史K线数据响应，普通requests失败更可能"
+                "与请求指纹、Cookie、TLS或反自动化策略有关。"
+                if successful_kline_events
+                or browser_fetch_result.get("status") == 200
+                else
+                "浏览器上下文也没有取得历史K线数据响应，问题更可能是接口、"
+                "网络线路、区域访问策略或东方财富服务端限制。"
+            )
         ),
     }
 
