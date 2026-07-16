@@ -44,6 +44,32 @@
     <section class="card">
       <div class="section-title-row">
         <div>
+          <h2>交易时段防休眠</h2>
+          <p>工作日按设定时段阻止电脑因空闲自动休眠。显示器仍可关闭，时段结束后恢复原有电源策略。</p>
+        </div>
+      </div>
+      <div class="form-grid power-grid">
+        <label>开始时间
+          <input id="keep-awake-start" type="time" value="09:00">
+        </label>
+        <label>结束时间
+          <input id="keep-awake-end" type="time" value="15:30">
+        </label>
+      </div>
+      <div class="button-row">
+        <button id="enable-keep-awake">启用或更新防休眠</button>
+        <button id="disable-keep-awake" class="secondary-button">停用防休眠</button>
+      </div>
+      <div id="keep-awake-result" class="result-box" hidden></div>
+      <p class="muted power-note">
+        该功能使用 Windows 任务计划程序。电脑处于睡眠状态时会请求在开始时间唤醒；
+        完全关机时无法自动开机，合盖休眠也可能受笔记本合盖策略影响。
+      </p>
+    </section>
+
+    <section class="card">
+      <div class="section-title-row">
+        <div>
           <h2>环境状态</h2>
           <p>检测 Python、依赖、网络、Microsoft Token、Ollama 和本地模型。</p>
         </div>

@@ -58,7 +58,7 @@ async function loadEnvironment() {
     }
     const data = await response.json();
 
-    if (data.control_version && data.control_version !== "11.4") {
+    if (data.control_version && data.control_version !== "11.5") {
       environmentGrid.innerHTML = `
         <div class="result-box error">
           当前浏览器连接的是旧版控制服务（${data.control_version}）。
@@ -76,6 +76,7 @@ async function loadEnvironment() {
       statusCard("东方财富行情接口", data.eastmoney),
       statusCard("日线缓存", data.cache),
       statusCard("latest.json", data.latest),
+      statusCard("交易时段防休眠", data.keep_awake),
       statusCard("Ollama", data.ollama),
       statusCard("Microsoft Token", data.microsoft_token),
       statusCard("最新报告", data.report),
@@ -388,3 +389,85 @@ document.getElementById("refresh-history-cache")
       panel.textContent = `历史缓存刷新请求失败：${error}`;
     }
   });
+
+
+function updateKeepAwakeControls(status) {
+  if (!status || typeof status !== "object") return;
+  document.getElementById("keep-awake-start").value =
+    status.start || "09:00";
+  document.getElementById("keep-awake-end").value =
+    status.end || "15:30";
+
+  const result = document.getElementById("keep-awake-result");
+  result.hidden = false;
+  result.className = `result-box ${status.enabled ? "success" : ""}`;
+  result.textContent = status.message || "尚未读取防休眠状态。";
+}
+
+async function loadKeepAwakeStatus() {
+  try {
+    const response = await fetch(`/api/power/keep-awake?t=${Date.now()}`, {
+      cache: "no-store",
+    });
+    const data = await response.json();
+    if (response.ok && data.success) {
+      updateKeepAwakeControls(data.status);
+    }
+  } catch (error) {
+    const result = document.getElementById("keep-awake-result");
+    result.hidden = false;
+    result.className = "result-box error";
+    result.textContent = `读取防休眠状态失败：${error}`;
+  }
+}
+
+document.getElementById("enable-keep-awake")
+  .addEventListener("click", async () => {
+    const result = document.getElementById("keep-awake-result");
+    const start = document.getElementById("keep-awake-start").value;
+    const end = document.getElementById("keep-awake-end").value;
+    result.hidden = false;
+    result.className = "result-box";
+    result.textContent = "正在创建或更新 Windows 防休眠计划……";
+
+    try {
+      const response = await fetch("/api/power/keep-awake/enable", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({start, end}),
+      });
+      const data = await response.json();
+      result.className = `result-box ${data.success ? "success" : "error"}`;
+      result.textContent = data.message || "操作结束。";
+      if (data.status) updateKeepAwakeControls(data.status);
+      await loadEnvironment();
+    } catch (error) {
+      result.className = "result-box error";
+      result.textContent = `启用防休眠失败：${error}`;
+    }
+  });
+
+document.getElementById("disable-keep-awake")
+  .addEventListener("click", async () => {
+    const result = document.getElementById("keep-awake-result");
+    result.hidden = false;
+    result.className = "result-box";
+    result.textContent = "正在停用防休眠计划……";
+
+    try {
+      const response = await fetch("/api/power/keep-awake/disable", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+      });
+      const data = await response.json();
+      result.className = `result-box ${data.success ? "success" : "error"}`;
+      result.textContent = data.message || "操作结束。";
+      if (data.status) updateKeepAwakeControls(data.status);
+      await loadEnvironment();
+    } catch (error) {
+      result.className = "result-box error";
+      result.textContent = `停用防休眠失败：${error}`;
+    }
+  });
+
+loadKeepAwakeStatus();

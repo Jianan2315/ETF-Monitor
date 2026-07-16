@@ -272,3 +272,19 @@ dialog::backdrop { background: rgba(15,23,42,.62); }
   overflow-wrap: anywhere;
   word-break: break-all;
 }
+
+
+.power-grid {
+  max-width: 520px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-bottom: 14px;
+}
+.power-note {
+  margin-bottom: 0;
+  line-height: 1.65;
+}
+@media (max-width: 560px) {
+  .power-grid {
+    grid-template-columns: 1fr;
+  }
+}

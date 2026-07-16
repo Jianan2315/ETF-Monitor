@@ -26,12 +26,17 @@ from src.data_fetcher import (
 )
 from src.browser_inspector import inspect_browser_requests
 from src.logger import configure_logging
+from src.power_management import (
+    disable_keep_awake,
+    enable_keep_awake,
+    keep_awake_status,
+)
 
 
 ROOT = Path(__file__).resolve().parent
 HOST = "127.0.0.1"
 PORT = 8765
-CONTROL_VERSION = "11.4"
+CONTROL_VERSION = "11.5"
 
 app = Flask(
     __name__,
@@ -432,6 +437,7 @@ def _environment_status() -> dict[str, Any]:
         "eastmoney": _eastmoney_check(),
         "cache": _cache_status(),
         "latest": _latest_status(),
+        "keep_awake": keep_awake_status(ROOT),
         "ollama": ollama,
         "microsoft_token": {
             "ok": token_path.exists(),
@@ -1153,6 +1159,50 @@ def api_version():
     })
 
 
+
+@app.get("/api/power/keep-awake")
+def api_keep_awake_status():
+    return jsonify({
+        "success": True,
+        "status": keep_awake_status(ROOT),
+    })
+
+
+@app.post("/api/power/keep-awake/enable")
+def api_keep_awake_enable():
+    payload = request.get_json(silent=True) or {}
+    start = str(payload.get("start", "09:00")).strip()
+    end = str(payload.get("end", "15:30")).strip()
+    try:
+        result = enable_keep_awake(
+            ROOT,
+            start=start,
+            end=end,
+        )
+        return jsonify({
+            **result,
+            "status": keep_awake_status(ROOT),
+        })
+    except (ValueError, RuntimeError) as exc:
+        return jsonify({
+            "success": False,
+            "message": str(exc),
+        }), 400
+
+
+@app.post("/api/power/keep-awake/disable")
+def api_keep_awake_disable():
+    try:
+        result = disable_keep_awake(ROOT)
+        return jsonify({
+            **result,
+            "status": keep_awake_status(ROOT),
+        })
+    except RuntimeError as exc:
+        return jsonify({
+            "success": False,
+            "message": str(exc),
+        }), 400
 @app.get("/api/environment")
 def api_environment():
     return jsonify(_environment_status())

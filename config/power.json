@@ -1,0 +1,16 @@
+{
+  "keep_awake": {
+    "enabled": false,
+    "start": "09:00",
+    "end": "15:30",
+    "weekdays": [
+      "MON",
+      "TUE",
+      "WED",
+      "THU",
+      "FRI"
+    ],
+    "task_name": "ETFMonitor_KeepAwake",
+    "wake_to_run": true
+  }
+}
