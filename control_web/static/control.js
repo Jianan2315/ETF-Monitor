@@ -58,7 +58,7 @@ async function loadEnvironment() {
     }
     const data = await response.json();
 
-    if (data.control_version && data.control_version !== "11.6") {
+    if (data.control_version && data.control_version !== "11.7") {
       environmentGrid.innerHTML = `
         <div class="result-box error">
           当前浏览器连接的是旧版控制服务（${data.control_version}）。
