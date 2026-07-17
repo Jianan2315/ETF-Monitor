@@ -7,7 +7,7 @@
       "enabled": true,
       "sector_name": "电网设备",
       "position": {
-        "target_amount": 100000
+        "target_amount": 500000.0
       },
       "strategy": {
         "type": "staged_buy",
