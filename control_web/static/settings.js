@@ -304,9 +304,8 @@ function transactionPayload() {
 
 function pricingModeLabel(mode) {
   return {
-    CONFIRMED: "已确认",
-    PENDING: "待确认",
-    CLOSE_ESTIMATE: "按收盘价估算",
+    PENDING: "暂不计入仓位",
+    CLOSE_ESTIMATE: "按交易日收盘价自动计算",
   }[mode] || mode;
 }
 
@@ -349,8 +348,6 @@ function resetTransactionForm() {
   document.getElementById("tx-id").value = "";
   document.getElementById("tx-type").value = "BUY";
   document.getElementById("tx-pricing-mode").value = "CLOSE_ESTIMATE";
-  resetTransactionForm();
-loadTransactions();
   document.getElementById("tx-amount").value = "";
   document.getElementById("tx-note").value = "";
   document.getElementById("transaction-form-title").textContent = "新增交易记录";

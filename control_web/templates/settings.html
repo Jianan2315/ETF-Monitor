@@ -23,8 +23,8 @@
     <div>
       <h2 id="transaction-form-title">新增交易记录</h2>
       <p>
-        不再要求手填成交单价。已确认交易由“实际金额 ÷ 实际份额”自动计算均价；
-        也可以先保存为待确认，或按当日收盘价估算。
+        只需填写交易类型、日期、定价方式和金额。系统会按该交易日收盘价自动计算份额与成交均价；
+        收盘数据暂不可用时会先保存，后续运行报告时自动补齐。
       </p>
     </div>
   </div>
@@ -42,19 +42,12 @@
     </label>
     <label>价格处理方式
       <select id="tx-pricing-mode">
-        <option value="CONFIRMED">已确认：金额和份额自动算均价</option>
-        <option value="PENDING">待确认：先记录，之后再修改</option>
-        <option value="CLOSE_ESTIMATE">按当日收盘价估算</option>
+        <option value="CLOSE_ESTIMATE">按交易日收盘价自动计算</option>
+        <option value="PENDING">暂不计入仓位，稍后处理</option>
       </select>
     </label>
     <label id="tx-amount-label">实际投入金额（元）
       <input id="tx-amount" type="number" step="0.01" min="0">
-    </label>
-    <label id="tx-shares-label">实际确认份额
-      <input id="tx-shares" type="number" step="0.0001" min="0">
-    </label>
-    <label>自动计算成交均价
-      <input id="tx-calculated-price" type="text" readonly placeholder="保存时自动计算">
     </label>
     <label class="wide">备注
       <input id="tx-note" type="text">

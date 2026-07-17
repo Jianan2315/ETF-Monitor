@@ -14,6 +14,17 @@
     },
     "cache_directory": "data/cache",
     "history_circuit_breaker_hours": 6,
-    "provider_state_file": "data/provider_state.json"
+    "provider_state_file": "data/provider_state.json",
+    "request_policy": {
+      "minimum_interval_seconds": 8,
+      "maximum_interval_seconds": 12,
+      "same_endpoint_max_attempts": 1,
+      "retry_delay_seconds": 30,
+      "intraday_periods": [
+        "1",
+        "5",
+        "15"
+      ]
+    }
   }
 }

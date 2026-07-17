@@ -4,6 +4,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 import json
 import logging
+import random
 import time
 import traceback
 import requests
@@ -704,6 +705,7 @@ def _retry_call(
     retry_cfg: dict,
     label: str,
     logger: logging.Logger | None = None,
+    before_attempt: Callable[[str, int], None] | None = None,
 ):
     delays = retry_cfg.get("delays_seconds", [5, 15, 30])
     max_attempts = int(retry_cfg.get("max_attempts", 3))
@@ -711,6 +713,8 @@ def _retry_call(
 
     for attempt in range(1, max_attempts + 1):
         try:
+            if before_attempt:
+                before_attempt(label, attempt)
             if logger:
                 logger.info("Data request | Source=%s | Attempt=%s/%s", label, attempt, max_attempts)
             result = operation()
@@ -748,6 +752,88 @@ def _retry_call(
                 time.sleep(float(delay))
 
     return None, errors
+
+
+class _RequestPacer:
+    """Keep provider calls strictly serial and separated by a configurable pause."""
+
+    def __init__(self, policy: dict, logger: logging.Logger | None = None):
+        self.minimum = max(0.0, float(policy.get("minimum_interval_seconds", 0)))
+        self.maximum = max(self.minimum, float(policy.get("maximum_interval_seconds", self.minimum)))
+        self.logger = logger
+        self._last_started: float | None = None
+
+    def before_attempt(self, label: str, attempt: int) -> None:
+        now_mono = time.monotonic()
+        if self._last_started is not None:
+            target = random.uniform(self.minimum, self.maximum)
+            elapsed = now_mono - self._last_started
+            wait = max(0.0, target - elapsed)
+            if wait > 0:
+                if self.logger:
+                    self.logger.info(
+                        "Provider pacing | Next=%s | Attempt=%s | Wait=%.2fs | Policy=%.1f-%.1fs",
+                        label, attempt, wait, self.minimum, self.maximum,
+                    )
+                time.sleep(wait)
+        self._last_started = time.monotonic()
+
+
+def _intraday_cache_path(project_root: Path, symbol: str, target_date: datetime) -> Path:
+    return project_root / "data" / "intraday" / str(symbol) / f"{target_date:%Y-%m-%d}.json"
+
+
+def _load_intraday_cache(project_root: Path, symbol: str, target_date: datetime) -> tuple[pd.DataFrame, dict[str, Any]]:
+    path = _intraday_cache_path(project_root, symbol, target_date)
+    try:
+        doc = json.loads(path.read_text(encoding="utf-8"))
+    except (FileNotFoundError, json.JSONDecodeError, OSError):
+        return _empty_intraday(), {}
+    return _normalize_intraday(pd.DataFrame(doc.get("rows", []))), doc
+
+
+def _save_intraday_cache(
+    project_root: Path,
+    symbol: str,
+    target_date: datetime,
+    frame: pd.DataFrame,
+    *,
+    period: str,
+    source: str,
+    now: datetime,
+) -> pd.DataFrame:
+    if frame is None or frame.empty:
+        return _empty_intraday()
+    path = _intraday_cache_path(project_root, symbol, target_date)
+    existing, _ = _load_intraday_cache(project_root, symbol, target_date)
+    merged = pd.concat([existing, _normalize_intraday(frame)], ignore_index=True)
+    merged = (
+        merged.dropna(subset=["time", "price"])
+        .sort_values("time")
+        .drop_duplicates(subset=["time"], keep="last")
+        .reset_index(drop=True)
+    )
+    complete = bool(
+        now.date() > target_date.date()
+        or (now.date() == target_date.date() and now.time() >= datetime.strptime("15:00", "%H:%M").time())
+    )
+    rows = merged.copy()
+    rows["time"] = pd.to_datetime(rows["time"]).dt.strftime("%Y-%m-%d %H:%M:%S")
+    rows = rows.where(pd.notna(rows), None)
+    payload = {
+        "symbol": str(symbol),
+        "date": target_date.strftime("%Y-%m-%d"),
+        "period": str(period),
+        "source": source,
+        "complete": complete,
+        "last_updated": now.isoformat(timespec="seconds"),
+        "rows": rows.to_dict(orient="records"),
+    }
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temp = path.with_suffix(".json.tmp")
+    temp.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+    temp.replace(path)
+    return merged
 
 
 # Compatibility wrappers retained for existing tests and older callers.
@@ -1093,13 +1179,14 @@ def _fetch_intraday_for_date(
     ak,
     asset: dict,
     target_date: datetime,
+    period: str = "1",
 ) -> pd.DataFrame:
     date_text = target_date.strftime("%Y-%m-%d")
     frame = ak.fund_etf_hist_min_em(
         symbol=asset["symbol"],
         start_date=date_text + " 09:30:00",
         end_date=date_text + " 15:00:00",
-        period="1",
+        period=str(period),
         adjust="",
     )
     normalized = _normalize_intraday(frame)
@@ -1114,13 +1201,14 @@ def _fetch_intraday_stock_for_date(
     ak,
     asset: dict,
     target_date: datetime,
+    period: str = "1",
 ) -> pd.DataFrame:
     date_text = target_date.strftime("%Y-%m-%d")
     frame = ak.stock_zh_a_hist_min_em(
         symbol=str(asset["symbol"]),
         start_date=date_text + " 09:30:00",
         end_date=date_text + " 15:00:00",
-        period="1",
+        period=str(period),
         adjust="",
     )
     normalized = _normalize_intraday(frame)
@@ -1396,6 +1484,8 @@ def _ak(
 
     context = build_market_context(now)
     retry_cfg = config.get("data", {}).get("retry", {})
+    request_policy = config.get("data", {}).get("request_policy", {})
+    pacer = _RequestPacer(request_policy, logger)
     realtime_required = should_request_realtime(mode, context)
     close_snapshot_allowed = (
         context.phase == "AFTER_CLOSE"
@@ -1575,6 +1665,7 @@ def _ak(
                 provider_retry,
                 label,
                 logger,
+                before_attempt=pacer.before_attempt,
             )
             history_errors.extend(errors)
             if history is not None:
@@ -1703,6 +1794,7 @@ def _ak(
             retry_cfg,
             "realtime",
             logger,
+            before_attempt=pacer.before_attempt,
         )
         if spot_result is not None:
             spot, field_warnings = spot_result
@@ -1715,39 +1807,63 @@ def _ak(
                 "errors": spot_errors,
             })
 
-        # Minute data has its own independent status and must not determine
-        # whether the report itself succeeds.
-        minute_attempts = [
-            (
-                "AKShare fund_etf_hist_min_em",
-                "intraday-etf-wrapper",
-                lambda: _fetch_intraday(ak, asset, now),
-            ),
-            (
-                "AKShare stock_zh_a_hist_min_em",
-                "intraday-stock-wrapper",
-                lambda: _fetch_intraday_stock_wrapper(ak, asset, now),
-            ),
-        ]
-        for source_name, label, operation in minute_attempts:
+        # Minute data is requested strictly serially and falls back by period.
+        periods = [str(item) for item in request_policy.get("intraday_periods", ["1", "5", "15"])]
+        cached_today, cached_today_meta = _load_intraday_cache(
+            project_root, str(asset["symbol"]), now
+        )
+        minute_attempts = []
+        for period in periods:
+            minute_attempts.extend([
+                (
+                    f"AKShare fund_etf_hist_min_em({period}m)",
+                    f"intraday-etf-{period}m",
+                    period,
+                    lambda period=period: _fetch_intraday_for_date(ak, asset, now, period),
+                ),
+                (
+                    f"AKShare stock_zh_a_hist_min_em({period}m)",
+                    f"intraday-stock-{period}m",
+                    period,
+                    lambda period=period: _fetch_intraday_stock_for_date(ak, asset, now, period),
+                ),
+            ])
+        for source_name, label, period, operation in minute_attempts:
             intraday_result, errors = _retry_call(
                 operation,
-                {"max_attempts": 1, "delays_seconds": []},
+                {"max_attempts": int(request_policy.get("same_endpoint_max_attempts", 1)),
+                 "delays_seconds": [float(request_policy.get("retry_delay_seconds", 30))]},
                 label,
                 logger,
+                before_attempt=pacer.before_attempt,
             )
             intraday_errors.extend(errors)
             if intraday_result is not None and not intraday_result.empty:
-                intraday = intraday_result
+                intraday = _save_intraday_cache(
+                    project_root, str(asset["symbol"]), now, intraday_result,
+                    period=period, source=source_name, now=now,
+                )
                 status["intraday"].update({
                     "status": "SUCCESS",
                     "source": source_name,
+                    "period": period,
                     "points": len(intraday),
                     "approximate": False,
-                    "message": f"今日一分钟分时获取成功，共{len(intraday)}个点",
+                    "message": f"今日{period}分钟分时获取成功，共{len(intraday)}个点",
                     "errors": intraday_errors,
                 })
                 break
+        if intraday.empty and not cached_today.empty:
+            intraday = cached_today
+            status["intraday"].update({
+                "status": "CACHE",
+                "source": "本地分时缓存",
+                "period": str(cached_today_meta.get("period", "1")),
+                "points": len(intraday),
+                "approximate": False,
+                "message": f"网络分时不可用，使用今日已保存的本地分时，共{len(intraday)}个点",
+                "errors": intraday_errors,
+            })
 
         if spot is None:
             spot = _derive_spot_from_intraday(intraday, history, now)
@@ -1837,47 +1953,63 @@ def _ak(
     previous_date = _previous_business_date(now).to_pydatetime()
     status["previous_intraday"]["date"] = previous_date.strftime("%Y-%m-%d")
     previous_errors: list[str] = []
-    for source_name, label, operation in [
-        (
-            "AKShare fund_etf_hist_min_em",
-            "previous-intraday-etf-wrapper",
-            lambda: _fetch_intraday_for_date(
-                ak,
-                asset,
-                previous_date,
-            ),
-        ),
-        (
-            "AKShare stock_zh_a_hist_min_em",
-            "previous-intraday-stock-wrapper",
-            lambda: _fetch_intraday_stock_for_date(
-                ak,
-                asset,
-                previous_date,
-            ),
-        ),
-    ]:
-        previous_result, errors = _retry_call(
-            operation,
-            {"max_attempts": 1, "delays_seconds": []},
-            label,
-            logger,
-        )
-        previous_errors.extend(errors)
-        if previous_result is not None and not previous_result.empty:
-            previous_intraday = previous_result
-            status["previous_intraday"].update({
-                "status": "SUCCESS",
-                "source": source_name,
-                "points": len(previous_intraday),
-                "approximate": False,
-                "message": (
-                    f"{previous_date:%Y-%m-%d}一分钟走势获取成功，"
-                    f"共{len(previous_intraday)}个点"
+    cached_previous, cached_previous_meta = _load_intraday_cache(
+        project_root, str(asset["symbol"]), previous_date
+    )
+    if not cached_previous.empty:
+        previous_intraday = cached_previous
+        status["previous_intraday"].update({
+            "status": "CACHE",
+            "source": "本地分时缓存",
+            "period": str(cached_previous_meta.get("period", "1")),
+            "points": len(previous_intraday),
+            "approximate": False,
+            "message": f"{previous_date:%Y-%m-%d}使用本地分时缓存，共{len(previous_intraday)}个点",
+            "errors": [],
+        })
+    else:
+        periods = [str(item) for item in request_policy.get("intraday_periods", ["1", "5", "15"])]
+        previous_attempts = []
+        for period in periods:
+            previous_attempts.extend([
+                (
+                    f"AKShare fund_etf_hist_min_em({period}m)",
+                    f"previous-intraday-etf-{period}m",
+                    period,
+                    lambda period=period: _fetch_intraday_for_date(ak, asset, previous_date, period),
                 ),
-                "errors": previous_errors,
-            })
-            break
+                (
+                    f"AKShare stock_zh_a_hist_min_em({period}m)",
+                    f"previous-intraday-stock-{period}m",
+                    period,
+                    lambda period=period: _fetch_intraday_stock_for_date(ak, asset, previous_date, period),
+                ),
+            ])
+        for source_name, label, period, operation in previous_attempts:
+            previous_result, errors = _retry_call(
+                operation,
+                {"max_attempts": int(request_policy.get("same_endpoint_max_attempts", 1)),
+                 "delays_seconds": [float(request_policy.get("retry_delay_seconds", 30))]},
+                label,
+                logger,
+                before_attempt=pacer.before_attempt,
+            )
+            previous_errors.extend(errors)
+            if previous_result is not None and not previous_result.empty:
+                previous_intraday = _save_intraday_cache(
+                    project_root, str(asset["symbol"]), previous_date, previous_result,
+                    period=period, source=source_name, now=now,
+                )
+                status["previous_intraday"].update({
+                    "status": "SUCCESS",
+                    "source": source_name,
+                    "period": period,
+                    "points": len(previous_intraday),
+                    "approximate": False,
+                    "message": f"{previous_date:%Y-%m-%d}{period}分钟走势获取成功，共{len(previous_intraday)}个点",
+                    "errors": previous_errors,
+                })
+                break
 
     if previous_intraday.empty:
         previous_intraday = _build_daily_ohlc_approximation(

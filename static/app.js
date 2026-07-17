@@ -253,18 +253,34 @@ function drawIntradayChart(canvas) {
   ctx.fillStyle = "#7b8794";
   ctx.strokeStyle = "#e8edf1";
 
-  const labels=["09:30","10:30","11:30","13:30","14:30","15:00"];
-  labels.forEach((label,index)=>{
-    const x=pad.left+index*(w-pad.left-pad.right)/(labels.length-1);
-    ctx.fillText(label,x-18,h-10);
-    ctx.beginPath();ctx.moveTo(x,pad.top);ctx.lineTo(x,h-pad.bottom);ctx.stroke();
-  });
-
   if (!points.length) {
     ctx.fillStyle="#9aa5af";
     ctx.fillText("暂无今日分时数据", Math.max(pad.left, w/2-55), h/2);
     return;
   }
+
+  const parseTime = value => {
+    const normalized = String(value || "").replace(" ", "T");
+    const date = new Date(normalized);
+    return Number.isNaN(date.getTime()) ? null : date;
+  };
+  const firstTime = parseTime(points[0].time);
+  const lastTime = parseTime(points[points.length - 1].time);
+  const tickIndexes = [...new Set(
+    Array.from({length: Math.min(6, points.length)}, (_, i) =>
+      Math.round(i * (points.length - 1) / Math.max(1, Math.min(6, points.length) - 1))
+    )
+  )];
+  tickIndexes.forEach(index => {
+    const pointTime = parseTime(points[index].time);
+    const label = pointTime
+      ? pointTime.toLocaleTimeString("zh-CN", {hour:"2-digit", minute:"2-digit", hour12:false})
+      : String(points[index].time || "").slice(-8, -3);
+    const xx = pad.left + index * (w-pad.left-pad.right) / Math.max(1, points.length-1);
+    const labelWidth = ctx.measureText(label).width;
+    ctx.fillText(label, Math.max(pad.left, Math.min(w-pad.right-labelWidth, xx-labelWidth/2)), h-10);
+    ctx.beginPath();ctx.moveTo(xx,pad.top);ctx.lineTo(xx,h-pad.bottom);ctx.stroke();
+  });
 
   const values=points.map(p=>p.price);
   let min=Math.min(...values), max=Math.max(...values);
