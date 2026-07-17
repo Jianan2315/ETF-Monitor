@@ -1,7 +1,7 @@
 {
   "symbol": "561380",
-  "started_at": "2026-07-17T15:16:04",
-  "finished_at": "2026-07-17T15:16:23",
+  "started_at": "2026-07-17T16:10:41",
+  "finished_at": "2026-07-17T16:11:00",
   "browser": "Google Chrome",
   "quote_page_url": "https://quote.eastmoney.com/sh561380.html",
   "final_page_url": "https://quote.eastmoney.com/sh561380.html",
@@ -13,9 +13,9 @@
     "ok": true,
     "status": 200,
     "statusText": "OK",
-    "elapsedMs": 268,
+    "elapsedMs": 77,
     "bodyLength": 29889,
-    "bodyPreview": "{\"rc\":0,\"rt\":17,\"svr\":181669694,\"lt\":1,\"full\":0,\"dlmkts\":\"\",\"dsc\":\"0\",\"data\":{\"code\":\"561380\",\"market\":1,\"name\":\"电网设备ETF国泰\",\"decimal\":3,\"dktotal\":379,\"preKPrice\":0.399,\"klines\":[\"2024-12-23,0.397,0.393,0.400,0.393,1074980,107056447.000,1.75,-1.50,-0.006,1.69\",\"2024-12-24,0.393,0.398,0.398,0.393,187610,18547464.000,1.27,1.27,0.005,0.30\",\"2024-12-25,0.398,0.392,0.398,0.391,93860,9214756.000,1.76,-1.51,-0.006,0.15\",\"2024-12-26,0.394,0.400,0.400,0.392,180458,17970323.000,2.04,2.04,0.008,0.28\",\"2024-12-27,0.395,0.399,0.402,0.395,148797,14901033.000,1.75,-0.25,-0.001,0.23\",\"2024-12-30,0.399,0.396,0.401,0.395,36309,3610078.000,1.50,-0.75,-0.003,0.06\",\"2024-12-31,0.394,0.387,0.398,0.387,62574,6105682.000,2.78,-2.27,-0.009,0.10\",\"2025-01-02,0.386,0.377,0.386,0.374,52308,4990536.000,3.10,-2.58,-0.01",
+    "bodyPreview": "{\"rc\":0,\"rt\":17,\"svr\":181216787,\"lt\":1,\"full\":0,\"dlmkts\":\"\",\"dsc\":\"0\",\"data\":{\"code\":\"561380\",\"market\":1,\"name\":\"电网设备ETF国泰\",\"decimal\":3,\"dktotal\":379,\"preKPrice\":0.399,\"klines\":[\"2024-12-23,0.397,0.393,0.400,0.393,1074980,107056447.000,1.75,-1.50,-0.006,1.69\",\"2024-12-24,0.393,0.398,0.398,0.393,187610,18547464.000,1.27,1.27,0.005,0.30\",\"2024-12-25,0.398,0.392,0.398,0.391,93860,9214756.000,1.76,-1.51,-0.006,0.15\",\"2024-12-26,0.394,0.400,0.400,0.392,180458,17970323.000,2.04,2.04,0.008,0.28\",\"2024-12-27,0.395,0.399,0.402,0.395,148797,14901033.000,1.75,-0.25,-0.001,0.23\",\"2024-12-30,0.399,0.396,0.401,0.395,36309,3610078.000,1.50,-0.75,-0.003,0.06\",\"2024-12-31,0.394,0.387,0.398,0.387,62574,6105682.000,2.78,-2.27,-0.009,0.10\",\"2025-01-02,0.386,0.377,0.386,0.374,52308,4990536.000,3.10,-2.58,-0.01",
     "responseHeaders": {
       "cache-control": "no-cache",
       "content-length": "10102",
@@ -29,7 +29,7 @@
   "network_events": [
     {
       "kind": "response",
-      "url": "https://push2.eastmoney.com/api/qt/stock/get?invt=2&fltt=1&cb=jQuery35103950522798721383_1784272565317&fields=f58%2Cf734%2Cf107%2Cf57%2Cf43%2Cf59%2Cf169%2Cf170%2Cf152%2Cf46%2Cf60%2Cf44%2Cf45%2Cf47%2Cf48%2Cf19%2Cf17%2Cf531%2Cf15%2Cf13%2Cf11%2Cf20%2Cf18%2Cf16%2Cf14%2Cf12%2Cf39%2Cf37%2Cf35%2Cf33%2Cf31%2Cf40%2Cf38%2Cf36%2Cf34%2Cf32%2Cf211%2Cf212%2Cf213%2Cf214%2Cf215%2Cf210%2Cf209%2Cf208%2Cf207%2Cf206%2Cf161%2Cf49%2Cf171%2Cf50%2Cf86%2Cf168%2Cf108%2Cf167%2Cf71%2Cf292%2Cf51%2Cf52%2Cf191%2Cf192%2Cf452%2Cf177&secid=1.561380&ut=fa5fd1943c7b386f172d6893dbfba10b&wbp2u=%7C0%7C0%7C0%7Cweb&dect=1&_=1784272565318",
+      "url": "https://push2.eastmoney.com/api/qt/stock/get?invt=2&fltt=1&cb=jQuery351011795958414105001_1784275842513&fields=f58%2Cf734%2Cf107%2Cf57%2Cf43%2Cf59%2Cf169%2Cf170%2Cf152%2Cf46%2Cf60%2Cf44%2Cf45%2Cf47%2Cf48%2Cf19%2Cf17%2Cf531%2Cf15%2Cf13%2Cf11%2Cf20%2Cf18%2Cf16%2Cf14%2Cf12%2Cf39%2Cf37%2Cf35%2Cf33%2Cf31%2Cf40%2Cf38%2Cf36%2Cf34%2Cf32%2Cf211%2Cf212%2Cf213%2Cf214%2Cf215%2Cf210%2Cf209%2Cf208%2Cf207%2Cf206%2Cf161%2Cf49%2Cf171%2Cf50%2Cf86%2Cf168%2Cf108%2Cf167%2Cf71%2Cf292%2Cf51%2Cf52%2Cf191%2Cf192%2Cf452%2Cf177&secid=1.561380&ut=fa5fd1943c7b386f172d6893dbfba10b&wbp2u=%7C0%7C0%7C0%7Cweb&dect=1&_=1784275842514",
       "status": 200,
       "status_text": "OK",
       "resource_type": "script",
@@ -50,17 +50,17 @@
         "access-control-allow-credentials": "true",
         "access-control-allow-methods": "GET, POST, OPTIONS",
         "access-control-allow-origin": "*",
-        "date": "Fri, 17 Jul 2026 07:16:05 GMT",
+        "date": "Fri, 17 Jul 2026 08:10:42 GMT",
         "content-type": "application/javascript; charset=UTF-8",
         "vary": "Accept-Encoding",
         "server": "Microsoft-IIS/10.0"
       },
-      "body_preview": "jQuery35103950522798721383_1784272565317({\"rc\":0,\"rt\":4,\"svr\":177617572,\"lt\":1,\"full\":1,\"dlmkts\":\"\",\"dsc\":\"0\",\"data\":{\"f43\":688,\"f44\":719,\"f45\":683,\"f46\":718,\"f47\":1570206,\"f48\":110094215.0,\"f49\":642076,\"f50\":121,\"f51\":795,\"f52\":651,\"f57\":\"561380\",\"f58\":\"电网设备ETF国泰\",\"f59\":3,\"f60\":723,\"f71\":701,\"f86\":1784272559,\"f107\":1,\"f108\":\"-\",\"f152\":2,\"f161\":928130,\"f167\":\"-\",\"f168\":247,\"f169\":-35,\"f170\":-484,\"f171\":498,\"f177\":65,\"f191\":10000,\"f192\":357,\"f292\":19,\"f452\":-7534,\"f31\":\"-\",\"f32\":\"-\",\"f33\":\"-\",\"f34\":\"-\",\"f35\":\"-\",\"f36\":\"-\",\"f37\":\"-\",\"f38\":\"-\",\"f39\":\"-\",\"f40\":\"-\",\"f19\":688,\"f20\":357,\"f17\":\"-\",\"f18\":\"-\",\"f15\":\"-\",\"f16\":\"-\",\"f13\":\"-\",\"f14\":\"-\",\"f11\":\"-\",\"f12\":\"-\",\"f734\":\"\"}});",
-      "timestamp": "2026-07-17T15:16:05.827"
+      "body_preview": "jQuery351011795958414105001_1784275842513({\"rc\":0,\"rt\":4,\"svr\":183124585,\"lt\":1,\"full\":1,\"dlmkts\":\"\",\"dsc\":\"0\",\"data\":{\"f43\":688,\"f44\":719,\"f45\":683,\"f46\":718,\"f47\":1570206,\"f48\":110094215.0,\"f49\":642076,\"f50\":121,\"f51\":795,\"f52\":651,\"f57\":\"561380\",\"f58\":\"电网设备ETF国泰\",\"f59\":3,\"f60\":723,\"f71\":701,\"f86\":1784275831,\"f107\":1,\"f108\":\"-\",\"f152\":2,\"f161\":928130,\"f167\":\"-\",\"f168\":247,\"f169\":-35,\"f170\":-484,\"f171\":498,\"f177\":65,\"f191\":-384,\"f192\":-3569,\"f292\":5,\"f452\":-7534,\"f31\":692,\"f32\":6717,\"f33\":691,\"f34\":12224,\"f35\":690,\"f36\":16528,\"f37\":689,\"f38\":10255,\"f39\":688,\"f40\":2506,\"f19\":687,\"f20\":5174,\"f17\":686,\"f18\":16931,\"f15\":685,\"f16\":16925,\"f13\":684,\"f14\":3682,\"f11\":683,\"f12\":1949,\"f734\":\"\"}});",
+      "timestamp": "2026-07-17T16:10:42.822"
     },
     {
       "kind": "response",
-      "url": "https://push2.eastmoney.com/api/qt/kamt/get?fields1=f1,f2,f3,f4&fields2=f51,f52,f53,f54,f56,f62,f63,f65,f66&cb=jQuery35103950522798721383_1784272565319&ut=fa5fd1943c7b386f172d6893dbfba10b&wbp2u=%7C0%7C0%7C0%7Cweb&_=1784272565320",
+      "url": "https://push2.eastmoney.com/api/qt/kamt/get?fields1=f1,f2,f3,f4&fields2=f51,f52,f53,f54,f56,f62,f63,f65,f66&cb=jQuery351011795958414105001_1784275842515&ut=fa5fd1943c7b386f172d6893dbfba10b&wbp2u=%7C0%7C0%7C0%7Cweb&_=1784275842516",
       "status": 200,
       "status_text": "OK",
       "resource_type": "script",
@@ -81,17 +81,17 @@
         "access-control-allow-credentials": "true",
         "access-control-allow-methods": "GET, POST, OPTIONS",
         "access-control-allow-origin": "*",
-        "date": "Fri, 17 Jul 2026 07:16:05 GMT",
+        "date": "Fri, 17 Jul 2026 08:10:42 GMT",
         "content-type": "application/javascript; charset=UTF-8",
         "vary": "Accept-Encoding",
         "server": "Microsoft-IIS/10.0"
       },
-      "body_preview": "jQuery35103950522798721383_1784272565319({\"rc\":0,\"rt\":13,\"svr\":177617599,\"lt\":1,\"full\":1,\"dlmkts\":\"\",\"dsc\":\"0\",\"data\":{\"hk2sh\":{\"status\":3,\"dayNetAmtIn\":0.0,\"dayAmtRemain\":0.0,\"dayAmtThreshold\":5200000.0,\"date2\":\"2026-07-17\",\"buySellAmt\":0.0,\"netBuyAmt\":0.0,\"amtStatus\":1,\"buySellAmtDate\":20260717},\"sh2hk\":{\"status\":1,\"dayNetAmtIn\":4200000.0,\"dayAmtRemain\":0.0,\"dayAmtThreshold\":4200000.0,\"date2\":\"2026-07-17\",\"buySellAmt\":8168273.18,\"netBuyAmt\":311814.41,\"amtStatus\":1,\"buySellAmtDate\":0},\"hk2sz\":{\"status\":3,\"dayNetAmtIn\":0.0,\"dayAmtRemain\":0.0,\"dayAmtThreshold\":5200000.0,\"date2\":\"2026-07-17\",\"buySellAmt\":0.0,\"netBuyAmt\":0.0,\"amtStatus\":1,\"buySellAmtDate\":20260717},\"sz2hk\":{\"status\":1,\"dayNetAmtIn\":4200000.0,\"dayAmtRemain\":0.0,\"dayAmtThreshold\":4200000.0,\"date2\":\"2026-07-17\",\"buySellAmt\":5343",
-      "timestamp": "2026-07-17T15:16:05.852"
+      "body_preview": "jQuery351011795958414105001_1784275842515({\"rc\":0,\"rt\":13,\"svr\":183124523,\"lt\":1,\"full\":0,\"dlmkts\":\"\",\"dsc\":\"0\",\"data\":{\"hk2sh\":{\"status\":3,\"dayNetAmtIn\":0.0,\"dayAmtRemain\":0.0,\"dayAmtThreshold\":5200000.0,\"date2\":\"2026-07-17\",\"buySellAmt\":18114871.75,\"netBuyAmt\":0.0,\"amtStatus\":1,\"buySellAmtDate\":20260717},\"sh2hk\":{\"status\":3,\"dayNetAmtIn\":4200000.0,\"dayAmtRemain\":0.0,\"dayAmtThreshold\":4200000.0,\"date2\":\"2026-07-17\",\"buySellAmt\":9063175.45,\"netBuyAmt\":191047.73,\"amtStatus\":1,\"buySellAmtDate\":0},\"hk2sz\":{\"status\":3,\"dayNetAmtIn\":0.0,\"dayAmtRemain\":0.0,\"dayAmtThreshold\":5200000.0,\"date2\":\"2026-07-17\",\"buySellAmt\":21239989.21,\"netBuyAmt\":0.0,\"amtStatus\":1,\"buySellAmtDate\":20260717},\"sz2hk\":{\"status\":3,\"dayNetAmtIn\":4200000.0,\"dayAmtRemain\":0.0,\"dayAmtThreshold\":4200000.0,\"date2\":\"2026-07-17\",",
+      "timestamp": "2026-07-17T16:10:42.824"
     },
     {
       "kind": "response",
-      "url": "https://push2.eastmoney.com/api/qt/ulist/get?fltt=1&invt=2&cb=jQuery35103950522798721383_1784272565321&fields=f12%2Cf13%2Cf14%2Cf1%2Cf2%2Cf4%2Cf3%2Cf152%2Cf6%2Cf104%2Cf105%2Cf106&secids=1.000001%2C0.399001&ut=fa5fd1943c7b386f172d6893dbfba10b&pn=1&np=1&pz=20&dect=1&wbp2u=%7C0%7C0%7C0%7Cweb&_=1784272565322",
+      "url": "https://push2.eastmoney.com/api/qt/ulist/get?fltt=1&invt=2&cb=jQuery351011795958414105001_1784275842517&fields=f12%2Cf13%2Cf14%2Cf1%2Cf2%2Cf4%2Cf3%2Cf152%2Cf6%2Cf104%2Cf105%2Cf106&secids=1.000001%2C0.399001&ut=fa5fd1943c7b386f172d6893dbfba10b&pn=1&np=1&pz=20&dect=1&wbp2u=%7C0%7C0%7C0%7Cweb&_=1784275842518",
       "status": 200,
       "status_text": "OK",
       "resource_type": "script",
@@ -112,17 +112,17 @@
         "access-control-allow-credentials": "true",
         "access-control-allow-methods": "GET, POST, OPTIONS",
         "access-control-allow-origin": "*",
-        "date": "Fri, 17 Jul 2026 07:16:05 GMT",
+        "date": "Fri, 17 Jul 2026 08:10:42 GMT",
         "content-type": "application/javascript; charset=UTF-8",
         "vary": "Accept-Encoding",
         "server": "Microsoft-IIS/10.0"
       },
-      "body_preview": "jQuery35103950522798721383_1784272565321({\"rc\":0,\"rt\":5,\"svr\":177617607,\"lt\":1,\"full\":1,\"dlmkts\":\"\",\"dsc\":\"0\",\"data\":{\"total\":2,\"diff\":[{\"f1\":2,\"f2\":376415,\"f3\":-305,\"f4\":-11826,\"f6\":1246445452836.3,\"f12\":\"000001\",\"f13\":1,\"f14\":\"上证指数\",\"f104\":202,\"f105\":2119,\"f106\":26,\"f152\":2},{\"f1\":2,\"f2\":1370688,\"f3\":-540,\"f4\":-78177,\"f6\":1408513306057.37,\"f12\":\"399001\",\"f13\":0,\"f14\":\"深证成指\",\"f104\":219,\"f105\":2690,\"f106\":17,\"f152\":2}]}});",
-      "timestamp": "2026-07-17T15:16:05.852"
+      "body_preview": "jQuery351011795958414105001_1784275842517({\"rc\":0,\"rt\":5,\"svr\":183124591,\"lt\":1,\"full\":1,\"dlmkts\":\"\",\"dsc\":\"0\",\"data\":{\"total\":2,\"diff\":[{\"f1\":2,\"f2\":376415,\"f3\":-305,\"f4\":-11826,\"f6\":1246445452836.3,\"f12\":\"000001\",\"f13\":1,\"f14\":\"上证指数\",\"f104\":202,\"f105\":2119,\"f106\":26,\"f152\":2},{\"f1\":2,\"f2\":1370688,\"f3\":-540,\"f4\":-78177,\"f6\":1408513306057.37,\"f12\":\"399001\",\"f13\":0,\"f14\":\"深证成指\",\"f104\":219,\"f105\":2690,\"f106\":17,\"f152\":2}]}});",
+      "timestamp": "2026-07-17T16:10:42.827"
     },
     {
       "kind": "response",
-      "url": "https://push2.eastmoney.com/api/qt/clist/get?np=1&fltt=1&invt=2&cb=jQuery35103950522798721383_1784272565333&fs=m%3A0%2Bt%3A10%2Cm%3A1%2Bt%3A9&fields=f12%2Cf13%2Cf14%2Cf1%2Cf2%2Cf4%2Cf3%2Cf152&fid=f3&pn=1&pz=6&po=1&ut=fa5fd1943c7b386f172d6893dbfba10b&dect=1&wbp2u=%7C0%7C0%7C0%7Cweb&_=1784272565334",
+      "url": "https://push2.eastmoney.com/api/qt/clist/get?np=1&fltt=1&invt=2&cb=jQuery351011795958414105001_1784275842529&fs=m%3A0%2Bt%3A10%2Cm%3A1%2Bt%3A9&fields=f12%2Cf13%2Cf14%2Cf1%2Cf2%2Cf4%2Cf3%2Cf152&fid=f3&pn=1&pz=6&po=1&ut=fa5fd1943c7b386f172d6893dbfba10b&dect=1&wbp2u=%7C0%7C0%7C0%7Cweb&_=1784275842530",
       "status": 200,
       "status_text": "OK",
       "resource_type": "script",
@@ -143,17 +143,17 @@
         "access-control-allow-credentials": "true",
         "access-control-allow-methods": "GET, POST, OPTIONS",
         "access-control-allow-origin": "*",
-        "date": "Fri, 17 Jul 2026 07:16:05 GMT",
+        "date": "Fri, 17 Jul 2026 08:10:42 GMT",
         "content-type": "application/javascript; charset=UTF-8",
         "vary": "Accept-Encoding",
         "server": "Microsoft-IIS/10.0"
       },
-      "body_preview": "jQuery35103950522798721383_1784272565333({\"rc\":0,\"rt\":6,\"svr\":177617619,\"lt\":1,\"full\":1,\"dlmkts\":\"\",\"dsc\":\"0\",\"data\":{\"total\":2430,\"diff\":[{\"f1\":3,\"f2\":1252,\"f3\":339,\"f4\":41,\"f12\":\"165512\",\"f13\":0,\"f14\":\"中信保诚机遇LOF\",\"f152\":2},{\"f1\":3,\"f2\":1814,\"f3\":330,\"f4\":58,\"f12\":\"161129\",\"f13\":0,\"f14\":\"原油LOF易方达\",\"f152\":2},{\"f1\":3,\"f2\":1471,\"f3\":323,\"f4\":46,\"f12\":\"161728\",\"f13\":0,\"f14\":\"招商优选LOF\",\"f152\":2},{\"f1\":3,\"f2\":2017,\"f3\":265,\"f4\":52,\"f12\":\"160716\",\"f13\":0,\"f14\":\"基本面50LOF\",\"f152\":2},{\"f1\":3,\"f2\":1094,\"f3\":263,\"f4\":28,\"f12\":\"560580\",\"f13\":1,\"f14\":\"电力ETF南方\",\"f152\":2},{\"f1\":3,\"f2\":1203,\"f3\":221,\"f4\":26,\"f12\":\"513350\",\"f13\":1,\"f14\":\"标普油气ETF富国\",\"f152\":2}]}});",
-      "timestamp": "2026-07-17T15:16:05.853"
+      "body_preview": "jQuery351011795958414105001_1784275842529({\"rc\":0,\"rt\":6,\"svr\":183120846,\"lt\":1,\"full\":1,\"dlmkts\":\"\",\"dsc\":\"0\",\"data\":{\"total\":2430,\"diff\":[{\"f1\":3,\"f2\":1252,\"f3\":339,\"f4\":41,\"f12\":\"165512\",\"f13\":0,\"f14\":\"中信保诚机遇LOF\",\"f152\":2},{\"f1\":3,\"f2\":1814,\"f3\":330,\"f4\":58,\"f12\":\"161129\",\"f13\":0,\"f14\":\"原油LOF易方达\",\"f152\":2},{\"f1\":3,\"f2\":1471,\"f3\":323,\"f4\":46,\"f12\":\"161728\",\"f13\":0,\"f14\":\"招商优选LOF\",\"f152\":2},{\"f1\":3,\"f2\":2017,\"f3\":265,\"f4\":52,\"f12\":\"160716\",\"f13\":0,\"f14\":\"基本面50LOF\",\"f152\":2},{\"f1\":3,\"f2\":1094,\"f3\":263,\"f4\":28,\"f12\":\"560580\",\"f13\":1,\"f14\":\"电力ETF南方\",\"f152\":2},{\"f1\":3,\"f2\":1203,\"f3\":221,\"f4\":26,\"f12\":\"513350\",\"f13\":1,\"f14\":\"标普油气ETF富国\",\"f152\":2}]}});",
+      "timestamp": "2026-07-17T16:10:42.835"
     },
     {
       "kind": "response",
-      "url": "https://push2.eastmoney.com/api/qt/stock/details/get?fields1=f1,f2,f3,f4&fields2=f51,f52,f53,f54,f55&fltt=2&cb=jQuery35103950522798721383_1784272565335&pos=-11&secid=1.561380&ut=fa5fd1943c7b386f172d6893dbfba10b&wbp2u=%7C0%7C0%7C0%7Cweb&_=1784272565336",
+      "url": "https://push2.eastmoney.com/api/qt/stock/details/get?fields1=f1,f2,f3,f4&fields2=f51,f52,f53,f54,f55&fltt=2&cb=jQuery351011795958414105001_1784275842531&pos=-11&secid=1.561380&ut=fa5fd1943c7b386f172d6893dbfba10b&wbp2u=%7C0%7C0%7C0%7Cweb&_=1784275842532",
       "status": 200,
       "status_text": "OK",
       "resource_type": "script",
@@ -174,17 +174,17 @@
         "access-control-allow-credentials": "true",
         "access-control-allow-methods": "GET, POST, OPTIONS",
         "access-control-allow-origin": "*",
-        "date": "Fri, 17 Jul 2026 07:16:05 GMT",
+        "date": "Fri, 17 Jul 2026 08:10:42 GMT",
         "content-type": "application/javascript; charset=UTF-8",
         "vary": "Accept-Encoding",
         "server": "Microsoft-IIS/10.0"
       },
-      "body_preview": "jQuery35103950522798721383_1784272565335({\"rc\":0,\"rt\":12,\"svr\":177617629,\"lt\":1,\"full\":1,\"dlmkts\":\"\",\"dsc\":\"0\",\"data\":{\"code\":\"561380\",\"market\":1,\"decimal\":3,\"prePrice\":0.723,\"details\":[\"14:56:40,0.688,128,2,2\",\"14:56:43,0.688,2,1,2\",\"14:56:46,0.687,58,1,1\",\"14:56:49,0.687,105,5,1\",\"14:56:52,0.688,40,2,2\",\"14:56:55,0.688,50,1,2\",\"14:56:58,0.688,302,3,2\",\"15:00:04,0.688,7534,136,1\",\"15:07:54,0.688,33,4,1\",\"15:09:45,0.688,23,1,1\",\"15:10:27,0.688,1,1,1\"]}});",
-      "timestamp": "2026-07-17T15:16:05.853"
+      "body_preview": "jQuery351011795958414105001_1784275842531({\"rc\":0,\"rt\":12,\"svr\":183124523,\"lt\":1,\"full\":1,\"dlmkts\":\"\",\"dsc\":\"0\",\"data\":{\"code\":\"561380\",\"market\":1,\"decimal\":3,\"prePrice\":0.723,\"details\":[\"14:56:52,0.688,40,2,2\",\"14:56:55,0.688,50,1,2\",\"14:56:58,0.688,302,3,2\",\"15:00:04,0.688,7534,136,1\",\"15:07:54,0.688,33,4,1\",\"15:09:45,0.688,23,1,1\",\"15:10:27,0.688,1,1,1\",\"15:17:03,0.688,3,1,1\",\"15:17:27,0.688,48,1,1\",\"15:18:39,0.688,75,2,1\",\"15:25:10,0.688,3,1,1\"]}});",
+      "timestamp": "2026-07-17T16:10:42.848"
     },
     {
       "kind": "response",
-      "url": "https://push2.eastmoney.com/api/qt/ulist/get?fltt=1&invt=2&cb=jQuery35103950522798721383_1784272565327&fields=f12%2Cf13%2Cf14%2Cf3%2Cf152%2Cf4&secids=1.600487%2C0.002028%2C1.600406%2C1.600089%2C1.600522%2C1.601179%2C1.600885%2C1.603606%2C1.600577%2C1.601126&ut=fa5fd1943c7b386f172d6893dbfba10b&pn=1&np=1&pz=20&dect=1&wbp2u=%7C0%7C0%7C0%7Cweb&_=1784272565343",
+      "url": "https://push2.eastmoney.com/api/qt/ulist/get?fltt=1&invt=2&cb=jQuery351011795958414105001_1784275842529&fields=f12%2Cf13%2Cf14%2Cf3%2Cf152%2Cf4&secids=1.600487%2C0.002028%2C1.600406%2C1.600089%2C1.600522%2C1.601179%2C1.600885%2C1.603606%2C1.600577%2C1.601126&ut=fa5fd1943c7b386f172d6893dbfba10b&pn=1&np=1&pz=20&dect=1&wbp2u=%7C0%7C0%7C0%7Cweb&_=1784275842539",
       "status": 200,
       "status_text": "OK",
       "resource_type": "script",
@@ -205,13 +205,44 @@
         "access-control-allow-credentials": "true",
         "access-control-allow-methods": "GET, POST, OPTIONS",
         "access-control-allow-origin": "*",
-        "date": "Fri, 17 Jul 2026 07:16:05 GMT",
+        "date": "Fri, 17 Jul 2026 08:10:42 GMT",
         "content-type": "application/javascript; charset=UTF-8",
         "vary": "Accept-Encoding",
         "server": "Microsoft-IIS/10.0"
       },
-      "body_preview": "jQuery35103950522798721383_1784272565327({\"rc\":0,\"rt\":5,\"svr\":177617592,\"lt\":1,\"full\":1,\"dlmkts\":\"\",\"dsc\":\"0\",\"data\":{\"total\":10,\"diff\":[{\"f3\":-996,\"f4\":-646,\"f12\":\"600487\",\"f13\":1,\"f14\":\"亨通光电\",\"f152\":2},{\"f3\":-287,\"f4\":-435,\"f12\":\"002028\",\"f13\":0,\"f14\":\"思源电气\",\"f152\":2},{\"f3\":41,\"f4\":9,\"f12\":\"600406\",\"f13\":1,\"f14\":\"国电南瑞\",\"f152\":2},{\"f3\":-117,\"f4\":-22,\"f12\":\"600089\",\"f13\":1,\"f14\":\"特变电工\",\"f152\":2},{\"f3\":-1000,\"f4\":-374,\"f12\":\"600522\",\"f13\":1,\"f14\":\"中天科技\",\"f152\":2},{\"f3\":-51,\"f4\":-6,\"f12\":\"601179\",\"f13\":1,\"f14\":\"中国西电\",\"f152\":2},{\"f3\":-467,\"f4\":-154,\"f12\":\"600885\",\"f13\":1,\"f14\":\"宏发股份\",\"f152\":2},{\"f3\":-306,\"f4\":-119,\"f12\":\"603606\",\"f13\":1,\"f14\":\"东方电缆\",\"f152\":2},{\"f3\":-650,\"f4\":-50,\"f12\":\"600577\",\"f13\":1,\"f14\":\"精达股份\",\"f152\":2},{\"f3\":-449,\"f4\":-209,\"f12\":\"601126\",\"f13\":1,\"f14\":\"四方股份\",\"f152\":2}]}}",
-      "timestamp": "2026-07-17T15:16:05.904"
+      "body_preview": "jQuery351011795958414105001_1784275842529({\"rc\":0,\"rt\":5,\"svr\":183120885,\"lt\":1,\"full\":1,\"dlmkts\":\"\",\"dsc\":\"0\",\"data\":{\"total\":10,\"diff\":[{\"f3\":-996,\"f4\":-646,\"f12\":\"600487\",\"f13\":1,\"f14\":\"亨通光电\",\"f152\":2},{\"f3\":-287,\"f4\":-435,\"f12\":\"002028\",\"f13\":0,\"f14\":\"思源电气\",\"f152\":2},{\"f3\":41,\"f4\":9,\"f12\":\"600406\",\"f13\":1,\"f14\":\"国电南瑞\",\"f152\":2},{\"f3\":-117,\"f4\":-22,\"f12\":\"600089\",\"f13\":1,\"f14\":\"特变电工\",\"f152\":2},{\"f3\":-1000,\"f4\":-374,\"f12\":\"600522\",\"f13\":1,\"f14\":\"中天科技\",\"f152\":2},{\"f3\":-51,\"f4\":-6,\"f12\":\"601179\",\"f13\":1,\"f14\":\"中国西电\",\"f152\":2},{\"f3\":-467,\"f4\":-154,\"f12\":\"600885\",\"f13\":1,\"f14\":\"宏发股份\",\"f152\":2},{\"f3\":-306,\"f4\":-119,\"f12\":\"603606\",\"f13\":1,\"f14\":\"东方电缆\",\"f152\":2},{\"f3\":-650,\"f4\":-50,\"f12\":\"600577\",\"f13\":1,\"f14\":\"精达股份\",\"f152\":2},{\"f3\":-449,\"f4\":-209,\"f12\":\"601126\",\"f13\":1,\"f14\":\"四方股份\",\"f152\":2}]}",
+      "timestamp": "2026-07-17T16:10:42.982"
+    },
+    {
+      "kind": "response",
+      "url": "https://push2.eastmoney.com/api/qt/stock/get?cb=jQuery351011795958414105001_1784275842537&ut=bd1d9ddb04089700cf9c27f6f7426281&_=1784275842540",
+      "status": 200,
+      "status_text": "OK",
+      "resource_type": "script",
+      "method": "GET",
+      "request_headers": {
+        "sec-ch-ua-platform": "\"Windows\"",
+        "referer": "https://quote.eastmoney.com/sh561380.html",
+        "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36",
+        "sec-ch-ua": "\"Google Chrome\";v=\"149\", \"Chromium\";v=\"149\", \"Not)A;Brand\";v=\"24\"",
+        "accept-language": "zh-CN",
+        "sec-ch-ua-mobile": "?0"
+      },
+      "response_headers": {
+        "transfer-encoding": "chunked",
+        "cache-control": "no-cache",
+        "content-encoding": "gzip",
+        "connection": "keep-alive",
+        "access-control-allow-credentials": "true",
+        "access-control-allow-methods": "GET, POST, OPTIONS",
+        "access-control-allow-origin": "*",
+        "date": "Fri, 17 Jul 2026 08:10:42 GMT",
+        "content-type": "text/plain",
+        "vary": "Accept-Encoding",
+        "server": "Microsoft-IIS/10.0"
+      },
+      "body_preview": "jQuery351011795958414105001_1784275842537({\"rc\":102,\"rt\":1,\"svr\":183124629,\"lt\":1,\"full\":1,\"dlmkts\":\"\",\"dsc\":\"0\",\"data\":null});",
+      "timestamp": "2026-07-17T16:10:42.983"
     },
     {
       "kind": "response",
@@ -236,17 +267,17 @@
         "access-control-allow-credentials": "true",
         "access-control-allow-methods": "GET, POST, OPTIONS",
         "access-control-allow-origin": "*",
-        "date": "Fri, 17 Jul 2026 07:16:05 GMT",
+        "date": "Fri, 17 Jul 2026 08:10:42 GMT",
         "content-type": "text/plain",
         "vary": "Accept-Encoding",
         "server": "Microsoft-IIS/10.0"
       },
-      "body_preview": "quotedelaytip0({\"rc\":102,\"rt\":1,\"svr\":177617616,\"lt\":1,\"full\":1,\"dlmkts\":\"\",\"dsc\":\"0\",\"data\":null});",
-      "timestamp": "2026-07-17T15:16:05.915"
+      "body_preview": "quotedelaytip0({\"rc\":102,\"rt\":1,\"svr\":183120931,\"lt\":1,\"full\":1,\"dlmkts\":\"\",\"dsc\":\"0\",\"data\":null});",
+      "timestamp": "2026-07-17T16:10:42.983"
     },
     {
       "kind": "response",
-      "url": "https://push2.eastmoney.com/api/qt/ulist/get?fltt=1&invt=2&fields=f14%2Cf12%2Cf13%2Cf1%2Cf2%2Cf4%2Cf3%2Cf152&secids=1.600584%2C1.600664%2C0.002185%2C0.000725%2C0.300308%2C0.002432%2C0.001309%2C1.603986%2C0.000938%2C0.002384%2C1.600436%2C1.600744%2C0.300059%2C0.002156%2C1.603127&ut=fa5fd1943c7b386f172d6893dbfba10b&pn=1&np=1&pz=20&dect=1&wbp2u=%7C0%7C0%7C0%7Cweb",
+      "url": "https://push2.eastmoney.com/api/qt/ulist/get?fltt=1&invt=2&fields=f14%2Cf12%2Cf13%2Cf1%2Cf2%2Cf4%2Cf3%2Cf152&secids=1.600584%2C1.600664%2C0.002185%2C0.000725%2C0.300308%2C0.002432%2C1.603986%2C0.001309%2C0.000938%2C0.002384%2C1.600436%2C0.002156%2C1.600744%2C0.300059%2C0.000676&ut=fa5fd1943c7b386f172d6893dbfba10b&pn=1&np=1&pz=20&dect=1&wbp2u=%7C0%7C0%7C0%7Cweb",
       "status": 200,
       "status_text": "OK",
       "resource_type": "xhr",
@@ -268,44 +299,13 @@
         "access-control-allow-credentials": "true",
         "access-control-allow-methods": "GET, POST, OPTIONS",
         "access-control-allow-origin": "https://quote.eastmoney.com",
-        "date": "Fri, 17 Jul 2026 07:16:05 GMT",
+        "date": "Fri, 17 Jul 2026 08:10:43 GMT",
         "content-type": "application/json; charset=UTF-8",
         "vary": "Accept-Encoding",
         "server": "Microsoft-IIS/10.0"
       },
-      "body_preview": "{\"rc\":0,\"rt\":5,\"svr\":177617545,\"lt\":1,\"full\":1,\"dlmkts\":\"\",\"dsc\":\"0\",\"data\":{\"total\":15,\"diff\":[{\"f1\":2,\"f2\":8549,\"f3\":274,\"f4\":228,\"f12\":\"600584\",\"f13\":1,\"f14\":\"长电科技\",\"f152\":2},{\"f1\":2,\"f2\":533,\"f3\":789,\"f4\":39,\"f12\":\"600664\",\"f13\":1,\"f14\":\"哈药股份\",\"f152\":2},{\"f1\":2,\"f2\":1872,\"f3\":-1000,\"f4\":-208,\"f12\":\"002185\",\"f13\":0,\"f14\":\"华天科技\",\"f152\":2},{\"f1\":2,\"f2\":607,\"f3\":33,\"f4\":2,\"f12\":\"000725\",\"f13\":0,\"f14\":\"京东方Ａ\",\"f152\":2},{\"f1\":2,\"f2\":97946,\"f3\":-1200,\"f4\":-13354,\"f12\":\"300308\",\"f13\":0,\"f14\":\"中际旭创\",\"f152\":2},{\"f1\":2,\"f2\":7920,\"f3\":1000,\"f4\":720,\"f12\":\"002432\",\"f13\":0,\"f14\":\"九安医疗\",\"f152\":2},{\"f1\":2,\"f2\":53654,\"f3\":-1000,\"f4\":-5962,\"f12\":\"001309\",\"f13\":0,\"f14\":\"德明利\",\"f152\":2},{\"f1\":2,\"f2\":46315,\"f3\":-1000,\"f4\":-5146,\"f12\":\"603986\",\"f13\":1,\"f14\":\"兆易创新\",\"f152\":2},{\"f1\":2,\"f2\":3513,\"f3\":-897,\"f4\":-3",
-      "timestamp": "2026-07-17T15:16:05.933"
-    },
-    {
-      "kind": "response",
-      "url": "https://push2.eastmoney.com/api/qt/stock/get?cb=jQuery35103950522798721383_1784272565341&ut=bd1d9ddb04089700cf9c27f6f7426281&_=1784272565344",
-      "status": 200,
-      "status_text": "OK",
-      "resource_type": "script",
-      "method": "GET",
-      "request_headers": {
-        "sec-ch-ua-platform": "\"Windows\"",
-        "referer": "https://quote.eastmoney.com/sh561380.html",
-        "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36",
-        "sec-ch-ua": "\"Google Chrome\";v=\"149\", \"Chromium\";v=\"149\", \"Not)A;Brand\";v=\"24\"",
-        "accept-language": "zh-CN",
-        "sec-ch-ua-mobile": "?0"
-      },
-      "response_headers": {
-        "transfer-encoding": "chunked",
-        "cache-control": "no-cache",
-        "content-encoding": "gzip",
-        "connection": "keep-alive",
-        "access-control-allow-credentials": "true",
-        "access-control-allow-methods": "GET, POST, OPTIONS",
-        "access-control-allow-origin": "*",
-        "date": "Fri, 17 Jul 2026 07:16:05 GMT",
-        "content-type": "text/plain",
-        "vary": "Accept-Encoding",
-        "server": "Microsoft-IIS/10.0"
-      },
-      "body_preview": "jQuery35103950522798721383_1784272565341({\"rc\":102,\"rt\":1,\"svr\":177617631,\"lt\":1,\"full\":1,\"dlmkts\":\"\",\"dsc\":\"0\",\"data\":null});",
-      "timestamp": "2026-07-17T15:16:06.036"
+      "body_preview": "{\"rc\":0,\"rt\":5,\"svr\":183124585,\"lt\":1,\"full\":1,\"dlmkts\":\"\",\"dsc\":\"0\",\"data\":{\"total\":15,\"diff\":[{\"f1\":2,\"f2\":8549,\"f3\":274,\"f4\":228,\"f12\":\"600584\",\"f13\":1,\"f14\":\"长电科技\",\"f152\":2},{\"f1\":2,\"f2\":533,\"f3\":789,\"f4\":39,\"f12\":\"600664\",\"f13\":1,\"f14\":\"哈药股份\",\"f152\":2},{\"f1\":2,\"f2\":1872,\"f3\":-1000,\"f4\":-208,\"f12\":\"002185\",\"f13\":0,\"f14\":\"华天科技\",\"f152\":2},{\"f1\":2,\"f2\":607,\"f3\":33,\"f4\":2,\"f12\":\"000725\",\"f13\":0,\"f14\":\"京东方Ａ\",\"f152\":2},{\"f1\":2,\"f2\":97946,\"f3\":-1200,\"f4\":-13354,\"f12\":\"300308\",\"f13\":0,\"f14\":\"中际旭创\",\"f152\":2},{\"f1\":2,\"f2\":7920,\"f3\":1000,\"f4\":720,\"f12\":\"002432\",\"f13\":0,\"f14\":\"九安医疗\",\"f152\":2},{\"f1\":2,\"f2\":46315,\"f3\":-1000,\"f4\":-5146,\"f12\":\"603986\",\"f13\":1,\"f14\":\"兆易创新\",\"f152\":2},{\"f1\":2,\"f2\":53654,\"f3\":-1000,\"f4\":-5962,\"f12\":\"001309\",\"f13\":0,\"f14\":\"德明利\",\"f152\":2},{\"f1\":2,\"f2\":3513,\"f3\":-897,\"f4\":-3",
+      "timestamp": "2026-07-17T16:10:43.008"
     },
     {
       "kind": "response",
@@ -331,13 +331,13 @@
         "access-control-allow-credentials": "true",
         "access-control-allow-methods": "GET, POST, OPTIONS",
         "access-control-allow-origin": "https://quote.eastmoney.com",
-        "date": "Fri, 17 Jul 2026 07:16:06 GMT",
+        "date": "Fri, 17 Jul 2026 08:10:43 GMT",
         "content-type": "application/json; charset=UTF-8",
         "vary": "Accept-Encoding",
         "server": "Microsoft-IIS/10.0"
       },
-      "body_preview": "{\"rc\":0,\"rt\":5,\"svr\":177617582,\"lt\":1,\"full\":1,\"dlmkts\":\"\",\"dsc\":\"0\",\"data\":{\"total\":2,\"diff\":[{\"f1\":2,\"f2\":87237,\"f3\":-65,\"f4\":-570,\"f12\":\"SHAU\",\"f13\":118,\"f14\":\"上海金\",\"f152\":2},{\"f1\":2,\"f2\":1970,\"f3\":-61,\"f4\":-12,\"f12\":\"300059\",\"f13\":0,\"f14\":\"东方财富\",\"f152\":2}]}}",
-      "timestamp": "2026-07-17T15:16:06.063"
+      "body_preview": "{\"rc\":0,\"rt\":5,\"svr\":183124527,\"lt\":1,\"full\":1,\"dlmkts\":\"\",\"dsc\":\"0\",\"data\":{\"total\":2,\"diff\":[{\"f1\":2,\"f2\":87237,\"f3\":-65,\"f4\":-570,\"f12\":\"SHAU\",\"f13\":118,\"f14\":\"上海金\",\"f152\":2},{\"f1\":2,\"f2\":1970,\"f3\":-61,\"f4\":-12,\"f12\":\"300059\",\"f13\":0,\"f14\":\"东方财富\",\"f152\":2}]}}",
+      "timestamp": "2026-07-17T16:10:43.045"
     },
     {
       "kind": "response",
@@ -362,16 +362,16 @@
         "access-control-allow-methods": "GET, POST, OPTIONS",
         "access-control-allow-origin": "https://quote.eastmoney.com",
         "content-length": "10102",
-        "date": "Fri, 17 Jul 2026 07:16:11 GMT",
+        "date": "Fri, 17 Jul 2026 08:10:47 GMT",
         "content-type": "application/json; charset=UTF-8",
         "server": "Microsoft-IIS/10.0"
       },
-      "body_preview": "{\"rc\":0,\"rt\":17,\"svr\":181669694,\"lt\":1,\"full\":0,\"dlmkts\":\"\",\"dsc\":\"0\",\"data\":{\"code\":\"561380\",\"market\":1,\"name\":\"电网设备ETF国泰\",\"decimal\":3,\"dktotal\":379,\"preKPrice\":0.399,\"klines\":[\"2024-12-23,0.397,0.393,0.400,0.393,1074980,107056447.000,1.75,-1.50,-0.006,1.69\",\"2024-12-24,0.393,0.398,0.398,0.393,187610,18547464.000,1.27,1.27,0.005,0.30\",\"2024-12-25,0.398,0.392,0.398,0.391,93860,9214756.000,1.76,-1.51,-0.006,0.15\",\"2024-12-26,0.394,0.400,0.400,0.392,180458,17970323.000,2.04,2.04,0.008,0.28\",\"2024-12-27,0.395,0.399,0.402,0.395,148797,14901033.000,1.75,-0.25,-0.001,0.23\",\"2024-12-30,0.399,0.396,0.401,0.395,36309,3610078.000,1.50,-0.75,-0.003,0.06\",\"2024-12-31,0.394,0.387,0.398,0.387,62574,6105682.000,2.78,-2.27,-0.009,0.10\",\"2025-01-02,0.386,0.377,0.386,0.374,52308,4990536.000,3.10,-2.58,-0.01",
-      "timestamp": "2026-07-17T15:16:11.138"
+      "body_preview": "{\"rc\":0,\"rt\":17,\"svr\":181216787,\"lt\":1,\"full\":0,\"dlmkts\":\"\",\"dsc\":\"0\",\"data\":{\"code\":\"561380\",\"market\":1,\"name\":\"电网设备ETF国泰\",\"decimal\":3,\"dktotal\":379,\"preKPrice\":0.399,\"klines\":[\"2024-12-23,0.397,0.393,0.400,0.393,1074980,107056447.000,1.75,-1.50,-0.006,1.69\",\"2024-12-24,0.393,0.398,0.398,0.393,187610,18547464.000,1.27,1.27,0.005,0.30\",\"2024-12-25,0.398,0.392,0.398,0.391,93860,9214756.000,1.76,-1.51,-0.006,0.15\",\"2024-12-26,0.394,0.400,0.400,0.392,180458,17970323.000,2.04,2.04,0.008,0.28\",\"2024-12-27,0.395,0.399,0.402,0.395,148797,14901033.000,1.75,-0.25,-0.001,0.23\",\"2024-12-30,0.399,0.396,0.401,0.395,36309,3610078.000,1.50,-0.75,-0.003,0.06\",\"2024-12-31,0.394,0.387,0.398,0.387,62574,6105682.000,2.78,-2.27,-0.009,0.10\",\"2025-01-02,0.386,0.377,0.386,0.374,52308,4990536.000,3.10,-2.58,-0.01",
+      "timestamp": "2026-07-17T16:10:47.923"
     },
     {
       "kind": "response",
-      "url": "https://69.push2.eastmoney.com/api/qt/stock/sse?fields=f58,f734,f107,f57,f43,f59,f169,f170,f152,f46,f60,f44,f45,f47,f48,f19,f17,f531,f15,f13,f11,f20,f18,f16,f14,f12,f39,f37,f35,f33,f31,f40,f38,f36,f34,f32,f211,f212,f213,f214,f215,f210,f209,f208,f207,f206,f161,f49,f171,f50,f86,f168,f108,f167,f71,f292,f51,f52,f191,f192,f452,f177&mpi=1000&invt=2&fltt=1&secid=1.561380&ut=fa5fd1943c7b386f172d6893dbfba10b&dect=1&wbp2u=|0|0|0|web",
+      "url": "https://34.push2.eastmoney.com/api/qt/stock/sse?fields=f58,f734,f107,f57,f43,f59,f169,f170,f152,f46,f60,f44,f45,f47,f48,f19,f17,f531,f15,f13,f11,f20,f18,f16,f14,f12,f39,f37,f35,f33,f31,f40,f38,f36,f34,f32,f211,f212,f213,f214,f215,f210,f209,f208,f207,f206,f161,f49,f171,f50,f86,f168,f108,f167,f71,f292,f51,f52,f191,f192,f452,f177&mpi=1000&invt=2&fltt=1&secid=1.561380&ut=fa5fd1943c7b386f172d6893dbfba10b&dect=1&wbp2u=|0|0|0|web",
       "status": 200,
       "status_text": "OK",
       "resource_type": "eventsource",
@@ -393,17 +393,17 @@
         "access-control-allow-credentials": "true",
         "access-control-allow-methods": "GET, POST, OPTIONS",
         "access-control-allow-origin": "https://quote.eastmoney.com",
-        "date": "Fri, 17 Jul 2026 07:16:05 GMT",
+        "date": "Fri, 17 Jul 2026 08:10:42 GMT",
         "content-type": "text/event-stream; charset=utf-8",
         "vary": "Accept-Encoding",
         "server": "Microsoft-IIS/10.0"
       },
       "body_preview": null,
-      "timestamp": "2026-07-17T15:16:23.248"
+      "timestamp": "2026-07-17T16:11:00.058"
     },
     {
       "kind": "response",
-      "url": "https://69.push2.eastmoney.com/api/qt/stock/details/sse?fields1=f1,f2,f3,f4&fields2=f51,f52,f53,f54,f55&mpi=1000&dect=1&ut=bd1d9ddb04089700cf9c27f6f7426281&fltt=2&pos=-11&secid=1.561380&wbp2u=|0|0|0|web",
+      "url": "https://34.push2.eastmoney.com/api/qt/stock/details/sse?fields1=f1,f2,f3,f4&fields2=f51,f52,f53,f54,f55&mpi=1000&dect=1&ut=bd1d9ddb04089700cf9c27f6f7426281&fltt=2&pos=-11&secid=1.561380&wbp2u=|0|0|0|web",
       "status": 200,
       "status_text": "OK",
       "resource_type": "eventsource",
@@ -425,13 +425,13 @@
         "access-control-allow-credentials": "true",
         "access-control-allow-methods": "GET, POST, OPTIONS",
         "access-control-allow-origin": "https://quote.eastmoney.com",
-        "date": "Fri, 17 Jul 2026 07:16:05 GMT",
+        "date": "Fri, 17 Jul 2026 08:10:42 GMT",
         "content-type": "text/event-stream; charset=utf-8",
         "vary": "Accept-Encoding",
         "server": "Microsoft-IIS/10.0"
       },
       "body_preview": null,
-      "timestamp": "2026-07-17T15:16:23.249"
+      "timestamp": "2026-07-17T16:11:00.058"
     }
   ],
   "failed_requests": [],
@@ -459,6 +459,13 @@
     },
     {
       "name": "qgqp_b_id",
+      "domain": ".eastmoney.com",
+      "path": "/",
+      "secure": false,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "st_nvi",
       "domain": ".eastmoney.com",
       "path": "/",
       "secure": false,
@@ -508,13 +515,6 @@
     },
     {
       "name": "st_asi",
-      "domain": ".eastmoney.com",
-      "path": "/",
-      "secure": false,
-      "sameSite": "Lax"
-    },
-    {
-      "name": "st_nvi",
       "domain": ".eastmoney.com",
       "path": "/",
       "secure": false,
