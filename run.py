@@ -57,6 +57,7 @@ def parse_args(argv: list[str] | None = None):
         default="auto",
     )
     parser.add_argument("--slot", default="")
+    parser.add_argument("--asset", default="", help="Only run one configured asset id/code")
     return parser.parse_args(argv)
 
 
@@ -281,10 +282,19 @@ def main(argv: list[str] | None = None) -> int:
     for configured_asset in config["assets"]:
         if not configured_asset.get("enabled", True):
             continue
+        asset_id = str(configured_asset.get("id") or configured_asset.get("asset_code") or configured_asset.get("symbol") or "")
+        if args.asset and args.asset not in {asset_id, str(configured_asset.get("asset_code", "")), str(configured_asset.get("tracking_code", "")), str(configured_asset.get("symbol", ""))}:
+            continue
+        tracking_code = str(configured_asset.get("tracking_code") or configured_asset.get("symbol") or "").strip()
+        market_asset = {
+            **configured_asset,
+            "symbol": tracking_code,
+            "name": configured_asset.get("tracking_name") or configured_asset.get("name"),
+        }
 
         try:
             bundle = fetch_asset_data(
-                configured_asset,
+                market_asset,
                 config,
                 mode=args.mode,
                 project_root=ROOT,
@@ -394,7 +404,7 @@ def main(argv: list[str] | None = None) -> int:
         try:
             transactions = reconcile_pending_transactions(
                 transaction_path,
-                configured_asset["symbol"],
+                str(configured_asset.get("asset_code") or configured_asset.get("id") or configured_asset.get("symbol")),
                 bundle.history,
             )
             steps.append(
@@ -409,7 +419,7 @@ def main(argv: list[str] | None = None) -> int:
             logger.exception("交易记录自动处理失败")
             transactions = load_transactions(
                 transaction_path,
-                configured_asset["symbol"],
+                str(configured_asset.get("asset_code") or configured_asset.get("id") or configured_asset.get("symbol")),
             )
             steps.append(
                 _step(
@@ -427,6 +437,12 @@ def main(argv: list[str] | None = None) -> int:
             )
             asset = {
                 **configured_asset,
+                "symbol": tracking_code,
+                "asset_code": str(configured_asset.get("asset_code") or configured_asset.get("id") or tracking_code),
+                "tracking_code": tracking_code,
+                "tracking_type": configured_asset.get("tracking_type", "ETF"),
+                "asset_type": configured_asset.get("asset_type", "ETF"),
+                "is_estimated_tracking": str(configured_asset.get("asset_code") or tracking_code) != tracking_code,
                 "position": {
                     **configured_asset.get("position", {}),
                     **position_metrics,

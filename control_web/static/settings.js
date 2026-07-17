@@ -1,3 +1,21 @@
+let selectedAssetId = new URLSearchParams(location.search).get("asset_id") || localStorage.getItem("portfolio.selectedAssetId") || "";
+let assetList = [];
+
+function assetApi(path) {
+  const suffix = selectedAssetId ? `?asset_id=${encodeURIComponent(selectedAssetId)}` : "";
+  return `${path}${suffix}`;
+}
+
+async function loadAssetList(preferred = selectedAssetId) {
+  const data = await fetch("/api/assets").then(r => r.json());
+  assetList = data.assets || [];
+  const selector = document.getElementById("settings-asset-selector");
+  selector.innerHTML = assetList.map(asset => `<option value="${asset.id}">${asset.name}（${asset.asset_code}）</option>`).join("");
+  if (!assetList.some(asset => asset.id === preferred)) preferred = assetList[0]?.id || "";
+  selectedAssetId = preferred; selector.value = preferred;
+  localStorage.setItem("portfolio.selectedAssetId", selectedAssetId);
+}
+
 let originalSettings = null;
 let pendingSettingsPayload = null;
 let pendingTransaction = null;
@@ -36,6 +54,13 @@ function fillSettings(data) {
   const schedule = data.schedule || {};
   const triggers = email.triggers || {};
 
+  setValue("asset_name", asset.name);
+  setValue("asset_code", asset.asset_code || asset.id || asset.symbol);
+  setValue("asset_type", asset.asset_type || "ETF");
+  setValue("tracking_type", asset.tracking_type || "ETF");
+  setValue("tracking_code", asset.tracking_code || asset.symbol);
+  setValue("tracking_name", asset.tracking_name || asset.name);
+  setValue("asset_enabled", asset.enabled !== false);
   setValue("target_amount", asset.position?.target_amount);
 
   [
@@ -83,7 +108,15 @@ function fillSettings(data) {
 function buildPayload() {
   const triggerKeys = ["WAIT", "WATCH", "HOLD", "REVIEW_BUY", "PARTIAL_SELL"];
   return {
+    asset_id: selectedAssetId,
     asset: {
+      name: getValue("asset_name"),
+      asset_code: getValue("asset_code"),
+      asset_type: getValue("asset_type"),
+      tracking_type: getValue("tracking_type"),
+      tracking_code: getValue("tracking_code"),
+      tracking_name: getValue("tracking_name"),
+      enabled: getValue("asset_enabled"),
       target_amount: getValue("target_amount"),
     },
     strategy: {
@@ -149,6 +182,13 @@ function flattenForComparison(settings) {
   const schedule = settings.schedule || {};
 
   return {
+    asset_name: asset.name,
+    asset_code: asset.asset_code || asset.id || asset.symbol,
+    asset_type: asset.asset_type,
+    tracking_type: asset.tracking_type,
+    tracking_code: asset.tracking_code || asset.symbol,
+    tracking_name: asset.tracking_name,
+    asset_enabled: asset.enabled !== false,
     target_amount: asset.position?.target_amount,
     drop_from_last_buy_trigger_pct: strategy.drop_from_last_buy_trigger_pct,
     stable_days_required: strategy.stable_days_required,
@@ -203,6 +243,8 @@ function previewChanges() {
   );
 
   const labels = {
+    asset_name: "资产名称", asset_code: "持有基金代码", asset_type: "资产类型",
+    tracking_type: "跟踪对象类型", tracking_code: "盘中跟踪代码", tracking_name: "盘中跟踪名称", asset_enabled: "启用资产",
     target_amount: "目标仓位",
     drop_from_last_buy_trigger_pct: "回撤触发阈值",
     stable_days_required: "横盘确认天数",
@@ -271,7 +313,7 @@ function previewChanges() {
 }
 
 async function saveSettings() {
-  const response = await fetch("/api/settings/save", {
+  const response = await fetch(assetApi("/api/settings/save"), {
     method: "POST",
     headers: {"Content-Type": "application/json"},
     body: JSON.stringify(pendingSettingsPayload),
@@ -285,7 +327,7 @@ async function saveSettings() {
     : data.message;
 
   if (data.success) {
-    const refreshed = await fetch("/api/settings").then(response => response.json());
+    const refreshed = await fetch(assetApi("/api/settings")).then(response => response.json());
     fillSettings(refreshed);
     saveButton.disabled = true;
   }
@@ -402,7 +444,7 @@ function previewTransaction() {
 }
 
 async function saveTransaction() {
-  const response = await fetch("/api/transactions/save", {
+  const response = await fetch(assetApi("/api/transactions/save"), {
     method: "POST",
     headers: {"Content-Type": "application/json"},
     body: JSON.stringify(pendingTransaction),
@@ -503,7 +545,7 @@ async function deleteTransaction(id) {
     return;
   }
 
-  const response = await fetch("/api/transactions/delete", {
+  const response = await fetch(assetApi("/api/transactions/delete"), {
     method: "POST",
     headers: {"Content-Type": "application/json"},
     body: JSON.stringify({id}),
@@ -562,13 +604,47 @@ document.getElementById("preview-transaction")
   .addEventListener("click", previewTransaction);
 
 resetTransactionForm();
-loadTransactions();
 
-fetch("/api/settings")
-  .then(response => response.json())
-  .then(fillSettings)
-  .catch(error => {
-    previewBox.hidden = false;
-    previewBox.className = "result-box error";
-    previewBox.textContent = `读取配置失败：${error}`;
-  });
+async function reloadSelectedAsset() {
+  const data = await fetch(assetApi("/api/settings")).then(response => response.json());
+  fillSettings(data);
+  await loadTransactions();
+}
+
+document.getElementById("settings-asset-selector").addEventListener("change", async event => {
+  selectedAssetId = event.target.value;
+  localStorage.setItem("portfolio.selectedAssetId", selectedAssetId);
+  history.replaceState(null, "", `?asset_id=${encodeURIComponent(selectedAssetId)}`);
+  resetTransactionForm();
+  await reloadSelectedAsset();
+});
+
+document.getElementById("create-asset").addEventListener("click", async () => {
+  const result = document.getElementById("asset-management-result");
+  const payload = {
+    name: document.getElementById("new-asset-name").value.trim(),
+    asset_code: document.getElementById("new-asset-code").value.trim(),
+    asset_type: document.getElementById("new-asset-type").value,
+    tracking_type: document.getElementById("new-tracking-type").value,
+    tracking_code: document.getElementById("new-tracking-code").value.trim(),
+    target_amount: document.getElementById("new-target-amount").value,
+  };
+  const response = await fetch("/api/assets/create", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(payload)});
+  const data = await response.json();
+  result.hidden = false; result.className = `result-box ${data.success ? "success" : "error"}`; result.textContent = data.message;
+  if (data.success) { await loadAssetList(data.asset.id); await reloadSelectedAsset(); }
+});
+
+document.getElementById("delete-asset").addEventListener("click", async () => {
+  if (!confirm("确认删除当前资产配置？交易数据不会自动删除。")) return;
+  const response = await fetch("/api/assets/delete", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({asset_id:selectedAssetId})});
+  const data = await response.json();
+  const result = document.getElementById("asset-management-result");
+  result.hidden=false; result.className=`result-box ${data.success ? "success" : "error"}`; result.textContent=data.message;
+  if (data.success) { await loadAssetList(""); await reloadSelectedAsset(); }
+});
+
+(async () => {
+  try { await loadAssetList(); await reloadSelectedAsset(); }
+  catch (error) { previewBox.hidden=false; previewBox.className="result-box error"; previewBox.textContent=`读取配置失败：${error}`; }
+})();

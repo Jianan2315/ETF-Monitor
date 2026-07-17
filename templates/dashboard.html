@@ -28,8 +28,9 @@
     <section class="asset-card">
       <div class="asset-heading">
         <div>
-          <p class="asset-code">{{ result.asset.symbol }}</p>
+          <p class="asset-code">{{ result.asset.asset_code or result.asset.symbol }}{% if result.asset.is_estimated_tracking %} · 盘中跟踪 {{ result.asset.tracking_code }}{% endif %}</p>
           <h2>{{ result.asset.name }}</h2>
+          {% if result.asset.is_estimated_tracking %}<p class="muted"><strong>盘中估算：</strong>走势图、涨跌幅和技术指标依据 {{ result.asset.tracking_type }} {{ result.asset.tracking_code }}，不代表场外基金当日最终净值。</p>{% endif %}
           <p class="strategy-version">{{ result.asset.strategy.name }} · v{{ result.asset.strategy.version }}</p>
           <p class="muted data-source-line">
             数据来源：{{ result.data_source }}
@@ -76,7 +77,7 @@
                 <button
                   type="button"
                   class="strategy-detail-button"
-                  data-strategy-modal="strategy-modal-{{ result.asset.symbol }}"
+                  data-strategy-modal="strategy-modal-{{ result.asset.asset_code or result.asset.symbol }}"
                 >
                   查看当前策略
                 </button>
@@ -202,10 +203,10 @@
           </div>
         </div>
         <div class="chart-wrap">
-          <canvas class="intraday-chart" data-source-id="intraday-data-{{ result.asset.symbol }}"></canvas>
+          <canvas class="intraday-chart" data-source-id="intraday-data-{{ result.asset.asset_code or result.asset.symbol }}"></canvas>
           <div class="chart-tooltip" hidden></div>
         </div>
-        <script type="application/json" id="intraday-data-{{ result.asset.symbol }}">{{ result.intraday_chart_data | tojson }}</script>
+        <script type="application/json" id="intraday-data-{{ result.asset.asset_code or result.asset.symbol }}">{{ result.intraday_chart_data | tojson }}</script>
       </section>
 
       <section class="panel chart-panel intraday-panel">
@@ -220,10 +221,10 @@
           </div>
         </div>
         <div class="chart-wrap">
-          <canvas class="intraday-chart" data-source-id="previous-intraday-data-{{ result.asset.symbol }}"></canvas>
+          <canvas class="intraday-chart" data-source-id="previous-intraday-data-{{ result.asset.asset_code or result.asset.symbol }}"></canvas>
           <div class="chart-tooltip" hidden></div>
         </div>
-        <script type="application/json" id="previous-intraday-data-{{ result.asset.symbol }}">{{ result.previous_intraday_chart_data | tojson }}</script>
+        <script type="application/json" id="previous-intraday-data-{{ result.asset.asset_code or result.asset.symbol }}">{{ result.previous_intraday_chart_data | tojson }}</script>
       </section>
 
       <section class="panel chart-panel">
@@ -242,16 +243,16 @@
           </div>
         </div>
         <div class="chart-wrap">
-          <canvas class="price-chart" data-source-id="chart-data-{{ result.asset.symbol }}"></canvas>
+          <canvas class="price-chart" data-source-id="chart-data-{{ result.asset.asset_code or result.asset.symbol }}"></canvas>
           <div class="chart-tooltip" hidden></div>
         </div>
-        <script type="application/json" id="chart-data-{{ result.asset.symbol }}">{{ result.chart_data | tojson }}</script>
+        <script type="application/json" id="chart-data-{{ result.asset.asset_code or result.asset.symbol }}">{{ result.chart_data | tojson }}</script>
       </section>
 
       {% if result.asset.strategy_document %}
       <div
         class="strategy-modal"
-        id="strategy-modal-{{ result.asset.symbol }}"
+        id="strategy-modal-{{ result.asset.asset_code or result.asset.symbol }}"
         hidden
         aria-hidden="true"
       >
@@ -260,12 +261,12 @@
           class="strategy-modal-dialog"
           role="dialog"
           aria-modal="true"
-          aria-labelledby="strategy-modal-title-{{ result.asset.symbol }}"
+          aria-labelledby="strategy-modal-title-{{ result.asset.asset_code or result.asset.symbol }}"
         >
           <div class="strategy-modal-header">
             <div>
               <p class="eyebrow">INVESTMENT STRATEGY</p>
-              <h2 id="strategy-modal-title-{{ result.asset.symbol }}">
+              <h2 id="strategy-modal-title-{{ result.asset.asset_code or result.asset.symbol }}">
                 {{ result.asset.strategy_document.title }} · v{{ result.asset.strategy.version }}
               </h2>
             </div>

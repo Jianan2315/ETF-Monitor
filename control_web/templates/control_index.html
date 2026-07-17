@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>ETF Monitor 控制台</title>
+  <title>Portfolio Monitor 控制台</title>
   <link rel="stylesheet" href="/control-static/control.css">
 </head>
 <body>
@@ -11,11 +11,28 @@
     <header class="hero">
       <div>
         <p class="eyebrow">LOCAL CONTROL CENTER</p>
-        <h1>ETF Monitor 控制台</h1>
+        <h1>Portfolio Monitor 控制台</h1>
         <p>生成报告、查看历史、录入交易和修改参数，都可以在这里完成。</p>
       </div>
       <a class="secondary-button" href="/report">查看最新报告</a>
     </header>
+
+
+    <section class="card">
+      <div class="section-title-row">
+        <div>
+          <h2>我的指数基金</h2>
+          <p>一个控制台可以管理多个资产。选择“全部资产”会一次生成组合报告；选择单个资产则只运行该基金。</p>
+        </div>
+        <a class="button-link secondary" href="/settings">新增或编辑资产</a>
+      </div>
+      <div class="form-grid">
+        <label>当前查看/运行对象
+          <select id="asset-selector"><option value="">全部已启用资产</option></select>
+        </label>
+      </div>
+      <div id="asset-summary" class="status-grid"></div>
+    </section>
 
     <section class="action-grid">
       <article class="card action-card">

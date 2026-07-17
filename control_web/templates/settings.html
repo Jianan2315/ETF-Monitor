@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>ETF Monitor 参数管理</title>
+  <title>Portfolio Monitor 参数管理</title>
   <link rel="stylesheet" href="/control-static/control.css">
 </head>
 <body>
@@ -17,6 +17,43 @@
       <a class="secondary-button" href="/">返回控制台</a>
     </header>
 
+
+<section class="card">
+  <div class="section-title-row">
+    <div><h2>资产管理</h2><p>选择一个资产后，下面的交易、仓位和策略都只作用于该资产。</p></div>
+    <button id="delete-asset" class="secondary-button" type="button">删除当前资产</button>
+  </div>
+  <div class="form-grid">
+    <label>当前资产<select id="settings-asset-selector"></select></label>
+    <label>资产名称<input name="asset_name" type="text" form="settings-form"></label>
+    <label>持有基金代码<input name="asset_code" type="text" form="settings-form"></label>
+    <label>资产类型
+      <select name="asset_type" form="settings-form">
+        <option value="ETF">ETF</option><option value="ETF_LINK">ETF联接基金</option><option value="INDEX_FUND">场外指数基金</option><option value="INDEX">指数</option>
+      </select>
+    </label>
+    <label>盘中跟踪对象类型
+      <select name="tracking_type" form="settings-form">
+        <option value="ETF">ETF</option><option value="INDEX">指数</option>
+      </select>
+    </label>
+    <label>盘中跟踪代码<input name="tracking_code" type="text" form="settings-form"></label>
+    <label>盘中跟踪名称<input name="tracking_name" type="text" form="settings-form"></label>
+    <label class="checkbox-row"><input name="asset_enabled" type="checkbox" form="settings-form">启用该资产</label>
+  </div>
+  <hr class="section-divider">
+  <h3>新增资产</h3>
+  <div class="form-grid">
+    <label>名称<input id="new-asset-name" type="text"></label>
+    <label>持有基金代码<input id="new-asset-code" type="text"></label>
+    <label>资产类型<select id="new-asset-type"><option value="ETF_LINK">ETF联接基金</option><option value="INDEX_FUND">场外指数基金</option><option value="ETF">ETF</option></select></label>
+    <label>跟踪类型<select id="new-tracking-type"><option value="ETF">ETF</option><option value="INDEX">指数</option></select></label>
+    <label>跟踪代码<input id="new-tracking-code" type="text"></label>
+    <label>目标仓位<input id="new-target-amount" type="number" step="0.01" value="0"></label>
+  </div>
+  <div class="button-row"><button id="create-asset" type="button">新增资产</button></div>
+  <div id="asset-management-result" class="result-box" hidden></div>
+</section>
 
 <section class="card">
   <div class="section-title-row">

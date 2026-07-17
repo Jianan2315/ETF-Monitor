@@ -1,3 +1,32 @@
+let selectedAssetId = localStorage.getItem("portfolio.selectedAssetId") || "";
+
+async function loadAssets() {
+  const selector = document.getElementById("asset-selector");
+  const summary = document.getElementById("asset-summary");
+  if (!selector || !summary) return;
+  try {
+    const data = await fetch("/api/assets").then(r => r.json());
+    const assets = data.assets || [];
+    selector.innerHTML = '<option value="">全部已启用资产</option>' + assets.map(asset =>
+      `<option value="${asset.id}">${asset.name}（${asset.asset_code}）→ ${asset.tracking_type} ${asset.tracking_code}</option>`
+    ).join("");
+    if (assets.some(asset => asset.id === selectedAssetId)) selector.value = selectedAssetId;
+    else selectedAssetId = "";
+    summary.innerHTML = assets.map(asset => `
+      <article class="status-item ${asset.enabled ? 'ok' : 'bad'}">
+        <strong>${asset.name}</strong>
+        <span>持有：${asset.asset_code}</span>
+        <span>盘中跟踪：${asset.tracking_type} ${asset.tracking_code}</span>
+      </article>`).join("");
+    selector.addEventListener("change", () => {
+      selectedAssetId = selector.value;
+      localStorage.setItem("portfolio.selectedAssetId", selectedAssetId);
+    });
+  } catch (error) {
+    summary.textContent = `读取资产列表失败：${error}`;
+  }
+}
+
 const environmentGrid = document.getElementById("environment-grid");
 const runResult = document.getElementById("run-result");
 const runButtons = [...document.querySelectorAll("[data-run-mode]")];
@@ -58,7 +87,7 @@ async function loadEnvironment() {
     }
     const data = await response.json();
 
-    if (data.control_version && data.control_version !== "11.8.3") {
+    if (data.control_version && data.control_version !== "12.0.0") {
       environmentGrid.innerHTML = `
         <div class="result-box error">
           当前浏览器连接的是旧版控制服务（${data.control_version}）。
@@ -146,7 +175,7 @@ async function runReport(mode) {
     const response = await fetch("/api/report/run", {
       method: "POST",
       headers: {"Content-Type": "application/json"},
-      body: JSON.stringify({mode, slot: ""}),
+      body: JSON.stringify({mode, slot: "", asset_id: selectedAssetId}),
     });
     const data = await response.json();
 
@@ -520,3 +549,5 @@ document.getElementById("disable-keep-awake")
   });
 
 loadKeepAwakeStatus();
+
+loadAssets();

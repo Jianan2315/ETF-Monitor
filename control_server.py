@@ -48,7 +48,7 @@ from src.power_management import (
 ROOT = Path(__file__).resolve().parent
 HOST = "127.0.0.1"
 PORT = 8765
-CONTROL_VERSION = "11.8.3"
+CONTROL_VERSION = "12.0.0"
 
 app = Flask(
     __name__,
@@ -153,7 +153,7 @@ def _read_run_status() -> dict[str, Any]:
     return _read_json(_run_status_file(), {})
 
 
-def _run_monitor(mode: str, slot: str) -> dict[str, Any]:
+def _run_monitor(mode: str, slot: str, asset_id: str = "") -> dict[str, Any]:
     config = _schedule_config()
     now = market_now(config)
     validation = validate_run_mode(mode, now)
@@ -184,6 +184,8 @@ def _run_monitor(mode: str, slot: str) -> dict[str, Any]:
         ]
         if slot:
             command += ["--slot", slot]
+        if asset_id:
+            command += ["--asset", asset_id]
 
         completed = subprocess.run(
             command,
@@ -351,10 +353,48 @@ def _network_check() -> dict[str, Any]:
         }
 
 
+def _asset_identity(asset: dict[str, Any]) -> str:
+    return str(asset.get("id") or asset.get("asset_code") or asset.get("symbol") or "").strip()
+
+
+def _asset_tracking_code(asset: dict[str, Any]) -> str:
+    return str(asset.get("tracking_code") or asset.get("symbol") or "").strip()
+
+
+def _normalize_asset(asset: dict[str, Any], index: int = 0) -> dict[str, Any]:
+    item = dict(asset or {})
+    legacy_symbol = str(item.get("symbol") or "").strip()
+    item.setdefault("id", item.get("asset_code") or legacy_symbol or f"asset-{index+1}")
+    item.setdefault("asset_code", legacy_symbol)
+    item.setdefault("asset_type", "ETF" if legacy_symbol else "INDEX_FUND")
+    item.setdefault("tracking_type", "ETF")
+    item.setdefault("tracking_code", legacy_symbol)
+    item.setdefault("tracking_name", item.get("name", ""))
+    # Keep symbol as the market-data code for backward compatibility.
+    item["symbol"] = _asset_tracking_code(item)
+    return item
+
+
+def _all_assets() -> list[dict[str, Any]]:
+    doc = _read_json(ROOT / "config" / "assets.json", {"assets": []})
+    return [_normalize_asset(asset, idx) for idx, asset in enumerate(doc.get("assets", []))]
+
+
+def _find_asset(asset_id: str | None = None) -> dict[str, Any]:
+    assets = _all_assets()
+    if not assets:
+        return _normalize_asset({"symbol": "561380", "name": "ETF"})
+    wanted = str(asset_id or "").strip()
+    if wanted:
+        for asset in assets:
+            if wanted in {_asset_identity(asset), str(asset.get("asset_code", "")), str(asset.get("tracking_code", ""))}:
+                return asset
+        raise ValueError(f"未找到资产：{wanted}")
+    return assets[0]
+
+
 def _primary_asset() -> dict[str, Any]:
-    assets_doc = _read_json(ROOT / "config" / "assets.json", {"assets": []})
-    assets = assets_doc.get("assets", [])
-    return assets[0] if assets else {"symbol": "561380", "name": "ETF"}
+    return _find_asset(None)
 
 
 def _eastmoney_check() -> dict[str, Any]:
@@ -502,7 +542,7 @@ def _environment_status() -> dict[str, Any]:
     }
 
 
-def _load_settings() -> dict[str, Any]:
+def _load_settings(asset_id: str | None = None) -> dict[str, Any]:
     assets_doc = _read_json(ROOT / "config" / "assets.json", {"assets": []})
     email_doc = _read_json(ROOT / "config" / "email.json", {"email": {}})
     llm_doc = _read_json(ROOT / "config" / "llm.json", {"llm": {}})
@@ -514,10 +554,25 @@ def _load_settings() -> dict[str, Any]:
         {},
     )
 
-    asset = assets_doc.get("assets", [{}])[0] if assets_doc.get("assets") else {}
+    raw_assets = assets_doc.get("assets", [])
+    assets = [_normalize_asset(item, idx) for idx, item in enumerate(raw_assets)]
+    asset = _find_asset(asset_id) if assets else {}
+    transaction_key = str(asset.get("asset_code") or asset.get("id") or asset.get("symbol", ""))
 
     return {
         "asset": asset,
+        "assets": [
+            {
+                "id": _asset_identity(item),
+                "name": item.get("name", ""),
+                "asset_code": item.get("asset_code", ""),
+                "asset_type": item.get("asset_type", ""),
+                "tracking_type": item.get("tracking_type", ""),
+                "tracking_code": item.get("tracking_code", item.get("symbol", "")),
+                "enabled": item.get("enabled", True),
+            }
+            for item in assets
+        ],
         "email": email_doc.get("email", {}),
         "llm": llm_doc.get("llm", {}),
         "data": data_doc.get("data", {}),
@@ -525,7 +580,7 @@ def _load_settings() -> dict[str, Any]:
         "schedule": schedule_doc.get("schedule", {}),
         "transactions": load_transactions(
             ROOT / "data" / "transactions.json",
-            str(asset.get("symbol", "")),
+            transaction_key,
         ),
     }
 
@@ -544,7 +599,7 @@ def _coerce_int(value: Any, field: str) -> int:
         raise ValueError(f"{field} 必须是整数") from exc
 
 
-def _save_settings(payload: dict[str, Any]) -> dict[str, Any]:
+def _save_settings(payload: dict[str, Any], asset_id: str | None = None) -> dict[str, Any]:
     assets_path = ROOT / "config" / "assets.json"
     email_path = ROOT / "config" / "email.json"
     llm_path = ROOT / "config" / "llm.json"
@@ -562,7 +617,20 @@ def _save_settings(payload: dict[str, Any]) -> dict[str, Any]:
     if not assets_doc.get("assets"):
         raise ValueError("config/assets.json 中没有可编辑标的")
 
-    asset = assets_doc["assets"][0]
+    selected_index = 0
+    wanted = str(asset_id or payload.get("asset_id") or "").strip()
+    if wanted:
+        for idx, candidate in enumerate(assets_doc["assets"]):
+            normalized = _normalize_asset(candidate, idx)
+            if wanted in {_asset_identity(normalized), str(normalized.get("asset_code", "")), str(normalized.get("tracking_code", ""))}:
+                selected_index = idx
+                break
+        else:
+            raise ValueError(f"未找到资产：{wanted}")
+    asset = assets_doc["assets"][selected_index]
+    normalized_asset = _normalize_asset(asset, selected_index)
+    for key in ("id", "asset_code", "asset_type", "tracking_type", "tracking_code", "tracking_name"):
+        asset.setdefault(key, normalized_asset.get(key))
     position = asset.setdefault("position", {})
     strategy = asset.setdefault("strategy", {})
 
@@ -581,6 +649,30 @@ def _save_settings(payload: dict[str, Any]) -> dict[str, Any]:
 
     asset_payload = payload.get("asset", {})
     strategy_payload = payload.get("strategy", {})
+
+    for key, label in [
+        ("name", "资产名称"),
+        ("asset_code", "持有基金代码"),
+        ("asset_type", "资产类型"),
+        ("tracking_type", "跟踪对象类型"),
+        ("tracking_code", "盘中跟踪代码"),
+        ("tracking_name", "盘中跟踪名称"),
+    ]:
+        if key in asset_payload:
+            new_value = str(asset_payload[key]).strip()
+            if not new_value:
+                raise ValueError(f"{label}不能为空")
+            old_value = asset.get(key)
+            if old_value != new_value:
+                asset[key] = new_value
+                changes.append(f"{label}: {old_value} → {new_value}")
+    asset["symbol"] = str(asset.get("tracking_code") or asset.get("symbol") or "").strip()
+
+    if "enabled" in asset_payload:
+        enabled = bool(asset_payload["enabled"])
+        if asset.get("enabled", True) != enabled:
+            changes.append(f"启用资产: {asset.get('enabled', True)} → {enabled}")
+            asset["enabled"] = enabled
 
     if "target_amount" in asset_payload:
         update_number(
@@ -762,30 +854,27 @@ def _save_settings(payload: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def _transaction_context() -> tuple[str, Path]:
-    assets_doc = _read_json(
-        ROOT / "config" / "assets.json",
-        {"assets": []},
-    )
-    if not assets_doc.get("assets"):
-        raise ValueError("没有配置标的")
-    symbol = str(assets_doc["assets"][0]["symbol"])
-    return symbol, ROOT / "data" / "transactions.json"
+def _transaction_context(asset_id: str | None = None) -> tuple[str, str, Path]:
+    asset = _find_asset(asset_id)
+    transaction_key = str(asset.get("asset_code") or asset.get("id") or asset.get("symbol"))
+    tracking_code = _asset_tracking_code(asset)
+    return transaction_key, tracking_code, ROOT / "data" / "transactions.json"
 
 
-def _list_transactions() -> dict[str, Any]:
-    symbol, transaction_path = _transaction_context()
+def _list_transactions(asset_id: str | None = None) -> dict[str, Any]:
+    symbol, tracking_code, transaction_path = _transaction_context(asset_id)
     return {
         "success": True,
         "symbol": symbol,
+        "tracking_code": tracking_code,
         "records": list(reversed(
             load_transactions(transaction_path, symbol)
         )),
     }
 
 
-def _save_transaction_record(payload: dict[str, Any]) -> dict[str, Any]:
-    symbol, transaction_path = _transaction_context()
+def _save_transaction_record(payload: dict[str, Any], asset_id: str | None = None) -> dict[str, Any]:
+    symbol, tracking_code, transaction_path = _transaction_context(asset_id)
     _backup_file(transaction_path)
     record = save_transaction(
         transaction_path,
@@ -796,7 +885,7 @@ def _save_transaction_record(payload: dict[str, Any]) -> dict[str, Any]:
     # When the selected trade date already exists in the local daily cache,
     # calculate shares and price immediately. Otherwise the record remains
     # pending and run.py will reconcile it after fresh daily data is available.
-    cache_path = ROOT / "data" / "cache" / f"{symbol}_daily.json"
+    cache_path = ROOT / "data" / "cache" / f"{tracking_code}_daily.json"
     cache_doc = _read_json(cache_path, {})
     rows = cache_doc.get("rows", [])
     if rows:
@@ -842,8 +931,8 @@ def _save_transaction_record(payload: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def _delete_transaction_record(transaction_id: str) -> dict[str, Any]:
-    symbol, transaction_path = _transaction_context()
+def _delete_transaction_record(transaction_id: str, asset_id: str | None = None) -> dict[str, Any]:
+    symbol, tracking_code, transaction_path = _transaction_context(asset_id)
     _backup_file(transaction_path)
     deleted = delete_transaction(
         transaction_path,
@@ -1915,7 +2004,7 @@ def api_report_run():
         ), 400
 
     slot = str(payload.get("slot", "")).strip()
-    return jsonify(_run_monitor(mode, slot))
+    return jsonify(_run_monitor(mode, slot, str(payload.get("asset_id", "")).strip()))
 
 
 
@@ -1989,16 +2078,73 @@ def api_schedules_sync():
         return jsonify(_sync_all_schedule_plans())
     except RuntimeError as exc:
         return jsonify({"success": False, "message": str(exc)}), 500
+@app.get("/api/assets")
+def api_assets_get():
+    return jsonify({"success": True, "assets": _load_settings().get("assets", [])})
+
+
+@app.post("/api/assets/create")
+def api_assets_create():
+    payload = request.get_json(silent=True) or {}
+    assets_path = ROOT / "config" / "assets.json"
+    doc = _read_json(assets_path, {"assets": []})
+    template = dict(doc.get("assets", [{}])[0]) if doc.get("assets") else {}
+    asset_code = str(payload.get("asset_code", "")).strip()
+    tracking_code = str(payload.get("tracking_code", "")).strip()
+    name = str(payload.get("name", "")).strip()
+    if not asset_code or not tracking_code or not name:
+        return jsonify({"success": False, "message": "资产名称、持有基金代码和盘中跟踪代码不能为空。"}), 400
+    if any(asset_code == str(item.get("asset_code") or item.get("id") or "") for item in doc.get("assets", [])):
+        return jsonify({"success": False, "message": f"资产 {asset_code} 已存在。"}), 400
+    template.update({
+        "id": asset_code, "name": name, "asset_code": asset_code,
+        "asset_type": str(payload.get("asset_type") or "INDEX_FUND"),
+        "tracking_type": str(payload.get("tracking_type") or "ETF"),
+        "tracking_code": tracking_code, "tracking_name": str(payload.get("tracking_name") or name),
+        "symbol": tracking_code, "enabled": True,
+    })
+    template["position"] = {**template.get("position", {}), "target_amount": float(payload.get("target_amount") or 0)}
+    doc.setdefault("assets", []).append(template)
+    _backup_file(assets_path)
+    _atomic_write_json(assets_path, doc)
+    return jsonify({"success": True, "message": "资产已新增。", "asset": _normalize_asset(template, len(doc["assets"])-1)})
+
+
+@app.post("/api/assets/delete")
+def api_assets_delete():
+    payload = request.get_json(silent=True) or {}
+    wanted = str(payload.get("asset_id", "")).strip()
+    assets_path = ROOT / "config" / "assets.json"
+    doc = _read_json(assets_path, {"assets": []})
+    assets = doc.get("assets", [])
+    if len(assets) <= 1:
+        return jsonify({"success": False, "message": "至少需要保留一个资产。"}), 400
+    kept = []
+    removed = None
+    for idx, item in enumerate(assets):
+        normalized = _normalize_asset(item, idx)
+        if wanted and wanted in {_asset_identity(normalized), str(normalized.get("asset_code", ""))}:
+            removed = normalized
+        else:
+            kept.append(item)
+    if not removed:
+        return jsonify({"success": False, "message": "未找到要删除的资产。"}), 404
+    doc["assets"] = kept
+    _backup_file(assets_path)
+    _atomic_write_json(assets_path, doc)
+    return jsonify({"success": True, "message": f"已删除 {removed.get('name') or wanted}。"})
+
+
 @app.get("/api/settings")
 def api_settings_get():
-    return jsonify(_load_settings())
+    return jsonify(_load_settings(request.args.get("asset_id")))
 
 
 @app.post("/api/settings/save")
 def api_settings_save():
     payload = request.get_json(silent=True) or {}
     try:
-        return jsonify(_save_settings(payload))
+        return jsonify(_save_settings(payload, request.args.get("asset_id") or payload.get("asset_id")))
     except ValueError as exc:
         return jsonify(
             {
@@ -2011,7 +2157,7 @@ def api_settings_save():
 @app.get("/api/transactions")
 def api_transactions_get():
     try:
-        return jsonify(_list_transactions())
+        return jsonify(_list_transactions(request.args.get("asset_id")))
     except ValueError as exc:
         return jsonify({
             "success": False,
@@ -2023,7 +2169,7 @@ def api_transactions_get():
 def api_transactions_save():
     payload = request.get_json(silent=True) or {}
     try:
-        return jsonify(_save_transaction_record(payload))
+        return jsonify(_save_transaction_record(payload, request.args.get("asset_id") or payload.get("asset_id")))
     except ValueError as exc:
         return jsonify({
             "success": False,
@@ -2037,7 +2183,8 @@ def api_transactions_delete():
     try:
         return jsonify(
             _delete_transaction_record(
-                str(payload.get("id", ""))
+                str(payload.get("id", "")),
+                request.args.get("asset_id") or payload.get("asset_id"),
             )
         )
     except ValueError as exc:
@@ -2051,7 +2198,7 @@ def api_transactions_delete():
 def api_transactions_add_legacy():
     payload = request.get_json(silent=True) or {}
     try:
-        return jsonify(_save_transaction_record(payload))
+        return jsonify(_save_transaction_record(payload, request.args.get("asset_id") or payload.get("asset_id")))
     except ValueError as exc:
         return jsonify({
             "success": False,

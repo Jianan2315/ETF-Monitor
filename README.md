@@ -1296,3 +1296,28 @@ Older report plans may still point Windows Task Scheduler at a generated `.cmd` 
 - Minute fallback now includes an independent Sina path after EastMoney ETF/stock wrappers, for 1/5/15-minute data.
 - Sina unadjusted daily history is checked for obvious ETF share-split discontinuities and back-adjusted before return, drawdown, moving-average, and strategy calculations. Existing local cache files with the same obvious discontinuity are repaired on load.
 - Runtime data directories are excluded from the upgrade archive.
+
+## V12.0 Portfolio / Tracking Target upgrade
+
+V12 keeps a single local server and a single browser port, while allowing multiple
+index-tracking assets to share the same control console.
+
+Each asset now separates:
+
+- `asset_code`: the fund actually held, such as `023639` or `015596`;
+- `asset_type`: ETF, ETF link fund, or off-exchange index fund;
+- `tracking_type`: ETF or index;
+- `tracking_code`: the intraday market object, such as `561380` or `399395`.
+
+The control console can run all enabled assets together or run only the selected
+asset. Parameter management contains an asset selector plus create/delete actions.
+Transactions are stored against `asset_code`, while market history, minute data,
+and technical indicators are fetched using `tracking_code`.
+
+For an off-exchange fund, the report explicitly labels intraday charts and technical
+indicators as estimates based on the tracking target. They are not the fund's final
+published NAV.
+
+Legacy `assets.json` remains compatible. An old asset containing only `symbol` is
+automatically treated as an ETF whose held code and tracking code are both that
+symbol. Save it once from Parameter Management to persist the new fields.

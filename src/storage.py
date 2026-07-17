@@ -30,7 +30,8 @@ def save_run_result(result, config, root: Path):
         history_path,
         {
             "generated_at": result["generated_at"],
-            "symbol": a["symbol"],
+            "symbol": a.get("asset_code", a["symbol"]),
+            "tracking_code": a.get("tracking_code", a["symbol"]),
             "name": a["name"],
             "price": i["latest_price"],
             "daily_change_pct": i["daily_change_pct"],
@@ -59,7 +60,8 @@ def save_run_result(result, config, root: Path):
         decisions_path,
         {
             "generated_at": result["generated_at"],
-            "symbol": a["symbol"],
+            "symbol": a.get("asset_code", a["symbol"]),
+            "tracking_code": a.get("tracking_code", a["symbol"]),
             "name": a["name"],
             "status": d["status"],
             "action_type": d.get("action_type", "NONE"),
@@ -75,5 +77,5 @@ def save_run_result(result, config, root: Path):
     except Exception:
         latest = {}
 
-    latest[a["symbol"]] = result
+    latest[str(a.get("asset_code") or a.get("id") or a["symbol"])] = result
     latest_path.write_text(json.dumps(latest, ensure_ascii=False, indent=2), encoding="utf-8")
