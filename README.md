@@ -1288,3 +1288,11 @@ http://127.0.0.1:8765/
 ## V11.8.2 scheduled-task migration
 
 Older report plans may still point Windows Task Scheduler at a generated `.cmd` file. V11.8.2 detects these legacy actions when the schedule page is opened and rewrites them to the hidden `pythonw.exe + scheduled_runner.py` runner. This prevents a Command Prompt window from appearing during scheduled runs. Legacy wrapper files are also generated without a UTF-8 BOM to avoid the `ï»¿@echo off` error if one is run manually.
+
+
+## V11.8.3 close-report intraday and split-adjustment fix
+
+- Close reports now still request today's intraday chart even when a realtime snapshot is unnecessary.
+- Minute fallback now includes an independent Sina path after EastMoney ETF/stock wrappers, for 1/5/15-minute data.
+- Sina unadjusted daily history is checked for obvious ETF share-split discontinuities and back-adjusted before return, drawdown, moving-average, and strategy calculations. Existing local cache files with the same obvious discontinuity are repaired on load.
+- Runtime data directories are excluded from the upgrade archive.

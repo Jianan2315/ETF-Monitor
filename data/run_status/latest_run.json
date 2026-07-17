@@ -1,10 +1,10 @@
 {
   "status": "SUCCESS",
-  "message": "报告已生成。历史日线=SUCCESS；实时快照=NOT_REQUIRED；一分钟分时=NOT_REQUIRED；昨日走势=CACHE；邮件=SKIPPED: status WAIT is disabled or missing in email.triggers。",
+  "message": "报告已生成。历史日线=SUCCESS；实时快照=NOT_REQUIRED；一分钟分时=NOT_REQUIRED；昨日走势=APPROXIMATE；邮件=SKIPPED: status HOLD is disabled or missing in email.triggers。",
   "mode": "close",
   "phase": "AFTER_CLOSE",
-  "started_at": "2026-07-17T15:16:43",
-  "finished_at": "2026-07-17T15:16:43",
+  "started_at": "2026-07-17T15:21:12",
+  "finished_at": "2026-07-17T15:22:33",
   "report_path": "C:\\Users\\flywi\\Desktop\\gitRepos\\ETF-Monitor\\output\\report.html",
   "errors": [],
   "steps": [
@@ -14,7 +14,7 @@
       "status": "SUCCESS",
       "message": "配置加载成功",
       "details": null,
-      "time": "2026-07-17T15:16:43"
+      "time": "2026-07-17T15:21:12"
     },
     {
       "key": "market_validation",
@@ -22,29 +22,32 @@
       "status": "SUCCESS",
       "message": "可以生成收盘报告。",
       "details": {
-        "now": "2026-07-17 15:16:43",
+        "now": "2026-07-17 15:21:12",
         "phase": "AFTER_CLOSE",
         "phase_label": "收盘后",
         "close_ready": true,
         "can_intraday": false,
         "can_close": true
       },
-      "time": "2026-07-17T15:16:43"
+      "time": "2026-07-17T15:21:12"
     },
     {
       "key": "data_history",
       "label": "历史日线",
       "status": "SUCCESS",
-      "message": "历史日线获取成功，最新日期2026-07-17",
+      "message": "历史日线获取成功，最新日期2026-07-16",
       "details": {
         "status": "SUCCESS",
-        "source": "AKShare历史日线(EastMoney)",
+        "source": "AKShare历史日线(Sina)",
         "api_requested": true,
-        "latest_date": "2026-07-17",
-        "message": "历史日线获取成功，最新日期2026-07-17",
-        "errors": []
+        "latest_date": "2026-07-16",
+        "message": "历史日线获取成功，最新日期2026-07-16",
+        "errors": [
+          "historical-akshare-eastmoney attempt 1: REMOTE_DISCONNECTED: ConnectionError: ('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))",
+          "historical-direct-eastmoney attempt 1: REMOTE_DISCONNECTED: ConnectionError: ('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))"
+        ]
       },
-      "time": "2026-07-17T15:16:43"
+      "time": "2026-07-17T15:22:33"
     },
     {
       "key": "data_realtime",
@@ -58,7 +61,7 @@
         "message": "开盘前或非交易时段无需实时快照",
         "errors": []
       },
-      "time": "2026-07-17T15:16:43"
+      "time": "2026-07-17T15:22:33"
     },
     {
       "key": "data_intraday",
@@ -73,24 +76,30 @@
         "message": "当前阶段无需今日分时",
         "errors": []
       },
-      "time": "2026-07-17T15:16:43"
+      "time": "2026-07-17T15:22:33"
     },
     {
       "key": "data_previous_intraday",
       "label": "昨日走势",
-      "status": "SUCCESS",
-      "message": "2026-07-16使用本地分时缓存，共48个点",
+      "status": "WARNING",
+      "message": "2026-07-16分钟数据不可用；仅用开、高、低、收生成示意线，不代表真实日内先后顺序",
       "details": {
-        "status": "CACHE",
-        "source": "本地分时缓存",
-        "points": 48,
-        "approximate": false,
+        "status": "APPROXIMATE",
+        "source": "历史日线OHLC示意",
+        "points": 4,
+        "approximate": true,
         "date": "2026-07-16",
-        "message": "2026-07-16使用本地分时缓存，共48个点",
-        "errors": [],
-        "period": "5"
+        "message": "2026-07-16分钟数据不可用；仅用开、高、低、收生成示意线，不代表真实日内先后顺序",
+        "errors": [
+          "previous-intraday-etf-1m attempt 1: REMOTE_DISCONNECTED: ConnectionError: ('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))",
+          "previous-intraday-stock-1m attempt 1: REMOTE_DISCONNECTED: ConnectionError: ('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))",
+          "previous-intraday-etf-5m attempt 1: REMOTE_DISCONNECTED: ConnectionError: ('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))",
+          "previous-intraday-stock-5m attempt 1: REMOTE_DISCONNECTED: ConnectionError: ('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))",
+          "previous-intraday-etf-15m attempt 1: REMOTE_DISCONNECTED: ConnectionError: ('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))",
+          "previous-intraday-stock-15m attempt 1: REMOTE_DISCONNECTED: ConnectionError: ('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))"
+        ]
       },
-      "time": "2026-07-17T15:16:43"
+      "time": "2026-07-17T15:22:33"
     },
     {
       "key": "transactions",
@@ -98,7 +107,7 @@
       "status": "SUCCESS",
       "message": "已读取1条交易记录；可用收盘数据会自动更新估算记录",
       "details": null,
-      "time": "2026-07-17T15:16:43"
+      "time": "2026-07-17T15:22:33"
     },
     {
       "key": "position",
@@ -106,7 +115,7 @@
       "status": "SUCCESS",
       "message": "持有2463.0542份，投入成本2000.00元",
       "details": null,
-      "time": "2026-07-17T15:16:43"
+      "time": "2026-07-17T15:22:33"
     },
     {
       "key": "indicators",
@@ -114,25 +123,24 @@
       "status": "SUCCESS",
       "message": "涨跌幅、回撤、连续趋势和横盘指标计算完成",
       "details": null,
-      "time": "2026-07-17T15:16:43"
+      "time": "2026-07-17T15:22:33"
     },
     {
       "key": "strategy",
       "label": "执行策略规则",
       "status": "SUCCESS",
-      "message": "策略状态：WAIT",
+      "message": "策略状态：HOLD",
       "details": {
-        "status": "WAIT",
+        "status": "HOLD",
         "should_notify": false,
         "suggested_amount": 0.0,
         "reasons": [
-          "连续下跌 3 个交易日",
-          "最新价格仍处于近10个交易日低位",
-          "短期下跌尚未停止，默认不加仓"
+          "相对上一笔买入价已回撤 10.96%",
+          "但尚未出现横盘或反转确认"
         ],
         "action_type": "NONE"
       },
-      "time": "2026-07-17T15:16:43"
+      "time": "2026-07-17T15:22:33"
     },
     {
       "key": "storage",
@@ -140,15 +148,15 @@
       "status": "SUCCESS",
       "message": "latest.json、历史指标和决策记录已更新",
       "details": null,
-      "time": "2026-07-17T15:16:43"
+      "time": "2026-07-17T15:22:33"
     },
     {
       "key": "email",
       "label": "发送邮件",
       "status": "SKIPPED",
-      "message": "status WAIT is disabled or missing in email.triggers",
+      "message": "status HOLD is disabled or missing in email.triggers",
       "details": null,
-      "time": "2026-07-17T15:16:43"
+      "time": "2026-07-17T15:22:33"
     },
     {
       "key": "html_report",
@@ -156,17 +164,20 @@
       "status": "SUCCESS",
       "message": "报告已生成：C:\\Users\\flywi\\Desktop\\gitRepos\\ETF-Monitor\\output\\report.html",
       "details": null,
-      "time": "2026-07-17T15:16:43"
+      "time": "2026-07-17T15:22:33"
     }
   ],
   "data_status": {
     "history": {
       "status": "SUCCESS",
-      "source": "AKShare历史日线(EastMoney)",
+      "source": "AKShare历史日线(Sina)",
       "api_requested": true,
-      "latest_date": "2026-07-17",
-      "message": "历史日线获取成功，最新日期2026-07-17",
-      "errors": []
+      "latest_date": "2026-07-16",
+      "message": "历史日线获取成功，最新日期2026-07-16",
+      "errors": [
+        "historical-akshare-eastmoney attempt 1: REMOTE_DISCONNECTED: ConnectionError: ('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))",
+        "historical-direct-eastmoney attempt 1: REMOTE_DISCONNECTED: ConnectionError: ('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))"
+      ]
     },
     "realtime": {
       "status": "NOT_REQUIRED",
@@ -184,15 +195,21 @@
       "errors": []
     },
     "previous_intraday": {
-      "status": "CACHE",
-      "source": "本地分时缓存",
-      "points": 48,
-      "approximate": false,
+      "status": "APPROXIMATE",
+      "source": "历史日线OHLC示意",
+      "points": 4,
+      "approximate": true,
       "date": "2026-07-16",
-      "message": "2026-07-16使用本地分时缓存，共48个点",
-      "errors": [],
-      "period": "5"
+      "message": "2026-07-16分钟数据不可用；仅用开、高、低、收生成示意线，不代表真实日内先后顺序",
+      "errors": [
+        "previous-intraday-etf-1m attempt 1: REMOTE_DISCONNECTED: ConnectionError: ('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))",
+        "previous-intraday-stock-1m attempt 1: REMOTE_DISCONNECTED: ConnectionError: ('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))",
+        "previous-intraday-etf-5m attempt 1: REMOTE_DISCONNECTED: ConnectionError: ('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))",
+        "previous-intraday-stock-5m attempt 1: REMOTE_DISCONNECTED: ConnectionError: ('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))",
+        "previous-intraday-etf-15m attempt 1: REMOTE_DISCONNECTED: ConnectionError: ('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))",
+        "previous-intraday-stock-15m attempt 1: REMOTE_DISCONNECTED: ConnectionError: ('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))"
+      ]
     }
   },
-  "email_status": "SKIPPED: status WAIT is disabled or missing in email.triggers"
+  "email_status": "SKIPPED: status HOLD is disabled or missing in email.triggers"
 }

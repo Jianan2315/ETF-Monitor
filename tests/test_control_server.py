@@ -60,7 +60,7 @@ def test_control_version_endpoint():
     response = client.get("/api/version")
     assert response.status_code == 200
     data = response.get_json()
-    assert data["version"] == "11.8.2"
+    assert data["version"] == "11.8.3"
     assert "pid" in data
 
 

@@ -919,6 +919,19 @@ def _load_history_cache(
             payload = json.loads(path.read_text(encoding="utf-8"))
             frame = _coerce_cached_frame(payload.get("rows", []))
             if frame is not None:
+                frame, adjustment_notes = _adjust_unadjusted_history_for_splits(frame)
+                if adjustment_notes:
+                    payload["rows"] = frame.assign(
+                        date=frame["date"].dt.strftime("%Y-%m-%d")
+                    ).to_dict(orient="records")
+                    payload["auto_adjustments"] = adjustment_notes
+                    temp = path.with_suffix(path.suffix + ".tmp")
+                    temp.write_text(
+                        json.dumps(payload, ensure_ascii=False, indent=2),
+                        encoding="utf-8",
+                    )
+                    temp.replace(path)
+                    frame.attrs["adjustment_notes"] = adjustment_notes
                 return frame, payload.get("cached_at"), str(path.relative_to(project_root))
         except Exception:
             pass
@@ -1041,6 +1054,74 @@ def _fetch_history(
     return _normalize_history(frame, history_days)
 
 
+
+def _adjust_unadjusted_history_for_splits(
+    frame: pd.DataFrame,
+) -> tuple[pd.DataFrame, list[str]]:
+    """Back-adjust obvious ETF share splits in an unadjusted daily series.
+
+    The fallback provider may return raw prices across a share split.  A raw
+    series would make a split look like a 50%+ market crash and would poison
+    drawdown, moving-average and strategy calculations.  This routine only
+    adjusts discontinuities that are very close to common split ratios and
+    whose open and close imply the same ratio.
+    """
+    if frame is None or frame.empty or len(frame) < 2:
+        return frame, []
+
+    adjusted = frame.copy().sort_values("date").reset_index(drop=True)
+    price_columns = [name for name in ("open", "high", "low", "close") if name in adjusted]
+    common_ratios = np.array([1.25, 1.5, 2.0, 2.5, 3.0, 4.0, 5.0, 10.0], dtype=float)
+    notes: list[str] = []
+
+    # Walk forward.  When a split is found, modify all earlier rows so the
+    # entire series remains on the latest share-unit basis.
+    for idx in range(1, len(adjusted)):
+        prev_close = float(pd.to_numeric(adjusted.at[idx - 1, "close"], errors="coerce"))
+        curr_close = float(pd.to_numeric(adjusted.at[idx, "close"], errors="coerce"))
+        curr_open = float(pd.to_numeric(adjusted.at[idx, "open"], errors="coerce")) if "open" in adjusted else curr_close
+        if not np.isfinite(prev_close) or not np.isfinite(curr_close) or not np.isfinite(curr_open):
+            continue
+        if min(prev_close, curr_close, curr_open) <= 0:
+            continue
+
+        raw_change = curr_close / prev_close - 1.0
+        if abs(raw_change) < 0.30:
+            continue
+
+        downward = prev_close > curr_close
+        close_ratio = prev_close / curr_close if downward else curr_close / prev_close
+        open_ratio = prev_close / curr_open if downward else curr_open / prev_close
+        nearest = float(common_ratios[np.argmin(np.abs(common_ratios - close_ratio))])
+        close_error = abs(close_ratio / nearest - 1.0)
+        open_error = abs(open_ratio / nearest - 1.0)
+        if close_error > 0.06 or open_error > 0.08:
+            continue
+
+        prior = adjusted.index < idx
+        if downward:
+            adjusted.loc[prior, price_columns] = adjusted.loc[prior, price_columns] / nearest
+            if "volume" in adjusted:
+                adjusted.loc[prior, "volume"] = adjusted.loc[prior, "volume"] * nearest
+            action = f"按1:{nearest:g}份额拆分向后复权"
+        else:
+            adjusted.loc[prior, price_columns] = adjusted.loc[prior, price_columns] * nearest
+            if "volume" in adjusted:
+                adjusted.loc[prior, "volume"] = adjusted.loc[prior, "volume"] / nearest
+            action = f"按{nearest:g}:1份额合并向后复权"
+
+        event_date = pd.Timestamp(adjusted.at[idx, "date"]).strftime("%Y-%m-%d")
+        notes.append(f"检测到{event_date}附近疑似份额变更，已{action}")
+
+    if notes:
+        adjusted["daily_change_pct"] = adjusted["close"].pct_change().fillna(0) * 100
+        if "amount" in adjusted and "volume" in adjusted:
+            # Preserve provider amount when available; fill only missing values.
+            estimated = adjusted["volume"].fillna(0) * adjusted["close"].fillna(0)
+            adjusted["amount"] = adjusted["amount"].where(adjusted["amount"].notna(), estimated)
+    return adjusted, notes
+
+
 def _fetch_history_sina(
     ak,
     asset: dict,
@@ -1082,9 +1163,11 @@ def _fetch_history_sina(
         frame[column] = pd.to_numeric(frame[column], errors="coerce")
     frame = frame.dropna(subset=["date", "close"]).sort_values("date")
     frame["amount"] = frame["volume"].fillna(0) * frame["close"]
+    frame, adjustment_notes = _adjust_unadjusted_history_for_splits(frame)
     frame["daily_change_pct"] = frame["close"].pct_change().fillna(0) * 100
     history_days = int(config.get("data", {}).get("history_days", 1000))
     normalized = frame.tail(history_days).reset_index(drop=True)
+    normalized.attrs["adjustment_notes"] = adjustment_notes
     if normalized.empty:
         raise RuntimeError("Sina ETF history endpoint returned no usable rows")
     return normalized
@@ -1215,6 +1298,47 @@ def _fetch_intraday_stock_for_date(
     if normalized.empty:
         raise RuntimeError(
             f"Stock minute fallback returned no usable data for {date_text}"
+        )
+    return normalized
+
+
+
+def _fetch_intraday_sina_for_date(
+    ak,
+    asset: dict,
+    target_date: datetime,
+    period: str = "1",
+) -> pd.DataFrame:
+    """Fetch recent minute bars through AKShare's Sina minute endpoint.
+
+    This is deliberately independent from the EastMoney minute wrappers and
+    gives the report a real cross-provider fallback when EastMoney is blocked.
+    """
+    if not hasattr(ak, "stock_zh_a_minute"):
+        raise RuntimeError("Sina minute fallback is unavailable in this AKShare version")
+    symbol = str(asset["symbol"])
+    market_symbol = f"sh{symbol}" if symbol.startswith(("5", "6", "9")) else f"sz{symbol}"
+    frame = ak.stock_zh_a_minute(
+        symbol=market_symbol,
+        period=str(period),
+        adjust="",
+    )
+    if frame is None or frame.empty:
+        raise RuntimeError("Sina minute fallback returned no data")
+    frame = frame.rename(columns={
+        "day": "time",
+        "date": "time",
+        "close": "price",
+    }).copy()
+    normalized = _normalize_intraday(frame)
+    target = pd.Timestamp(target_date.date())
+    if not normalized.empty:
+        normalized = normalized.loc[
+            pd.to_datetime(normalized["time"], errors="coerce").dt.normalize() == target
+        ].reset_index(drop=True)
+    if normalized.empty:
+        raise RuntimeError(
+            f"Sina minute fallback returned no usable data for {target:%Y-%m-%d}"
         )
     return normalized
 
@@ -1674,10 +1798,18 @@ def _ak(
 
         if history is not None:
             if history_provider == "AKShare历史日线(Sina)":
-                warnings.append(
-                    "历史日线已切换到新浪备用源；该备用源为未复权日线，"
-                    "报告会明确标记数据来源"
-                )
+                adjustment_notes = list(history.attrs.get("adjustment_notes", []))
+                if adjustment_notes:
+                    warnings.append(
+                        "历史日线已切换到新浪备用源；程序检测并修正了疑似份额拆分，"
+                        "避免未复权价格跳变污染收益率和回撤计算"
+                    )
+                    warnings.extend(adjustment_notes)
+                else:
+                    warnings.append(
+                        "历史日线已切换到新浪备用源；该备用源为未复权日线，"
+                        "报告会明确标记数据来源"
+                    )
             _save_history_cache(
                 project_root,
                 config,
@@ -1769,6 +1901,13 @@ def _ak(
         status["history"]["latest_date"] = pd.Timestamp(
             history["date"].max()
         ).strftime("%Y-%m-%d")
+    cached_adjustment_notes = list(history.attrs.get("adjustment_notes", []))
+    if cached_adjustment_notes and history_provider != "AKShare历史日线(Sina)":
+        warnings.append(
+            "本地历史缓存中检测到疑似份额拆分造成的未复权跳变，"
+            "已自动按最新份额口径修正后再计算指标"
+        )
+        warnings.extend(cached_adjustment_notes)
     data_sources.append(history_provider or "历史日线")
 
     spot = None
@@ -1826,6 +1965,12 @@ def _ak(
                     f"intraday-stock-{period}m",
                     period,
                     lambda period=period: _fetch_intraday_stock_for_date(ak, asset, now, period),
+                ),
+                (
+                    f"AKShare stock_zh_a_minute(Sina,{period}m)",
+                    f"intraday-sina-{period}m",
+                    period,
+                    lambda period=period: _fetch_intraday_sina_for_date(ak, asset, now, period),
                 ),
             ])
         for source_name, label, period, operation in minute_attempts:
@@ -1943,12 +2088,103 @@ def _ak(
     else:
         status["realtime"].update({
             "status": "NOT_REQUIRED",
-            "message": "开盘前或非交易时段无需实时快照",
+            "message": "正式日线已包含收盘数据，无需实时快照",
         })
-        status["intraday"].update({
-            "status": "NOT_REQUIRED",
-            "message": "当前阶段无需今日分时",
-        })
+
+        # A close report still needs today's actual intraday chart.  Realtime
+        # snapshot and intraday chart are separate concerns and must not share
+        # the same gate.
+        should_fetch_closed_intraday = (
+            context.phase == "AFTER_CLOSE" or mode == "close"
+        )
+        if should_fetch_closed_intraday:
+            cached_today, cached_today_meta = _load_intraday_cache(
+                project_root, str(asset["symbol"]), now
+            )
+            periods = [
+                str(item)
+                for item in request_policy.get("intraday_periods", ["1", "5", "15"])
+            ]
+            minute_attempts = []
+            for period in periods:
+                minute_attempts.extend([
+                    (
+                        f"AKShare fund_etf_hist_min_em({period}m)",
+                        f"close-intraday-etf-{period}m",
+                        period,
+                        lambda period=period: _fetch_intraday_for_date(ak, asset, now, period),
+                    ),
+                    (
+                        f"AKShare stock_zh_a_hist_min_em({period}m)",
+                        f"close-intraday-stock-{period}m",
+                        period,
+                        lambda period=period: _fetch_intraday_stock_for_date(ak, asset, now, period),
+                    ),
+                    (
+                        f"AKShare stock_zh_a_minute(Sina,{period}m)",
+                        f"close-intraday-sina-{period}m",
+                        period,
+                        lambda period=period: _fetch_intraday_sina_for_date(ak, asset, now, period),
+                    ),
+                ])
+            for source_name, label, period, operation in minute_attempts:
+                intraday_result, errors = _retry_call(
+                    operation,
+                    {
+                        "max_attempts": int(request_policy.get("same_endpoint_max_attempts", 1)),
+                        "delays_seconds": [float(request_policy.get("retry_delay_seconds", 30))],
+                    },
+                    label,
+                    logger,
+                    before_attempt=pacer.before_attempt,
+                )
+                intraday_errors.extend(errors)
+                if intraday_result is not None and not intraday_result.empty:
+                    intraday = _save_intraday_cache(
+                        project_root,
+                        str(asset["symbol"]),
+                        now,
+                        intraday_result,
+                        period=period,
+                        source=source_name,
+                        now=now,
+                    )
+                    status["intraday"].update({
+                        "status": "SUCCESS",
+                        "source": source_name,
+                        "period": period,
+                        "points": len(intraday),
+                        "approximate": False,
+                        "message": f"收盘后今日{period}分钟走势获取成功，共{len(intraday)}个点",
+                        "errors": intraday_errors,
+                    })
+                    data_sources.append(source_name)
+                    break
+            if intraday.empty and not cached_today.empty:
+                intraday = cached_today
+                status["intraday"].update({
+                    "status": "CACHE",
+                    "source": "本地分时缓存",
+                    "period": str(cached_today_meta.get("period", "1")),
+                    "points": len(intraday),
+                    "approximate": False,
+                    "message": f"网络分时不可用，使用今日本地分时，共{len(intraday)}个点",
+                    "errors": intraday_errors,
+                })
+            elif intraday.empty:
+                status["intraday"].update({
+                    "status": "FAILED",
+                    "source": None,
+                    "points": 0,
+                    "approximate": False,
+                    "message": "收盘后仍已尝试今日1/5/15分钟走势，但所有来源均不可用",
+                    "errors": intraday_errors,
+                })
+        else:
+            status["intraday"].update({
+                "status": "NOT_REQUIRED",
+                "message": "开盘前暂无当日分时数据",
+            })
 
     previous_date = _previous_business_date(now).to_pydatetime()
     status["previous_intraday"]["date"] = previous_date.strftime("%Y-%m-%d")
@@ -1983,6 +2219,12 @@ def _ak(
                     f"previous-intraday-stock-{period}m",
                     period,
                     lambda period=period: _fetch_intraday_stock_for_date(ak, asset, previous_date, period),
+                ),
+                (
+                    f"AKShare stock_zh_a_minute(Sina,{period}m)",
+                    f"previous-intraday-sina-{period}m",
+                    period,
+                    lambda period=period: _fetch_intraday_sina_for_date(ak, asset, previous_date, period),
                 ),
             ])
         for source_name, label, period, operation in previous_attempts:
