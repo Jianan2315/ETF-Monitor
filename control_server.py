@@ -48,7 +48,7 @@ from src.power_management import (
 ROOT = Path(__file__).resolve().parent
 HOST = "127.0.0.1"
 PORT = 8765
-CONTROL_VERSION = "11.8.1"
+CONTROL_VERSION = "11.8.2"
 
 app = Flask(
     __name__,
@@ -907,20 +907,96 @@ def _xml_text(root, local_name: str) -> str | None:
     return None
 
 
-def _import_plan_from_windows_task(
-    task_name: str,
-) -> dict[str, Any] | None:
+def _query_windows_task_xml(task_name: str) -> str | None:
     completed = _run_schtasks([
         "/Query",
         "/TN",
         task_name,
         "/XML",
     ])
-    if completed.returncode != 0 or not completed.stdout.strip():
+    if completed.returncode != 0:
+        return None
+    xml_text = completed.stdout.strip()
+    return xml_text or None
+
+
+def _normalize_task_path(value: str) -> str:
+    return str(value or "").strip().strip('"').replace("/", "\\").rstrip("\\").lower()
+
+
+def _task_uses_hidden_runner(
+    plan: dict[str, Any],
+    task_xml: str | None = None,
+) -> bool:
+    task_xml = task_xml or _query_windows_task_xml(str(plan["task_name"]))
+    if not task_xml:
+        return False
+    try:
+        root = ET.fromstring(task_xml)
+    except ET.ParseError:
+        return False
+
+    command = _xml_text(root, "Command") or ""
+    arguments = _xml_text(root, "Arguments") or ""
+    expected_command = _normalize_task_path(str(_schedule_pythonw()))
+    actual_command = _normalize_task_path(command)
+    normalized_arguments = arguments.replace("/", "\\").lower()
+    expected_runner = str(ROOT / "scheduled_runner.py").replace("/", "\\").lower()
+    expected_plan_id = str(plan["id"]).lower()
+
+    return (
+        actual_command == expected_command
+        and expected_runner in normalized_arguments
+        and "--plan-id" in normalized_arguments
+        and expected_plan_id in normalized_arguments
+    )
+
+
+def _ensure_schedule_task_current(
+    plan: dict[str, Any],
+    task_xml: str | None = None,
+) -> dict[str, Any]:
+    if os.name != "nt":
+        return {
+            "ok": True,
+            "migrated": False,
+            "message": "当前不是Windows，无需迁移系统任务。",
+        }
+    if not _task_exists(str(plan["task_name"])):
+        return {
+            "ok": True,
+            "migrated": False,
+            "message": "系统任务不存在，未执行迁移。",
+        }
+    if _task_uses_hidden_runner(plan, task_xml):
+        return {
+            "ok": True,
+            "migrated": False,
+            "message": "系统任务已使用隐藏运行器。",
+        }
+
+    sync_result = _sync_plan_to_windows(plan)
+    return {
+        "ok": bool(sync_result.get("ok")),
+        "migrated": bool(sync_result.get("ok")),
+        "message": (
+            "已将旧版CMD定时任务迁移为后台隐藏运行器。"
+            if sync_result.get("ok")
+            else sync_result.get("message", "迁移系统任务失败")
+        ),
+    }
+
+
+def _import_plan_from_windows_task(
+    task_name: str,
+    task_xml: str | None = None,
+) -> dict[str, Any] | None:
+    task_xml = task_xml or _query_windows_task_xml(task_name)
+    if not task_xml:
         return None
 
     try:
-        root = ET.fromstring(completed.stdout)
+        root = ET.fromstring(task_xml)
     except ET.ParseError:
         return None
 
@@ -1010,32 +1086,58 @@ def _import_existing_windows_plans() -> dict[str, Any]:
     if os.name != "nt":
         return {
             "imported": 0,
+            "migrated": 0,
+            "migration_failures": [],
             "message": "当前不是Windows，未扫描系统任务。",
         }
 
     plans = _load_schedule_plans_raw()
-    known_tasks = {
-        str(item.get("task_name", ""))
+    known_by_task = {
+        str(item.get("task_name", "")): item
         for item in plans
+        if item.get("task_name")
     }
-    imported = []
+    imported: list[dict[str, Any]] = []
+    migrated: list[dict[str, Any]] = []
+    migration_failures: list[str] = []
+
     for task_name in _system_task_names():
-        if task_name in known_tasks:
-            continue
-        plan = _import_plan_from_windows_task(task_name)
-        if plan is not None:
+        task_xml = _query_windows_task_xml(task_name)
+        plan = known_by_task.get(task_name)
+        if plan is None:
+            plan = _import_plan_from_windows_task(task_name, task_xml)
+            if plan is None:
+                continue
             plans.append(plan)
+            known_by_task[task_name] = plan
             imported.append(plan)
+
+        migration = _ensure_schedule_task_current(plan, task_xml)
+        if migration.get("migrated"):
+            migrated.append(plan)
+        elif not migration.get("ok"):
+            migration_failures.append(
+                f'{plan.get("name", task_name)}: {migration.get("message", "迁移失败")}'
+            )
 
     if imported:
         _save_schedule_plans(plans)
+
+    parts = []
+    if imported:
+        parts.append(f"导入{len(imported)}个旧计划")
+    if migrated:
+        parts.append(f"迁移{len(migrated)}个旧版CMD任务为后台隐藏运行器")
+    if migration_failures:
+        parts.append(f"{len(migration_failures)}个任务迁移失败")
+    if not parts:
+        parts.append("未发现需要导入或迁移的旧计划")
+
     return {
         "imported": len(imported),
-        "message": (
-            f"已从Windows任务计划程序导入{len(imported)}个旧计划。"
-            if imported
-            else "未发现需要导入的旧计划。"
-        ),
+        "migrated": len(migrated),
+        "migration_failures": migration_failures,
+        "message": "；".join(parts) + "。",
     }
 
 
@@ -1116,21 +1218,28 @@ def _plan_wrapper_path(plan_id: str) -> Path:
 
 
 def _write_plan_wrapper(plan: dict[str, Any]) -> Path:
+    """Write a legacy wrapper without a UTF-8 BOM.
+
+    Current Windows tasks use scheduled_runner.py through pythonw.exe and do
+    not need this file. Keeping the wrapper valid allows old/manual entries to
+    run without CMD interpreting the BOM as the characters "ï»¿".
+    """
     SCHEDULE_WRAPPER_DIR.mkdir(parents=True, exist_ok=True)
     wrapper_path = _plan_wrapper_path(plan["id"])
     mode = plan["mode"]
     run_time = plan["time"]
-    content = (
-        '@echo off\n'
-        f'cd /d "{ROOT}"\n'
-        'if not exist "logs" mkdir "logs"\n'
-        f'set "PYTHON_EXE={ROOT / ".venv" / "Scripts" / "python.exe"}"\n'
-        'if not exist "%PYTHON_EXE%" set "PYTHON_EXE=python"\n'
-        f'echo [%date% %time%] Scheduled plan {plan["id"]} started. >> "logs\\scheduled_tasks.log"\n'
-        f'"%PYTHON_EXE%" run.py --mode {mode} --slot {run_time} >> "logs\\scheduled_tasks.log" 2>&1\n'
-        f'echo [%date% %time%] Scheduled plan {plan["id"]} finished with code %errorlevel%. >> "logs\\scheduled_tasks.log"\n'
-    )
-    wrapper_path.write_text(content, encoding="utf-8-sig")
+    lines = [
+        "@echo off",
+        "chcp 65001 >nul",
+        f'cd /d "{ROOT}"',
+        'if not exist "logs" mkdir "logs"',
+        f'set "PYTHON_EXE={ROOT / ".venv" / "Scripts" / "python.exe"}"',
+        'if not exist "%PYTHON_EXE%" set "PYTHON_EXE=python"',
+        f'echo [%date% %time%] Scheduled plan {plan["id"]} started. >> "logs\\scheduled_tasks.log"',
+        f'"%PYTHON_EXE%" run.py --mode {mode} --slot {run_time} >> "logs\\scheduled_tasks.log" 2>&1',
+        f'echo [%date% %time%] Scheduled plan {plan["id"]} finished with code %errorlevel%. >> "logs\\scheduled_tasks.log"',
+    ]
+    wrapper_path.write_bytes(("\r\n".join(lines) + "\r\n").encode("utf-8"))
     return wrapper_path
 
 
@@ -1497,6 +1606,11 @@ def _run_schedule_plan_now(plan_id: str) -> dict[str, Any]:
         raise ValueError("该定时计划当前已停用")
 
     if os.name == "nt" and _task_exists(plan["task_name"]):
+        migration = _ensure_schedule_task_current(plan)
+        if not migration.get("ok"):
+            raise RuntimeError(
+                migration.get("message", "系统定时任务迁移失败")
+            )
         completed = _run_schtasks(["/Run", "/TN", plan["task_name"]])
         if completed.returncode != 0:
             combined = f"{completed.stdout}\n{completed.stderr}".strip()

@@ -1284,3 +1284,7 @@ http://127.0.0.1:8765/
 - 可从系统任务恢复开始时间、结束时间、工作日、启用状态及唤醒设置。
 - 当本地配置缺失、过期或升级后被覆盖时，会自动同步回 `config/power.json`。
 - 已存在的系统任务会显示为“已从 Windows 任务计划程序识别”，不再误报“尚未启用”。
+
+## V11.8.2 scheduled-task migration
+
+Older report plans may still point Windows Task Scheduler at a generated `.cmd` file. V11.8.2 detects these legacy actions when the schedule page is opened and rewrites them to the hidden `pythonw.exe + scheduled_runner.py` runner. This prevents a Command Prompt window from appearing during scheduled runs. Legacy wrapper files are also generated without a UTF-8 BOM to avoid the `ï»¿@echo off` error if one is run manually.

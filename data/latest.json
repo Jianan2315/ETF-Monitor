@@ -8,30 +8,30 @@
       "sector_name": "电网设备",
       "position": {
         "target_amount": 100000,
-        "invested_amount": 10000.0,
-        "average_cost": 1.0,
-        "shares": 10000.0,
-        "current_value": 7040.0,
-        "profit_amount": -2960.0,
-        "profit_pct": -29.6,
+        "invested_amount": 2000.0,
+        "average_cost": 0.812,
+        "shares": 2463.054187,
+        "current_value": 1694.58,
+        "profit_amount": -305.42,
+        "profit_pct": -15.27,
         "realized_profit": 0.0,
-        "last_buy_price": 1.0,
+        "last_buy_price": 0.812,
         "last_buy_date": "2026-07-07",
         "transactions": [
           {
             "id": "39c490d2-6501-41de-a027-1bf18f21b114",
             "date": "2026-07-07",
             "type": "BUY",
-            "amount": 10000.0,
-            "shares": 10000.0,
-            "price": 1.0,
-            "pricing_mode": "CONFIRMED",
-            "status": "CONFIRMED",
-            "price_source": "confirmed_amount_div_shares",
-            "estimated": false,
+            "amount": 2000.0,
+            "shares": 2463.05418719,
+            "price": 0.812,
+            "pricing_mode": "CLOSE_ESTIMATE",
+            "status": "ESTIMATED",
+            "price_source": "daily_close_estimate",
+            "estimated": true,
             "note": "首次建仓",
             "created_at": "2026-07-17T05:35:45",
-            "updated_at": "2026-07-17T06:43:25"
+            "updated_at": "2026-07-17T11:32:51"
           }
         ]
       },
@@ -85,60 +85,60 @@
     "latest": {
       "symbol": "561380",
       "name": "电网设备ETF",
-      "timestamp": "2026-07-17T10:59:57.468840",
-      "price": 0.704,
-      "daily_change_pct": -2.63,
-      "volume": 758166.0,
-      "amount": 53780439.0,
+      "timestamp": "2026-07-17T14:55:01.400987",
+      "price": 0.688,
+      "daily_change_pct": -4.84,
+      "volume": 1555366.0,
+      "amount": 109073254.0,
       "main_fund_flow": null
     },
     "indicators": {
-      "daily_change_pct": -2.63,
-      "five_day_change_pct": -10.998735777496849,
-      "ten_day_change_pct": -17.85297549591599,
-      "twenty_day_change_pct": -24.8665955176094,
-      "one_month_drawdown_pct": -27.942681678607983,
-      "three_month_drawdown_pct": -27.942681678607983,
-      "six_month_drawdown_pct": -27.942681678607983,
+      "daily_change_pct": -4.84,
+      "five_day_change_pct": -13.02149178255374,
+      "ten_day_change_pct": -19.71995332555426,
+      "twenty_day_change_pct": -26.57417289220919,
+      "one_month_drawdown_pct": -29.58034800409417,
+      "three_month_drawdown_pct": -29.58034800409417,
+      "six_month_drawdown_pct": -29.58034800409417,
       "one_month_high_date": "2026-06-22",
       "three_month_high_date": "2026-06-22",
       "six_month_high_date": "2026-06-22",
-      "drawdown_from_last_buy_pct": -29.600000000000005,
+      "drawdown_from_last_buy_pct": -15.270935960591148,
       "consecutive_down_days": 3,
       "consecutive_up_days": 0,
-      "consecutive_trend_pct": -7.973856209150332,
+      "consecutive_trend_pct": -10.065359477124192,
       "preceding_down_days": 3,
       "rebound_pct": 0.0,
       "is_new_5d_low": true,
       "is_new_10d_low": true,
-      "stable_days": 2,
-      "latest_price": 0.704
+      "stable_days": 1,
+      "latest_price": 0.688
     },
     "position_metrics": {
-      "invested_amount": 10000.0,
-      "average_cost": 1.0,
-      "shares": 10000.0,
-      "current_value": 7040.0,
-      "profit_amount": -2960.0,
-      "profit_pct": -29.6,
+      "invested_amount": 2000.0,
+      "average_cost": 0.812,
+      "shares": 2463.054187,
+      "current_value": 1694.58,
+      "profit_amount": -305.42,
+      "profit_pct": -15.27,
       "realized_profit": 0.0,
-      "last_buy_price": 1.0,
+      "last_buy_price": 0.812,
       "last_buy_date": "2026-07-07",
       "transactions": [
         {
           "id": "39c490d2-6501-41de-a027-1bf18f21b114",
           "date": "2026-07-07",
           "type": "BUY",
-          "amount": 10000.0,
-          "shares": 10000.0,
-          "price": 1.0,
-          "pricing_mode": "CONFIRMED",
-          "status": "CONFIRMED",
-          "price_source": "confirmed_amount_div_shares",
-          "estimated": false,
+          "amount": 2000.0,
+          "shares": 2463.05418719,
+          "price": 0.812,
+          "pricing_mode": "CLOSE_ESTIMATE",
+          "status": "ESTIMATED",
+          "price_source": "daily_close_estimate",
+          "estimated": true,
           "note": "首次建仓",
           "created_at": "2026-07-17T05:35:45",
-          "updated_at": "2026-07-17T06:43:25"
+          "updated_at": "2026-07-17T11:32:51"
         }
       ]
     },
@@ -154,9 +154,9 @@
       "action_type": "NONE"
     },
     "status_label": "下跌未止，继续等待",
-    "data_source": "本地日线缓存(data\\cache\\561380_daily.json) + AKShare fund_etf_spot_em(EastMoney) + AKShare fund_etf_hist_min_em",
-    "data_phase": "AM_SESSION",
-    "data_phase_label": "上午交易时段",
+    "data_source": "本地日线缓存(data\\cache\\561380_daily.json) + AKShare fund_etf_spot_em(EastMoney) + AKShare fund_etf_hist_min_em(5m)",
+    "data_phase": "PM_SESSION",
+    "data_phase_label": "下午交易时段",
     "data_warnings": [
       "今天已成功刷新过历史接口；缓存内最新交易日=2026-07-17，盘中只获取实时行情",
       "Realtime optional field 今开 is missing; fallback will be used",
@@ -178,36 +178,38 @@
       "realtime": {
         "status": "SUCCESS",
         "source": "AKShare fund_etf_spot_em(EastMoney)",
-        "timestamp": "2026-07-17T10:59:57",
+        "timestamp": "2026-07-17T14:55:01",
         "message": "实时快照获取成功",
         "errors": []
       },
       "intraday": {
         "status": "SUCCESS",
-        "source": "AKShare fund_etf_hist_min_em",
-        "points": 92,
+        "source": "AKShare fund_etf_hist_min_em(5m)",
+        "points": 48,
         "approximate": false,
-        "message": "今日一分钟分时获取成功，共92个点",
-        "errors": []
+        "message": "今日5分钟分时获取成功，共48个点",
+        "errors": [
+          "intraday-etf-1m attempt 1: REMOTE_DISCONNECTED: ProxyError: HTTPSConnectionPool(host='push2his.eastmoney.com', port=443): Max retries exceeded with url: /api/qt/stock/trends2/get?fields1=f1%2Cf2%2Cf3%2Cf4%2Cf5%2Cf6%2Cf7%2Cf8%2Cf9%2Cf10%2Cf11%2Cf12%2Cf13&fields2=f51%2Cf52%2Cf53%2Cf54%2Cf55%2Cf56%2Cf57%2Cf58&ut=7eea3edcaed734bea9cbfc24409ed989&ndays=5&iscr=0&secid=1.561380 (Caused by ProxyError('Unable to connect to proxy', RemoteDisconnected('Remote end closed connection without response')))",
+          "intraday-stock-1m attempt 1: REMOTE_DISCONNECTED: ProxyError: HTTPSConnectionPool(host='push2his.eastmoney.com', port=443): Max retries exceeded with url: /api/qt/stock/trends2/get?fields1=f1%2Cf2%2Cf3%2Cf4%2Cf5%2Cf6%2Cf7%2Cf8%2Cf9%2Cf10%2Cf11%2Cf12%2Cf13&fields2=f51%2Cf52%2Cf53%2Cf54%2Cf55%2Cf56%2Cf57%2Cf58&ut=7eea3edcaed734bea9cbfc24409ed989&ndays=5&iscr=0&secid=0.561380 (Caused by ProxyError('Unable to connect to proxy', RemoteDisconnected('Remote end closed connection without response')))"
+        ],
+        "period": "5"
       },
       "previous_intraday": {
-        "status": "APPROXIMATE",
-        "source": "历史日线OHLC示意",
-        "points": 4,
-        "approximate": true,
+        "status": "CACHE",
+        "source": "本地分时缓存",
+        "points": 48,
+        "approximate": false,
         "date": "2026-07-16",
-        "message": "2026-07-16分钟数据不可用；仅用开、高、低、收生成示意线，不代表真实日内先后顺序",
-        "errors": [
-          "previous-intraday-etf-wrapper attempt 1: REMOTE_DISCONNECTED: ConnectionError: ('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))",
-          "previous-intraday-stock-wrapper attempt 1: TYPEERROR: TypeError: 'NoneType' object is not subscriptable"
-        ]
+        "message": "2026-07-16使用本地分时缓存，共48个点",
+        "errors": [],
+        "period": "5"
       }
     },
-    "market_timestamp": "2026-07-17 10:59:57",
-    "generated_at": "2026-07-17 10:59:57",
-    "run_time": "2026-07-17 11:00:21",
+    "market_timestamp": "2026-07-17 14:55:01",
+    "generated_at": "2026-07-17 14:55:01",
+    "run_time": "2026-07-17 14:55:40",
     "run_mode": "auto",
-    "run_slot": "",
+    "run_slot": "14:55",
     "using_local_cache": true,
     "cache_date": "2026-07-17",
     "chart_data": [
@@ -1725,148 +1727,32 @@
       },
       {
         "date": "2026-07-17",
-        "price": 0.704
+        "price": 0.688
       }
     ],
     "intraday_chart_data": [
       {
-        "time": "09:30",
-        "price": 0.718
-      },
-      {
-        "time": "09:31",
-        "price": 0.718
-      },
-      {
-        "time": "09:32",
-        "price": 0.713
-      },
-      {
-        "time": "09:33",
-        "price": 0.713
-      },
-      {
-        "time": "09:34",
-        "price": 0.711
-      },
-      {
         "time": "09:35",
         "price": 0.709
-      },
-      {
-        "time": "09:36",
-        "price": 0.71
-      },
-      {
-        "time": "09:37",
-        "price": 0.707
-      },
-      {
-        "time": "09:38",
-        "price": 0.707
-      },
-      {
-        "time": "09:39",
-        "price": 0.708
       },
       {
         "time": "09:40",
         "price": 0.713
       },
       {
-        "time": "09:41",
-        "price": 0.712
-      },
-      {
-        "time": "09:42",
-        "price": 0.714
-      },
-      {
-        "time": "09:43",
-        "price": 0.713
-      },
-      {
-        "time": "09:44",
-        "price": 0.709
-      },
-      {
         "time": "09:45",
         "price": 0.711
-      },
-      {
-        "time": "09:46",
-        "price": 0.709
-      },
-      {
-        "time": "09:47",
-        "price": 0.706
-      },
-      {
-        "time": "09:48",
-        "price": 0.709
-      },
-      {
-        "time": "09:49",
-        "price": 0.707
       },
       {
         "time": "09:50",
         "price": 0.712
       },
       {
-        "time": "09:51",
-        "price": 0.713
-      },
-      {
-        "time": "09:52",
-        "price": 0.718
-      },
-      {
-        "time": "09:53",
-        "price": 0.715
-      },
-      {
-        "time": "09:54",
-        "price": 0.714
-      },
-      {
         "time": "09:55",
         "price": 0.714
       },
       {
-        "time": "09:56",
-        "price": 0.712
-      },
-      {
-        "time": "09:57",
-        "price": 0.714
-      },
-      {
-        "time": "09:58",
-        "price": 0.714
-      },
-      {
-        "time": "09:59",
-        "price": 0.716
-      },
-      {
         "time": "10:00",
-        "price": 0.715
-      },
-      {
-        "time": "10:01",
-        "price": 0.713
-      },
-      {
-        "time": "10:02",
-        "price": 0.711
-      },
-      {
-        "time": "10:03",
-        "price": 0.711
-      },
-      {
-        "time": "10:04",
         "price": 0.715
       },
       {
@@ -1874,99 +1760,19 @@
         "price": 0.716
       },
       {
-        "time": "10:06",
-        "price": 0.715
-      },
-      {
-        "time": "10:07",
-        "price": 0.713
-      },
-      {
-        "time": "10:08",
-        "price": 0.713
-      },
-      {
-        "time": "10:09",
-        "price": 0.713
-      },
-      {
         "time": "10:10",
         "price": 0.713
-      },
-      {
-        "time": "10:11",
-        "price": 0.711
-      },
-      {
-        "time": "10:12",
-        "price": 0.711
-      },
-      {
-        "time": "10:13",
-        "price": 0.711
-      },
-      {
-        "time": "10:14",
-        "price": 0.714
       },
       {
         "time": "10:15",
         "price": 0.714
       },
       {
-        "time": "10:16",
-        "price": 0.713
-      },
-      {
-        "time": "10:17",
-        "price": 0.714
-      },
-      {
-        "time": "10:18",
-        "price": 0.716
-      },
-      {
-        "time": "10:19",
-        "price": 0.715
-      },
-      {
         "time": "10:20",
         "price": 0.713
       },
       {
-        "time": "10:21",
-        "price": 0.713
-      },
-      {
-        "time": "10:22",
-        "price": 0.714
-      },
-      {
-        "time": "10:23",
-        "price": 0.712
-      },
-      {
-        "time": "10:24",
-        "price": 0.711
-      },
-      {
         "time": "10:25",
-        "price": 0.713
-      },
-      {
-        "time": "10:26",
-        "price": 0.713
-      },
-      {
-        "time": "10:27",
-        "price": 0.711
-      },
-      {
-        "time": "10:28",
-        "price": 0.711
-      },
-      {
-        "time": "10:29",
         "price": 0.713
       },
       {
@@ -1974,39 +1780,7 @@
         "price": 0.712
       },
       {
-        "time": "10:31",
-        "price": 0.71
-      },
-      {
-        "time": "10:32",
-        "price": 0.71
-      },
-      {
-        "time": "10:33",
-        "price": 0.708
-      },
-      {
-        "time": "10:34",
-        "price": 0.709
-      },
-      {
         "time": "10:35",
-        "price": 0.707
-      },
-      {
-        "time": "10:36",
-        "price": 0.707
-      },
-      {
-        "time": "10:37",
-        "price": 0.706
-      },
-      {
-        "time": "10:38",
-        "price": 0.706
-      },
-      {
-        "time": "10:39",
         "price": 0.707
       },
       {
@@ -2014,102 +1788,330 @@
         "price": 0.707
       },
       {
-        "time": "10:41",
-        "price": 0.707
-      },
-      {
-        "time": "10:42",
-        "price": 0.705
-      },
-      {
-        "time": "10:43",
-        "price": 0.706
-      },
-      {
-        "time": "10:44",
-        "price": 0.704
-      },
-      {
         "time": "10:45",
         "price": 0.703
-      },
-      {
-        "time": "10:46",
-        "price": 0.705
-      },
-      {
-        "time": "10:47",
-        "price": 0.703
-      },
-      {
-        "time": "10:48",
-        "price": 0.702
-      },
-      {
-        "time": "10:49",
-        "price": 0.701
       },
       {
         "time": "10:50",
         "price": 0.7
       },
       {
-        "time": "10:51",
-        "price": 0.702
-      },
-      {
-        "time": "10:52",
-        "price": 0.702
-      },
-      {
-        "time": "10:53",
-        "price": 0.7
-      },
-      {
-        "time": "10:54",
-        "price": 0.699
-      },
-      {
         "time": "10:55",
         "price": 0.699
-      },
-      {
-        "time": "10:56",
-        "price": 0.702
-      },
-      {
-        "time": "10:57",
-        "price": 0.702
-      },
-      {
-        "time": "10:58",
-        "price": 0.704
-      },
-      {
-        "time": "10:59",
-        "price": 0.705
       },
       {
         "time": "11:00",
         "price": 0.704
       },
       {
-        "time": "11:01",
+        "time": "11:05",
+        "price": 0.711
+      },
+      {
+        "time": "11:10",
+        "price": 0.71
+      },
+      {
+        "time": "11:15",
+        "price": 0.707
+      },
+      {
+        "time": "11:20",
         "price": 0.706
+      },
+      {
+        "time": "11:25",
+        "price": 0.707
+      },
+      {
+        "time": "11:30",
+        "price": 0.706
+      },
+      {
+        "time": "13:05",
+        "price": 0.701
+      },
+      {
+        "time": "13:10",
+        "price": 0.699
+      },
+      {
+        "time": "13:15",
+        "price": 0.697
+      },
+      {
+        "time": "13:20",
+        "price": 0.696
+      },
+      {
+        "time": "13:25",
+        "price": 0.693
+      },
+      {
+        "time": "13:30",
+        "price": 0.695
+      },
+      {
+        "time": "13:35",
+        "price": 0.691
+      },
+      {
+        "time": "13:40",
+        "price": 0.688
+      },
+      {
+        "time": "13:45",
+        "price": 0.686
+      },
+      {
+        "time": "13:50",
+        "price": 0.689
+      },
+      {
+        "time": "13:55",
+        "price": 0.688
+      },
+      {
+        "time": "14:00",
+        "price": 0.692
+      },
+      {
+        "time": "14:05",
+        "price": 0.697
+      },
+      {
+        "time": "14:10",
+        "price": 0.698
+      },
+      {
+        "time": "14:15",
+        "price": 0.703
+      },
+      {
+        "time": "14:20",
+        "price": 0.698
+      },
+      {
+        "time": "14:25",
+        "price": 0.699
+      },
+      {
+        "time": "14:30",
+        "price": 0.697
+      },
+      {
+        "time": "14:35",
+        "price": 0.699
+      },
+      {
+        "time": "14:40",
+        "price": 0.695
+      },
+      {
+        "time": "14:45",
+        "price": 0.692
+      },
+      {
+        "time": "14:50",
+        "price": 0.691
+      },
+      {
+        "time": "14:55",
+        "price": 0.688
+      },
+      {
+        "time": "15:00",
+        "price": 0.688
       }
     ],
     "previous_intraday_chart_data": [
       {
-        "time": "09:30",
+        "time": "09:35",
+        "price": 0.726
+      },
+      {
+        "time": "09:40",
+        "price": 0.731
+      },
+      {
+        "time": "09:45",
+        "price": 0.735
+      },
+      {
+        "time": "09:50",
+        "price": 0.734
+      },
+      {
+        "time": "09:55",
+        "price": 0.731
+      },
+      {
+        "time": "10:00",
+        "price": 0.736
+      },
+      {
+        "time": "10:05",
+        "price": 0.737
+      },
+      {
+        "time": "10:10",
+        "price": 0.741
+      },
+      {
+        "time": "10:15",
         "price": 0.74
       },
       {
+        "time": "10:20",
+        "price": 0.74
+      },
+      {
+        "time": "10:25",
+        "price": 0.739
+      },
+      {
         "time": "10:30",
-        "price": 0.746
+        "price": 0.738
+      },
+      {
+        "time": "10:35",
+        "price": 0.737
+      },
+      {
+        "time": "10:40",
+        "price": 0.734
+      },
+      {
+        "time": "10:45",
+        "price": 0.738
+      },
+      {
+        "time": "10:50",
+        "price": 0.74
+      },
+      {
+        "time": "10:55",
+        "price": 0.739
+      },
+      {
+        "time": "11:00",
+        "price": 0.738
+      },
+      {
+        "time": "11:05",
+        "price": 0.736
+      },
+      {
+        "time": "11:10",
+        "price": 0.736
+      },
+      {
+        "time": "11:15",
+        "price": 0.735
+      },
+      {
+        "time": "11:20",
+        "price": 0.732
+      },
+      {
+        "time": "11:25",
+        "price": 0.732
+      },
+      {
+        "time": "11:30",
+        "price": 0.735
+      },
+      {
+        "time": "13:05",
+        "price": 0.733
+      },
+      {
+        "time": "13:10",
+        "price": 0.731
+      },
+      {
+        "time": "13:15",
+        "price": 0.732
+      },
+      {
+        "time": "13:20",
+        "price": 0.734
+      },
+      {
+        "time": "13:25",
+        "price": 0.732
       },
       {
         "time": "13:30",
-        "price": 0.716
+        "price": 0.73
+      },
+      {
+        "time": "13:35",
+        "price": 0.729
+      },
+      {
+        "time": "13:40",
+        "price": 0.727
+      },
+      {
+        "time": "13:45",
+        "price": 0.726
+      },
+      {
+        "time": "13:50",
+        "price": 0.726
+      },
+      {
+        "time": "13:55",
+        "price": 0.724
+      },
+      {
+        "time": "14:00",
+        "price": 0.724
+      },
+      {
+        "time": "14:05",
+        "price": 0.723
+      },
+      {
+        "time": "14:10",
+        "price": 0.724
+      },
+      {
+        "time": "14:15",
+        "price": 0.722
+      },
+      {
+        "time": "14:20",
+        "price": 0.722
+      },
+      {
+        "time": "14:25",
+        "price": 0.721
+      },
+      {
+        "time": "14:30",
+        "price": 0.722
+      },
+      {
+        "time": "14:35",
+        "price": 0.72
+      },
+      {
+        "time": "14:40",
+        "price": 0.719
+      },
+      {
+        "time": "14:45",
+        "price": 0.719
+      },
+      {
+        "time": "14:50",
+        "price": 0.717
+      },
+      {
+        "time": "14:55",
+        "price": 0.719
       },
       {
         "time": "15:00",
@@ -2121,16 +2123,16 @@
         "id": "39c490d2-6501-41de-a027-1bf18f21b114",
         "date": "2026-07-07",
         "type": "BUY",
-        "amount": 10000.0,
-        "shares": 10000.0,
-        "price": 1.0,
-        "pricing_mode": "CONFIRMED",
-        "status": "CONFIRMED",
-        "price_source": "confirmed_amount_div_shares",
-        "estimated": false,
+        "amount": 2000.0,
+        "shares": 2463.05418719,
+        "price": 0.812,
+        "pricing_mode": "CLOSE_ESTIMATE",
+        "status": "ESTIMATED",
+        "price_source": "daily_close_estimate",
+        "estimated": true,
         "note": "首次建仓",
         "created_at": "2026-07-17T05:35:45",
-        "updated_at": "2026-07-17T06:43:25"
+        "updated_at": "2026-07-17T11:32:51"
       }
     ],
     "llm_summary": null

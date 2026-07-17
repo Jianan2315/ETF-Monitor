@@ -1,10 +1,10 @@
 {
   "status": "SUCCESS",
-  "message": "报告已生成。历史日线=CACHE；实时快照=SUCCESS；一分钟分时=SUCCESS；昨日走势=APPROXIMATE；邮件=SKIPPED: status WAIT is disabled or missing in email.triggers。",
+  "message": "报告已生成。历史日线=CACHE；实时快照=SUCCESS；一分钟分时=SUCCESS；昨日走势=CACHE；邮件=SKIPPED: status WAIT is disabled or missing in email.triggers。",
   "mode": "auto",
-  "phase": "AM_SESSION",
-  "started_at": "2026-07-17T10:59:57",
-  "finished_at": "2026-07-17T11:00:21",
+  "phase": "PM_SESSION",
+  "started_at": "2026-07-17T14:55:01",
+  "finished_at": "2026-07-17T14:55:41",
   "report_path": "C:\\Users\\flywi\\Desktop\\gitRepos\\ETF-Monitor\\output\\report.html",
   "errors": [],
   "steps": [
@@ -14,7 +14,7 @@
       "status": "SUCCESS",
       "message": "配置加载成功",
       "details": null,
-      "time": "2026-07-17T10:59:57"
+      "time": "2026-07-17T14:55:01"
     },
     {
       "key": "market_validation",
@@ -22,14 +22,14 @@
       "status": "SUCCESS",
       "message": "已按当前市场阶段运行。",
       "details": {
-        "now": "2026-07-17 10:59:57",
-        "phase": "AM_SESSION",
-        "phase_label": "上午交易时段",
+        "now": "2026-07-17 14:55:01",
+        "phase": "PM_SESSION",
+        "phase_label": "下午交易时段",
         "close_ready": false,
         "can_intraday": true,
         "can_close": false
       },
-      "time": "2026-07-17T10:59:57"
+      "time": "2026-07-17T14:55:01"
     },
     {
       "key": "data_history",
@@ -44,7 +44,7 @@
         "message": "今天已成功刷新过历史接口；缓存内最新交易日=2026-07-17，盘中只获取实时行情",
         "errors": []
       },
-      "time": "2026-07-17T11:00:21"
+      "time": "2026-07-17T14:55:40"
     },
     {
       "key": "data_realtime",
@@ -54,45 +54,47 @@
       "details": {
         "status": "SUCCESS",
         "source": "AKShare fund_etf_spot_em(EastMoney)",
-        "timestamp": "2026-07-17T10:59:57",
+        "timestamp": "2026-07-17T14:55:01",
         "message": "实时快照获取成功",
         "errors": []
       },
-      "time": "2026-07-17T11:00:21"
+      "time": "2026-07-17T14:55:40"
     },
     {
       "key": "data_intraday",
       "label": "今日一分钟分时",
       "status": "SUCCESS",
-      "message": "今日一分钟分时获取成功，共92个点",
+      "message": "今日5分钟分时获取成功，共48个点",
       "details": {
         "status": "SUCCESS",
-        "source": "AKShare fund_etf_hist_min_em",
-        "points": 92,
+        "source": "AKShare fund_etf_hist_min_em(5m)",
+        "points": 48,
         "approximate": false,
-        "message": "今日一分钟分时获取成功，共92个点",
-        "errors": []
+        "message": "今日5分钟分时获取成功，共48个点",
+        "errors": [
+          "intraday-etf-1m attempt 1: REMOTE_DISCONNECTED: ProxyError: HTTPSConnectionPool(host='push2his.eastmoney.com', port=443): Max retries exceeded with url: /api/qt/stock/trends2/get?fields1=f1%2Cf2%2Cf3%2Cf4%2Cf5%2Cf6%2Cf7%2Cf8%2Cf9%2Cf10%2Cf11%2Cf12%2Cf13&fields2=f51%2Cf52%2Cf53%2Cf54%2Cf55%2Cf56%2Cf57%2Cf58&ut=7eea3edcaed734bea9cbfc24409ed989&ndays=5&iscr=0&secid=1.561380 (Caused by ProxyError('Unable to connect to proxy', RemoteDisconnected('Remote end closed connection without response')))",
+          "intraday-stock-1m attempt 1: REMOTE_DISCONNECTED: ProxyError: HTTPSConnectionPool(host='push2his.eastmoney.com', port=443): Max retries exceeded with url: /api/qt/stock/trends2/get?fields1=f1%2Cf2%2Cf3%2Cf4%2Cf5%2Cf6%2Cf7%2Cf8%2Cf9%2Cf10%2Cf11%2Cf12%2Cf13&fields2=f51%2Cf52%2Cf53%2Cf54%2Cf55%2Cf56%2Cf57%2Cf58&ut=7eea3edcaed734bea9cbfc24409ed989&ndays=5&iscr=0&secid=0.561380 (Caused by ProxyError('Unable to connect to proxy', RemoteDisconnected('Remote end closed connection without response')))"
+        ],
+        "period": "5"
       },
-      "time": "2026-07-17T11:00:21"
+      "time": "2026-07-17T14:55:40"
     },
     {
       "key": "data_previous_intraday",
       "label": "昨日走势",
-      "status": "WARNING",
-      "message": "2026-07-16分钟数据不可用；仅用开、高、低、收生成示意线，不代表真实日内先后顺序",
+      "status": "SUCCESS",
+      "message": "2026-07-16使用本地分时缓存，共48个点",
       "details": {
-        "status": "APPROXIMATE",
-        "source": "历史日线OHLC示意",
-        "points": 4,
-        "approximate": true,
+        "status": "CACHE",
+        "source": "本地分时缓存",
+        "points": 48,
+        "approximate": false,
         "date": "2026-07-16",
-        "message": "2026-07-16分钟数据不可用；仅用开、高、低、收生成示意线，不代表真实日内先后顺序",
-        "errors": [
-          "previous-intraday-etf-wrapper attempt 1: REMOTE_DISCONNECTED: ConnectionError: ('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))",
-          "previous-intraday-stock-wrapper attempt 1: TYPEERROR: TypeError: 'NoneType' object is not subscriptable"
-        ]
+        "message": "2026-07-16使用本地分时缓存，共48个点",
+        "errors": [],
+        "period": "5"
       },
-      "time": "2026-07-17T11:00:21"
+      "time": "2026-07-17T14:55:40"
     },
     {
       "key": "transactions",
@@ -100,15 +102,15 @@
       "status": "SUCCESS",
       "message": "已读取1条交易记录；可用收盘数据会自动更新估算记录",
       "details": null,
-      "time": "2026-07-17T11:00:21"
+      "time": "2026-07-17T14:55:40"
     },
     {
       "key": "position",
       "label": "计算当前仓位",
       "status": "SUCCESS",
-      "message": "持有10000.0000份，投入成本10000.00元",
+      "message": "持有2463.0542份，投入成本2000.00元",
       "details": null,
-      "time": "2026-07-17T11:00:21"
+      "time": "2026-07-17T14:55:40"
     },
     {
       "key": "indicators",
@@ -116,7 +118,7 @@
       "status": "SUCCESS",
       "message": "涨跌幅、回撤、连续趋势和横盘指标计算完成",
       "details": null,
-      "time": "2026-07-17T11:00:21"
+      "time": "2026-07-17T14:55:40"
     },
     {
       "key": "strategy",
@@ -134,7 +136,7 @@
         ],
         "action_type": "NONE"
       },
-      "time": "2026-07-17T11:00:21"
+      "time": "2026-07-17T14:55:40"
     },
     {
       "key": "storage",
@@ -142,7 +144,7 @@
       "status": "SUCCESS",
       "message": "latest.json、历史指标和决策记录已更新",
       "details": null,
-      "time": "2026-07-17T11:00:21"
+      "time": "2026-07-17T14:55:41"
     },
     {
       "key": "email",
@@ -150,7 +152,7 @@
       "status": "SKIPPED",
       "message": "status WAIT is disabled or missing in email.triggers",
       "details": null,
-      "time": "2026-07-17T11:00:21"
+      "time": "2026-07-17T14:55:41"
     },
     {
       "key": "html_report",
@@ -158,7 +160,7 @@
       "status": "SUCCESS",
       "message": "报告已生成：C:\\Users\\flywi\\Desktop\\gitRepos\\ETF-Monitor\\output\\report.html",
       "details": null,
-      "time": "2026-07-17T11:00:21"
+      "time": "2026-07-17T14:55:41"
     }
   ],
   "data_status": {
@@ -173,29 +175,31 @@
     "realtime": {
       "status": "SUCCESS",
       "source": "AKShare fund_etf_spot_em(EastMoney)",
-      "timestamp": "2026-07-17T10:59:57",
+      "timestamp": "2026-07-17T14:55:01",
       "message": "实时快照获取成功",
       "errors": []
     },
     "intraday": {
       "status": "SUCCESS",
-      "source": "AKShare fund_etf_hist_min_em",
-      "points": 92,
+      "source": "AKShare fund_etf_hist_min_em(5m)",
+      "points": 48,
       "approximate": false,
-      "message": "今日一分钟分时获取成功，共92个点",
-      "errors": []
+      "message": "今日5分钟分时获取成功，共48个点",
+      "errors": [
+        "intraday-etf-1m attempt 1: REMOTE_DISCONNECTED: ProxyError: HTTPSConnectionPool(host='push2his.eastmoney.com', port=443): Max retries exceeded with url: /api/qt/stock/trends2/get?fields1=f1%2Cf2%2Cf3%2Cf4%2Cf5%2Cf6%2Cf7%2Cf8%2Cf9%2Cf10%2Cf11%2Cf12%2Cf13&fields2=f51%2Cf52%2Cf53%2Cf54%2Cf55%2Cf56%2Cf57%2Cf58&ut=7eea3edcaed734bea9cbfc24409ed989&ndays=5&iscr=0&secid=1.561380 (Caused by ProxyError('Unable to connect to proxy', RemoteDisconnected('Remote end closed connection without response')))",
+        "intraday-stock-1m attempt 1: REMOTE_DISCONNECTED: ProxyError: HTTPSConnectionPool(host='push2his.eastmoney.com', port=443): Max retries exceeded with url: /api/qt/stock/trends2/get?fields1=f1%2Cf2%2Cf3%2Cf4%2Cf5%2Cf6%2Cf7%2Cf8%2Cf9%2Cf10%2Cf11%2Cf12%2Cf13&fields2=f51%2Cf52%2Cf53%2Cf54%2Cf55%2Cf56%2Cf57%2Cf58&ut=7eea3edcaed734bea9cbfc24409ed989&ndays=5&iscr=0&secid=0.561380 (Caused by ProxyError('Unable to connect to proxy', RemoteDisconnected('Remote end closed connection without response')))"
+      ],
+      "period": "5"
     },
     "previous_intraday": {
-      "status": "APPROXIMATE",
-      "source": "历史日线OHLC示意",
-      "points": 4,
-      "approximate": true,
+      "status": "CACHE",
+      "source": "本地分时缓存",
+      "points": 48,
+      "approximate": false,
       "date": "2026-07-16",
-      "message": "2026-07-16分钟数据不可用；仅用开、高、低、收生成示意线，不代表真实日内先后顺序",
-      "errors": [
-        "previous-intraday-etf-wrapper attempt 1: REMOTE_DISCONNECTED: ConnectionError: ('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))",
-        "previous-intraday-stock-wrapper attempt 1: TYPEERROR: TypeError: 'NoneType' object is not subscriptable"
-      ]
+      "message": "2026-07-16使用本地分时缓存，共48个点",
+      "errors": [],
+      "period": "5"
     }
   },
   "email_status": "SKIPPED: status WAIT is disabled or missing in email.triggers"

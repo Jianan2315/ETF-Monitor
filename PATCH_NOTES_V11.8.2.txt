@@ -1,0 +1,12 @@
+ETF Monitor V11.8.2 - scheduled task CMD popup and BOM fix
+
+1. Detects legacy report tasks whose Windows Task Scheduler action still runs a .cmd/.bat file or cmd.exe.
+2. Automatically rewrites those legacy tasks to the current hidden pythonw.exe + scheduled_runner.py action when the schedules page is loaded.
+3. The "Run now" action also checks and migrates a legacy task before launching it.
+4. Keeps the old wrapper generator for compatibility, but writes BOM-free UTF-8 with CRLF so CMD no longer reads the first line as "ï»¿@echo off".
+5. Updates control service and browser expected version to 11.8.2.
+
+Expected result after upgrade:
+- Opening the schedule page once migrates existing old report tasks.
+- Subsequent scheduled runs no longer open a visible CMD window.
+- The first-line "ï»¿@echo off is not recognized" error disappears.
