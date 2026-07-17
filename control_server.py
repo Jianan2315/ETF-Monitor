@@ -48,7 +48,7 @@ from src.power_management import (
 ROOT = Path(__file__).resolve().parent
 HOST = "127.0.0.1"
 PORT = 8765
-CONTROL_VERSION = "11.8"
+CONTROL_VERSION = "11.8.1"
 
 app = Flask(
     __name__,

@@ -1,0 +1,16 @@
+ETF Monitor V11.8.1 - Keep Awake task detection fix
+
+Apply:
+1. Close the ETF Monitor command window.
+2. Extract this ZIP into the ETF Monitor project root and allow overwrite.
+3. Run Start ETF Monitor.bat again.
+4. Refresh the control page with Ctrl+F5 once.
+
+Fixes:
+- The Keep Awake panel now queries the existing Windows task ETFMonitor_KeepAwake.
+- It recovers start/end time, weekdays, enabled state, and WakeToRun from the task XML.
+- An existing task is treated as the source of truth even if config/power.json is stale or says enabled=false.
+- Recovered values are synchronized back to config/power.json.
+- Control service/frontend expected version are synchronized to 11.8.1.
+
+This patch does not include or overwrite data/, logs/, output/, .env, or config files.
