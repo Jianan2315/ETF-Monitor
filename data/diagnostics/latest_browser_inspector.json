@@ -1,0 +1,563 @@
+{
+  "symbol": "561380",
+  "started_at": "2026-07-17T10:57:54",
+  "finished_at": "2026-07-17T10:58:13",
+  "browser": "Google Chrome",
+  "quote_page_url": "https://quote.eastmoney.com/sh561380.html",
+  "final_page_url": "https://quote.eastmoney.com/sh561380.html",
+  "page_title": "电网设备ETF国泰(561380)_股票行情_走势图—东方财富网",
+  "navigation_error": null,
+  "anti_bot_challenge": false,
+  "browser_fetch_url": "https://push2his.eastmoney.com/api/qt/stock/kline/get?secid=1.561380&ut=7eea3edcaed734bea9cbfc24409ed989&fields1=f1%2Cf2%2Cf3%2Cf4%2Cf5%2Cf6&fields2=f51%2Cf52%2Cf53%2Cf54%2Cf55%2Cf56%2Cf57%2Cf58%2Cf59%2Cf60%2Cf61&klt=101&fqt=1&beg=20210101&end=20260717&lmt=1000",
+  "browser_fetch_result": {
+    "ok": true,
+    "status": 200,
+    "statusText": "OK",
+    "elapsedMs": 66,
+    "bodyLength": 29887,
+    "bodyPreview": "{\"rc\":0,\"rt\":17,\"svr\":177617934,\"lt\":1,\"full\":0,\"dlmkts\":\"\",\"dsc\":\"0\",\"data\":{\"code\":\"561380\",\"market\":1,\"name\":\"电网设备ETF国泰\",\"decimal\":3,\"dktotal\":379,\"preKPrice\":0.399,\"klines\":[\"2024-12-23,0.397,0.393,0.400,0.393,1074980,107056447.000,1.75,-1.50,-0.006,1.69\",\"2024-12-24,0.393,0.398,0.398,0.393,187610,18547464.000,1.27,1.27,0.005,0.30\",\"2024-12-25,0.398,0.392,0.398,0.391,93860,9214756.000,1.76,-1.51,-0.006,0.15\",\"2024-12-26,0.394,0.400,0.400,0.392,180458,17970323.000,2.04,2.04,0.008,0.28\",\"2024-12-27,0.395,0.399,0.402,0.395,148797,14901033.000,1.75,-0.25,-0.001,0.23\",\"2024-12-30,0.399,0.396,0.401,0.395,36309,3610078.000,1.50,-0.75,-0.003,0.06\",\"2024-12-31,0.394,0.387,0.398,0.387,62574,6105682.000,2.78,-2.27,-0.009,0.10\",\"2025-01-02,0.386,0.377,0.386,0.374,52308,4990536.000,3.10,-2.58,-0.01",
+    "responseHeaders": {
+      "cache-control": "no-cache",
+      "content-length": "10102",
+      "content-type": "application/json; charset=UTF-8"
+    }
+  },
+  "interesting_response_count": 13,
+  "failed_request_count": 0,
+  "kline_response_count": 1,
+  "successful_kline_response_count": 1,
+  "network_events": [
+    {
+      "kind": "response",
+      "url": "https://push2.eastmoney.com/api/qt/stock/get?invt=2&fltt=1&cb=jQuery351018127591468926096_1784257075408&fields=f58%2Cf734%2Cf107%2Cf57%2Cf43%2Cf59%2Cf169%2Cf170%2Cf152%2Cf46%2Cf60%2Cf44%2Cf45%2Cf47%2Cf48%2Cf19%2Cf17%2Cf531%2Cf15%2Cf13%2Cf11%2Cf20%2Cf18%2Cf16%2Cf14%2Cf12%2Cf39%2Cf37%2Cf35%2Cf33%2Cf31%2Cf40%2Cf38%2Cf36%2Cf34%2Cf32%2Cf211%2Cf212%2Cf213%2Cf214%2Cf215%2Cf210%2Cf209%2Cf208%2Cf207%2Cf206%2Cf161%2Cf49%2Cf171%2Cf50%2Cf86%2Cf168%2Cf108%2Cf167%2Cf71%2Cf292%2Cf51%2Cf52%2Cf191%2Cf192%2Cf452%2Cf177&secid=1.561380&ut=fa5fd1943c7b386f172d6893dbfba10b&wbp2u=%7C0%7C0%7C0%7Cweb&dect=1&_=1784257075409",
+      "status": 200,
+      "status_text": "OK",
+      "resource_type": "script",
+      "method": "GET",
+      "request_headers": {
+        "sec-ch-ua-platform": "\"Windows\"",
+        "referer": "https://quote.eastmoney.com/sh561380.html",
+        "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36",
+        "sec-ch-ua": "\"Google Chrome\";v=\"149\", \"Chromium\";v=\"149\", \"Not)A;Brand\";v=\"24\"",
+        "accept-language": "zh-CN",
+        "sec-ch-ua-mobile": "?0"
+      },
+      "response_headers": {
+        "transfer-encoding": "chunked",
+        "cache-control": "no-cache",
+        "content-encoding": "gzip",
+        "connection": "keep-alive",
+        "access-control-allow-credentials": "true",
+        "access-control-allow-methods": "GET, POST, OPTIONS",
+        "access-control-allow-origin": "*",
+        "date": "Fri, 17 Jul 2026 02:57:56 GMT",
+        "content-type": "application/javascript; charset=UTF-8",
+        "vary": "Accept-Encoding",
+        "server": "Microsoft-IIS/10.0"
+      },
+      "body_preview": "jQuery351018127591468926096_1784257075408({\"rc\":0,\"rt\":4,\"svr\":183124497,\"lt\":1,\"full\":1,\"dlmkts\":\"\",\"dsc\":\"0\",\"data\":{\"f43\":704,\"f44\":719,\"f45\":699,\"f46\":718,\"f47\":754557,\"f48\":53526142.0,\"f49\":314622,\"f50\":159,\"f51\":795,\"f52\":651,\"f57\":\"561380\",\"f58\":\"电网设备ETF国泰\",\"f59\":3,\"f60\":723,\"f71\":709,\"f86\":1784257075,\"f107\":1,\"f108\":\"-\",\"f152\":2,\"f161\":439935,\"f167\":\"-\",\"f168\":119,\"f169\":-19,\"f170\":-263,\"f171\":277,\"f177\":65,\"f191\":1017,\"f192\":11475,\"f292\":2,\"f452\":30,\"f31\":709,\"f32\":101,\"f33\":708,\"f34\":501,\"f35\":707,\"f36\":13062,\"f37\":706,\"f38\":19726,\"f39\":705,\"f40\":17268,\"f19\":703,\"f20\":1112,\"f17\":702,\"f18\":25415,\"f15\":701,\"f16\":18847,\"f13\":700,\"f14\":15462,\"f11\":699,\"f12\":1297,\"f734\":\"\"}});",
+      "timestamp": "2026-07-17T10:57:55.737"
+    },
+    {
+      "kind": "response",
+      "url": "https://push2.eastmoney.com/api/qt/kamt/get?fields1=f1,f2,f3,f4&fields2=f51,f52,f53,f54,f56,f62,f63,f65,f66&cb=jQuery351018127591468926096_1784257075410&ut=fa5fd1943c7b386f172d6893dbfba10b&wbp2u=%7C0%7C0%7C0%7Cweb&_=1784257075411",
+      "status": 200,
+      "status_text": "OK",
+      "resource_type": "script",
+      "method": "GET",
+      "request_headers": {
+        "sec-ch-ua-platform": "\"Windows\"",
+        "referer": "https://quote.eastmoney.com/sh561380.html",
+        "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36",
+        "sec-ch-ua": "\"Google Chrome\";v=\"149\", \"Chromium\";v=\"149\", \"Not)A;Brand\";v=\"24\"",
+        "accept-language": "zh-CN",
+        "sec-ch-ua-mobile": "?0"
+      },
+      "response_headers": {
+        "transfer-encoding": "chunked",
+        "cache-control": "no-cache",
+        "content-encoding": "gzip",
+        "connection": "keep-alive",
+        "access-control-allow-credentials": "true",
+        "access-control-allow-methods": "GET, POST, OPTIONS",
+        "access-control-allow-origin": "*",
+        "date": "Fri, 17 Jul 2026 02:57:56 GMT",
+        "content-type": "application/javascript; charset=UTF-8",
+        "vary": "Accept-Encoding",
+        "server": "Microsoft-IIS/10.0"
+      },
+      "body_preview": "jQuery351018127591468926096_1784257075410({\"rc\":0,\"rt\":13,\"svr\":183124626,\"lt\":1,\"full\":0,\"dlmkts\":\"\",\"dsc\":\"0\",\"data\":{\"hk2sh\":{\"status\":1,\"dayNetAmtIn\":0.0,\"dayAmtRemain\":0.0,\"dayAmtThreshold\":5200000.0,\"date2\":\"2026-07-17\",\"buySellAmt\":0.0,\"netBuyAmt\":0.0,\"amtStatus\":1,\"buySellAmtDate\":20260717},\"sh2hk\":{\"status\":1,\"dayNetAmtIn\":4200000.0,\"dayAmtRemain\":0.0,\"dayAmtThreshold\":4200000.0,\"date2\":\"2026-07-17\",\"buySellAmt\":3822864.25,\"netBuyAmt\":401283.72,\"amtStatus\":1,\"buySellAmtDate\":0},\"hk2sz\":{\"status\":1,\"dayNetAmtIn\":0.0,\"dayAmtRemain\":0.0,\"dayAmtThreshold\":5200000.0,\"date2\":\"2026-07-17\",\"buySellAmt\":0.0,\"netBuyAmt\":0.0,\"amtStatus\":1,\"buySellAmtDate\":20260717},\"sz2hk\":{\"status\":1,\"dayNetAmtIn\":4200000.0,\"dayAmtRemain\":0.0,\"dayAmtThreshold\":4200000.0,\"date2\":\"2026-07-17\",\"buySellAmt\":243",
+      "timestamp": "2026-07-17T10:57:55.738"
+    },
+    {
+      "kind": "response",
+      "url": "https://push2.eastmoney.com/api/qt/ulist/get?fltt=1&invt=2&cb=jQuery351018127591468926096_1784257075412&fields=f12%2Cf13%2Cf14%2Cf1%2Cf2%2Cf4%2Cf3%2Cf152%2Cf6%2Cf104%2Cf105%2Cf106&secids=1.000001%2C0.399001&ut=fa5fd1943c7b386f172d6893dbfba10b&pn=1&np=1&pz=20&dect=1&wbp2u=%7C0%7C0%7C0%7Cweb&_=1784257075413",
+      "status": 200,
+      "status_text": "OK",
+      "resource_type": "script",
+      "method": "GET",
+      "request_headers": {
+        "sec-ch-ua-platform": "\"Windows\"",
+        "referer": "https://quote.eastmoney.com/sh561380.html",
+        "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36",
+        "sec-ch-ua": "\"Google Chrome\";v=\"149\", \"Chromium\";v=\"149\", \"Not)A;Brand\";v=\"24\"",
+        "accept-language": "zh-CN",
+        "sec-ch-ua-mobile": "?0"
+      },
+      "response_headers": {
+        "transfer-encoding": "chunked",
+        "cache-control": "no-cache",
+        "content-encoding": "gzip",
+        "connection": "keep-alive",
+        "access-control-allow-credentials": "true",
+        "access-control-allow-methods": "GET, POST, OPTIONS",
+        "access-control-allow-origin": "*",
+        "date": "Fri, 17 Jul 2026 02:57:56 GMT",
+        "content-type": "application/javascript; charset=UTF-8",
+        "vary": "Accept-Encoding",
+        "server": "Microsoft-IIS/10.0"
+      },
+      "body_preview": "jQuery351018127591468926096_1784257075412({\"rc\":0,\"rt\":5,\"svr\":183124481,\"lt\":1,\"full\":1,\"dlmkts\":\"\",\"dsc\":\"0\",\"data\":{\"total\":2,\"diff\":[{\"f1\":2,\"f2\":381651,\"f3\":-170,\"f4\":-6590,\"f6\":650431190913.3,\"f12\":\"000001\",\"f13\":1,\"f14\":\"上证指数\",\"f104\":453,\"f105\":1850,\"f106\":44,\"f152\":2},{\"f1\":2,\"f2\":1396721,\"f3\":-360,\"f4\":-52144,\"f6\":754565804364.5865,\"f12\":\"399001\",\"f13\":0,\"f14\":\"深证成指\",\"f104\":399,\"f105\":2484,\"f106\":43,\"f152\":2}]}});",
+      "timestamp": "2026-07-17T10:57:55.747"
+    },
+    {
+      "kind": "response",
+      "url": "https://push2.eastmoney.com/api/qt/clist/get?np=1&fltt=1&invt=2&cb=jQuery351018127591468926096_1784257075424&fs=m%3A0%2Bt%3A10%2Cm%3A1%2Bt%3A9&fields=f12%2Cf13%2Cf14%2Cf1%2Cf2%2Cf4%2Cf3%2Cf152&fid=f3&pn=1&pz=6&po=1&ut=fa5fd1943c7b386f172d6893dbfba10b&dect=1&wbp2u=%7C0%7C0%7C0%7Cweb&_=1784257075425",
+      "status": 200,
+      "status_text": "OK",
+      "resource_type": "script",
+      "method": "GET",
+      "request_headers": {
+        "sec-ch-ua-platform": "\"Windows\"",
+        "referer": "https://quote.eastmoney.com/sh561380.html",
+        "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36",
+        "sec-ch-ua": "\"Google Chrome\";v=\"149\", \"Chromium\";v=\"149\", \"Not)A;Brand\";v=\"24\"",
+        "accept-language": "zh-CN",
+        "sec-ch-ua-mobile": "?0"
+      },
+      "response_headers": {
+        "transfer-encoding": "chunked",
+        "cache-control": "no-cache",
+        "content-encoding": "gzip",
+        "connection": "keep-alive",
+        "access-control-allow-credentials": "true",
+        "access-control-allow-methods": "GET, POST, OPTIONS",
+        "access-control-allow-origin": "*",
+        "date": "Fri, 17 Jul 2026 02:57:56 GMT",
+        "content-type": "application/javascript; charset=UTF-8",
+        "vary": "Accept-Encoding",
+        "server": "Microsoft-IIS/10.0"
+      },
+      "body_preview": "jQuery351018127591468926096_1784257075424({\"rc\":0,\"rt\":6,\"svr\":183124436,\"lt\":1,\"full\":1,\"dlmkts\":\"\",\"dsc\":\"0\",\"data\":{\"total\":2430,\"diff\":[{\"f1\":3,\"f2\":1211,\"f3\":289,\"f4\":34,\"f12\":\"513350\",\"f13\":1,\"f14\":\"标普油气ETF富国\",\"f152\":2},{\"f1\":3,\"f2\":1245,\"f3\":281,\"f4\":34,\"f12\":\"165512\",\"f13\":0,\"f14\":\"中信保诚机遇LOF\",\"f152\":2},{\"f1\":3,\"f2\":2018,\"f3\":270,\"f4\":53,\"f12\":\"160716\",\"f13\":0,\"f14\":\"基本面50LOF\",\"f152\":2},{\"f1\":3,\"f2\":1457,\"f3\":225,\"f4\":32,\"f12\":\"161728\",\"f13\":0,\"f14\":\"招商优选LOF\",\"f152\":2},{\"f1\":3,\"f2\":1088,\"f3\":206,\"f4\":22,\"f12\":\"560580\",\"f13\":1,\"f14\":\"电力ETF南方\",\"f152\":2},{\"f1\":3,\"f2\":893,\"f3\":206,\"f4\":18,\"f12\":\"560460\",\"f13\":1,\"f14\":\"电力ETF平安\",\"f152\":2}]}});",
+      "timestamp": "2026-07-17T10:57:55.747"
+    },
+    {
+      "kind": "response",
+      "url": "https://push2.eastmoney.com/api/qt/stock/details/get?fields1=f1,f2,f3,f4&fields2=f51,f52,f53,f54,f55&fltt=2&cb=jQuery351018127591468926096_1784257075426&pos=-11&secid=1.561380&ut=fa5fd1943c7b386f172d6893dbfba10b&wbp2u=%7C0%7C0%7C0%7Cweb&_=1784257075427",
+      "status": 200,
+      "status_text": "OK",
+      "resource_type": "script",
+      "method": "GET",
+      "request_headers": {
+        "sec-ch-ua-platform": "\"Windows\"",
+        "referer": "https://quote.eastmoney.com/sh561380.html",
+        "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36",
+        "sec-ch-ua": "\"Google Chrome\";v=\"149\", \"Chromium\";v=\"149\", \"Not)A;Brand\";v=\"24\"",
+        "accept-language": "zh-CN",
+        "sec-ch-ua-mobile": "?0"
+      },
+      "response_headers": {
+        "transfer-encoding": "chunked",
+        "cache-control": "no-cache",
+        "content-encoding": "gzip",
+        "connection": "keep-alive",
+        "access-control-allow-credentials": "true",
+        "access-control-allow-methods": "GET, POST, OPTIONS",
+        "access-control-allow-origin": "*",
+        "date": "Fri, 17 Jul 2026 02:57:56 GMT",
+        "content-type": "application/javascript; charset=UTF-8",
+        "vary": "Accept-Encoding",
+        "server": "Microsoft-IIS/10.0"
+      },
+      "body_preview": "jQuery351018127591468926096_1784257075426({\"rc\":0,\"rt\":12,\"svr\":183120549,\"lt\":1,\"full\":1,\"dlmkts\":\"\",\"dsc\":\"0\",\"data\":{\"code\":\"561380\",\"market\":1,\"decimal\":3,\"prePrice\":0.723,\"details\":[\"10:57:16,0.703,31,1,2\",\"10:57:22,0.702,157,1,1\",\"10:57:25,0.703,7,1,2\",\"10:57:28,0.703,72,1,2\",\"10:57:31,0.703,106,2,2\",\"10:57:34,0.703,623,4,2\",\"10:57:37,0.703,551,6,2\",\"10:57:40,0.703,118,3,2\",\"10:57:43,0.703,124,2,2\",\"10:57:52,0.703,23,1,1\",\"10:57:55,0.704,30,1,2\"]}});",
+      "timestamp": "2026-07-17T10:57:55.777"
+    },
+    {
+      "kind": "response",
+      "url": "https://push2.eastmoney.com/api/qt/ulist/get?fltt=1&invt=2&cb=jQuery351018127591468926096_1784257075432&fields=f12%2Cf13%2Cf14%2Cf3%2Cf152%2Cf4&secids=1.600487%2C0.002028%2C1.600406%2C1.600089%2C1.600522%2C1.601179%2C1.600885%2C1.603606%2C1.600577%2C1.601126&ut=fa5fd1943c7b386f172d6893dbfba10b&pn=1&np=1&pz=20&dect=1&wbp2u=%7C0%7C0%7C0%7Cweb&_=1784257075434",
+      "status": 200,
+      "status_text": "OK",
+      "resource_type": "script",
+      "method": "GET",
+      "request_headers": {
+        "sec-ch-ua-platform": "\"Windows\"",
+        "referer": "https://quote.eastmoney.com/sh561380.html",
+        "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36",
+        "sec-ch-ua": "\"Google Chrome\";v=\"149\", \"Chromium\";v=\"149\", \"Not)A;Brand\";v=\"24\"",
+        "accept-language": "zh-CN",
+        "sec-ch-ua-mobile": "?0"
+      },
+      "response_headers": {
+        "transfer-encoding": "chunked",
+        "cache-control": "no-cache",
+        "content-encoding": "gzip",
+        "connection": "keep-alive",
+        "access-control-allow-credentials": "true",
+        "access-control-allow-methods": "GET, POST, OPTIONS",
+        "access-control-allow-origin": "*",
+        "date": "Fri, 17 Jul 2026 02:57:56 GMT",
+        "content-type": "application/javascript; charset=UTF-8",
+        "vary": "Accept-Encoding",
+        "server": "Microsoft-IIS/10.0"
+      },
+      "body_preview": "jQuery351018127591468926096_1784257075432({\"rc\":0,\"rt\":5,\"svr\":183120470,\"lt\":1,\"full\":1,\"dlmkts\":\"\",\"dsc\":\"0\",\"data\":{\"total\":10,\"diff\":[{\"f3\":-638,\"f4\":-414,\"f12\":\"600487\",\"f13\":1,\"f14\":\"亨通光电\",\"f152\":2},{\"f3\":-247,\"f4\":-374,\"f12\":\"002028\",\"f13\":0,\"f14\":\"思源电气\",\"f152\":2},{\"f3\":127,\"f4\":28,\"f12\":\"600406\",\"f13\":1,\"f14\":\"国电南瑞\",\"f152\":2},{\"f3\":-11,\"f4\":-2,\"f12\":\"600089\",\"f13\":1,\"f14\":\"特变电工\",\"f152\":2},{\"f3\":-674,\"f4\":-252,\"f12\":\"600522\",\"f13\":1,\"f14\":\"中天科技\",\"f152\":2},{\"f3\":111,\"f4\":13,\"f12\":\"601179\",\"f13\":1,\"f14\":\"中国西电\",\"f152\":2},{\"f3\":-127,\"f4\":-42,\"f12\":\"600885\",\"f13\":1,\"f14\":\"宏发股份\",\"f152\":2},{\"f3\":-177,\"f4\":-69,\"f12\":\"603606\",\"f13\":1,\"f14\":\"东方电缆\",\"f152\":2},{\"f3\":-312,\"f4\":-24,\"f12\":\"600577\",\"f13\":1,\"f14\":\"精达股份\",\"f152\":2},{\"f3\":-386,\"f4\":-180,\"f12\":\"601126\",\"f13\":1,\"f14\":\"四方股份\",\"f152\":2}]}});",
+      "timestamp": "2026-07-17T10:57:56.020"
+    },
+    {
+      "kind": "response",
+      "url": "https://push2.eastmoney.com/api/qt/stock/get?cb=jQuery351018127591468926096_1784257075420&ut=bd1d9ddb04089700cf9c27f6f7426281&_=1784257075435",
+      "status": 200,
+      "status_text": "OK",
+      "resource_type": "script",
+      "method": "GET",
+      "request_headers": {
+        "sec-ch-ua-platform": "\"Windows\"",
+        "referer": "https://quote.eastmoney.com/sh561380.html",
+        "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36",
+        "sec-ch-ua": "\"Google Chrome\";v=\"149\", \"Chromium\";v=\"149\", \"Not)A;Brand\";v=\"24\"",
+        "accept-language": "zh-CN",
+        "sec-ch-ua-mobile": "?0"
+      },
+      "response_headers": {
+        "transfer-encoding": "chunked",
+        "cache-control": "no-cache",
+        "content-encoding": "gzip",
+        "connection": "keep-alive",
+        "access-control-allow-credentials": "true",
+        "access-control-allow-methods": "GET, POST, OPTIONS",
+        "access-control-allow-origin": "*",
+        "date": "Fri, 17 Jul 2026 02:57:56 GMT",
+        "content-type": "text/plain",
+        "vary": "Accept-Encoding",
+        "server": "Microsoft-IIS/10.0"
+      },
+      "body_preview": "jQuery351018127591468926096_1784257075420({\"rc\":102,\"rt\":1,\"svr\":183120901,\"lt\":1,\"full\":1,\"dlmkts\":\"\",\"dsc\":\"0\",\"data\":null});",
+      "timestamp": "2026-07-17T10:57:56.020"
+    },
+    {
+      "kind": "response",
+      "url": "https://push2.eastmoney.com/api/qt/stock/get?cb=quotedelaytip0",
+      "status": 200,
+      "status_text": "OK",
+      "resource_type": "script",
+      "method": "GET",
+      "request_headers": {
+        "sec-ch-ua-platform": "\"Windows\"",
+        "referer": "https://quote.eastmoney.com/sh561380.html",
+        "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36",
+        "sec-ch-ua": "\"Google Chrome\";v=\"149\", \"Chromium\";v=\"149\", \"Not)A;Brand\";v=\"24\"",
+        "accept-language": "zh-CN",
+        "sec-ch-ua-mobile": "?0"
+      },
+      "response_headers": {
+        "transfer-encoding": "chunked",
+        "cache-control": "no-cache",
+        "content-encoding": "gzip",
+        "connection": "keep-alive",
+        "access-control-allow-credentials": "true",
+        "access-control-allow-methods": "GET, POST, OPTIONS",
+        "access-control-allow-origin": "*",
+        "date": "Fri, 17 Jul 2026 02:57:56 GMT",
+        "content-type": "text/plain",
+        "vary": "Accept-Encoding",
+        "server": "Microsoft-IIS/10.0"
+      },
+      "body_preview": "quotedelaytip0({\"rc\":102,\"rt\":1,\"svr\":183120469,\"lt\":1,\"full\":1,\"dlmkts\":\"\",\"dsc\":\"0\",\"data\":null});",
+      "timestamp": "2026-07-17T10:57:56.020"
+    },
+    {
+      "kind": "response",
+      "url": "https://push2.eastmoney.com/api/qt/ulist/get?fltt=1&invt=2&fields=f14%2Cf12%2Cf13%2Cf1%2Cf2%2Cf4%2Cf3%2Cf152&secids=1.600664%2C0.002185%2C1.600436%2C0.001309%2C0.000938%2C0.000676%2C0.002432%2C1.603127%2C0.002739%2C1.688008%2C0.000725%2C1.600584%2C1.603986%2C0.000566%2C0.002384&ut=fa5fd1943c7b386f172d6893dbfba10b&pn=1&np=1&pz=20&dect=1&wbp2u=%7C0%7C0%7C0%7Cweb",
+      "status": 200,
+      "status_text": "OK",
+      "resource_type": "xhr",
+      "method": "GET",
+      "request_headers": {
+        "sec-ch-ua-platform": "\"Windows\"",
+        "referer": "https://quote.eastmoney.com/sh561380.html",
+        "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36",
+        "accept": "application/json, text/javascript, */*; q=0.01",
+        "sec-ch-ua": "\"Google Chrome\";v=\"149\", \"Chromium\";v=\"149\", \"Not)A;Brand\";v=\"24\"",
+        "accept-language": "zh-CN",
+        "sec-ch-ua-mobile": "?0"
+      },
+      "response_headers": {
+        "transfer-encoding": "chunked",
+        "cache-control": "no-cache",
+        "content-encoding": "gzip",
+        "connection": "keep-alive",
+        "access-control-allow-credentials": "true",
+        "access-control-allow-methods": "GET, POST, OPTIONS",
+        "access-control-allow-origin": "https://quote.eastmoney.com",
+        "date": "Fri, 17 Jul 2026 02:57:56 GMT",
+        "content-type": "application/json; charset=UTF-8",
+        "vary": "Accept-Encoding",
+        "server": "Microsoft-IIS/10.0"
+      },
+      "body_preview": "{\"rc\":0,\"rt\":5,\"svr\":183120904,\"lt\":1,\"full\":1,\"dlmkts\":\"\",\"dsc\":\"0\",\"data\":{\"total\":15,\"diff\":[{\"f1\":2,\"f2\":497,\"f3\":61,\"f4\":3,\"f12\":\"600664\",\"f13\":1,\"f14\":\"哈药股份\",\"f152\":2},{\"f1\":2,\"f2\":1891,\"f3\":-909,\"f4\":-189,\"f12\":\"002185\",\"f13\":0,\"f14\":\"华天科技\",\"f152\":2},{\"f1\":2,\"f2\":14211,\"f3\":68,\"f4\":96,\"f12\":\"600436\",\"f13\":1,\"f14\":\"片仔癀\",\"f152\":2},{\"f1\":2,\"f2\":53654,\"f3\":-1000,\"f4\":-5962,\"f12\":\"001309\",\"f13\":0,\"f14\":\"德明利\",\"f152\":2},{\"f1\":2,\"f2\":3756,\"f3\":-267,\"f4\":-103,\"f12\":\"000938\",\"f13\":0,\"f14\":\"紫光股份\",\"f152\":2},{\"f1\":2,\"f2\":655,\"f3\":531,\"f4\":33,\"f12\":\"000676\",\"f13\":0,\"f14\":\"智度股份\",\"f152\":2},{\"f1\":2,\"f2\":7920,\"f3\":1000,\"f4\":720,\"f12\":\"002432\",\"f13\":0,\"f14\":\"九安医疗\",\"f152\":2},{\"f1\":2,\"f2\":4793,\"f3\":-999,\"f4\":-532,\"f12\":\"603127\",\"f13\":1,\"f14\":\"昭衍新药\",\"f152\":2},{\"f1\":2,\"f2\":1061,\"f3\":281,\"f4\":29,\"f12\":\"002",
+      "timestamp": "2026-07-17T10:57:56.024"
+    },
+    {
+      "kind": "response",
+      "url": "https://push2.eastmoney.com/api/qt/ulist/get?fltt=1&invt=2&fields=f14%2Cf12%2Cf13%2Cf1%2Cf2%2Cf4%2Cf3%2Cf152&secids=118.SHAU%2C0.300059&ut=fa5fd1943c7b386f172d6893dbfba10b&pn=1&np=1&pz=20&dect=1&wbp2u=%7C0%7C0%7C0%7Cweb",
+      "status": 200,
+      "status_text": "OK",
+      "resource_type": "xhr",
+      "method": "GET",
+      "request_headers": {
+        "sec-ch-ua-platform": "\"Windows\"",
+        "referer": "https://quote.eastmoney.com/sh561380.html",
+        "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36",
+        "accept": "application/json, text/javascript, */*; q=0.01",
+        "sec-ch-ua": "\"Google Chrome\";v=\"149\", \"Chromium\";v=\"149\", \"Not)A;Brand\";v=\"24\"",
+        "accept-language": "zh-CN",
+        "sec-ch-ua-mobile": "?0"
+      },
+      "response_headers": {
+        "transfer-encoding": "chunked",
+        "cache-control": "no-cache",
+        "content-encoding": "gzip",
+        "connection": "keep-alive",
+        "access-control-allow-credentials": "true",
+        "access-control-allow-methods": "GET, POST, OPTIONS",
+        "access-control-allow-origin": "https://quote.eastmoney.com",
+        "date": "Fri, 17 Jul 2026 02:57:57 GMT",
+        "content-type": "application/json; charset=UTF-8",
+        "vary": "Accept-Encoding",
+        "server": "Microsoft-IIS/10.0"
+      },
+      "body_preview": "{\"rc\":0,\"rt\":5,\"svr\":183124690,\"lt\":1,\"full\":1,\"dlmkts\":\"\",\"dsc\":\"0\",\"data\":{\"total\":2,\"diff\":[{\"f1\":2,\"f2\":86889,\"f3\":-105,\"f4\":-918,\"f12\":\"SHAU\",\"f13\":118,\"f14\":\"上海金\",\"f152\":2},{\"f1\":2,\"f2\":2013,\"f3\":156,\"f4\":31,\"f12\":\"300059\",\"f13\":0,\"f14\":\"东方财富\",\"f152\":2}]}}",
+      "timestamp": "2026-07-17T10:57:56.130"
+    },
+    {
+      "kind": "response",
+      "url": "https://push2his.eastmoney.com/api/qt/stock/kline/get?secid=1.561380&ut=7eea3edcaed734bea9cbfc24409ed989&fields1=f1%2Cf2%2Cf3%2Cf4%2Cf5%2Cf6&fields2=f51%2Cf52%2Cf53%2Cf54%2Cf55%2Cf56%2Cf57%2Cf58%2Cf59%2Cf60%2Cf61&klt=101&fqt=1&beg=20210101&end=20260717&lmt=1000",
+      "status": 200,
+      "status_text": "OK",
+      "resource_type": "fetch",
+      "method": "GET",
+      "request_headers": {
+        "sec-ch-ua-platform": "\"Windows\"",
+        "referer": "https://quote.eastmoney.com/sh561380.html",
+        "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36",
+        "sec-ch-ua": "\"Google Chrome\";v=\"149\", \"Chromium\";v=\"149\", \"Not)A;Brand\";v=\"24\"",
+        "accept-language": "zh-CN",
+        "sec-ch-ua-mobile": "?0"
+      },
+      "response_headers": {
+        "cache-control": "no-cache",
+        "content-encoding": "br",
+        "connection": "keep-alive",
+        "access-control-allow-credentials": "true",
+        "access-control-allow-methods": "GET, POST, OPTIONS",
+        "access-control-allow-origin": "https://quote.eastmoney.com",
+        "content-length": "10102",
+        "date": "Fri, 17 Jul 2026 02:58:01 GMT",
+        "content-type": "application/json; charset=UTF-8",
+        "server": "Microsoft-IIS/10.0"
+      },
+      "body_preview": "{\"rc\":0,\"rt\":17,\"svr\":177617934,\"lt\":1,\"full\":0,\"dlmkts\":\"\",\"dsc\":\"0\",\"data\":{\"code\":\"561380\",\"market\":1,\"name\":\"电网设备ETF国泰\",\"decimal\":3,\"dktotal\":379,\"preKPrice\":0.399,\"klines\":[\"2024-12-23,0.397,0.393,0.400,0.393,1074980,107056447.000,1.75,-1.50,-0.006,1.69\",\"2024-12-24,0.393,0.398,0.398,0.393,187610,18547464.000,1.27,1.27,0.005,0.30\",\"2024-12-25,0.398,0.392,0.398,0.391,93860,9214756.000,1.76,-1.51,-0.006,0.15\",\"2024-12-26,0.394,0.400,0.400,0.392,180458,17970323.000,2.04,2.04,0.008,0.28\",\"2024-12-27,0.395,0.399,0.402,0.395,148797,14901033.000,1.75,-0.25,-0.001,0.23\",\"2024-12-30,0.399,0.396,0.401,0.395,36309,3610078.000,1.50,-0.75,-0.003,0.06\",\"2024-12-31,0.394,0.387,0.398,0.387,62574,6105682.000,2.78,-2.27,-0.009,0.10\",\"2025-01-02,0.386,0.377,0.386,0.374,52308,4990536.000,3.10,-2.58,-0.01",
+      "timestamp": "2026-07-17T10:58:00.826"
+    },
+    {
+      "kind": "response",
+      "url": "https://26.push2.eastmoney.com/api/qt/stock/sse?fields=f58,f734,f107,f57,f43,f59,f169,f170,f152,f46,f60,f44,f45,f47,f48,f19,f17,f531,f15,f13,f11,f20,f18,f16,f14,f12,f39,f37,f35,f33,f31,f40,f38,f36,f34,f32,f211,f212,f213,f214,f215,f210,f209,f208,f207,f206,f161,f49,f171,f50,f86,f168,f108,f167,f71,f292,f51,f52,f191,f192,f452,f177&mpi=1000&invt=2&fltt=1&secid=1.561380&ut=fa5fd1943c7b386f172d6893dbfba10b&dect=1&wbp2u=|0|0|0|web",
+      "status": 200,
+      "status_text": "OK",
+      "resource_type": "eventsource",
+      "method": "GET",
+      "request_headers": {
+        "sec-ch-ua-platform": "\"Windows\"",
+        "referer": "https://quote.eastmoney.com/sh561380.html",
+        "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36",
+        "accept": "text/event-stream",
+        "sec-ch-ua": "\"Google Chrome\";v=\"149\", \"Chromium\";v=\"149\", \"Not)A;Brand\";v=\"24\"",
+        "accept-language": "zh-CN",
+        "sec-ch-ua-mobile": "?0"
+      },
+      "response_headers": {
+        "transfer-encoding": "chunked",
+        "cache-control": "no-cache",
+        "content-encoding": "gzip",
+        "connection": "keep-alive",
+        "access-control-allow-credentials": "true",
+        "access-control-allow-methods": "GET, POST, OPTIONS",
+        "access-control-allow-origin": "https://quote.eastmoney.com",
+        "date": "Fri, 17 Jul 2026 02:57:56 GMT",
+        "content-type": "text/event-stream; charset=utf-8",
+        "vary": "Accept-Encoding",
+        "server": "Microsoft-IIS/10.0"
+      },
+      "body_preview": null,
+      "timestamp": "2026-07-17T10:58:12.953"
+    },
+    {
+      "kind": "response",
+      "url": "https://26.push2.eastmoney.com/api/qt/stock/details/sse?fields1=f1,f2,f3,f4&fields2=f51,f52,f53,f54,f55&mpi=1000&dect=1&ut=bd1d9ddb04089700cf9c27f6f7426281&fltt=2&pos=-11&secid=1.561380&wbp2u=|0|0|0|web",
+      "status": 200,
+      "status_text": "OK",
+      "resource_type": "eventsource",
+      "method": "GET",
+      "request_headers": {
+        "sec-ch-ua-platform": "\"Windows\"",
+        "referer": "https://quote.eastmoney.com/sh561380.html",
+        "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36",
+        "accept": "text/event-stream",
+        "sec-ch-ua": "\"Google Chrome\";v=\"149\", \"Chromium\";v=\"149\", \"Not)A;Brand\";v=\"24\"",
+        "accept-language": "zh-CN",
+        "sec-ch-ua-mobile": "?0"
+      },
+      "response_headers": {
+        "transfer-encoding": "chunked",
+        "cache-control": "no-cache",
+        "content-encoding": "gzip",
+        "connection": "keep-alive",
+        "access-control-allow-credentials": "true",
+        "access-control-allow-methods": "GET, POST, OPTIONS",
+        "access-control-allow-origin": "https://quote.eastmoney.com",
+        "date": "Fri, 17 Jul 2026 02:57:56 GMT",
+        "content-type": "text/event-stream; charset=utf-8",
+        "vary": "Accept-Encoding",
+        "server": "Microsoft-IIS/10.0"
+      },
+      "body_preview": null,
+      "timestamp": "2026-07-17T10:58:12.954"
+    }
+  ],
+  "failed_requests": [],
+  "eastmoney_cookie_summary": [
+    {
+      "name": "ASL",
+      "domain": ".same.eastmoney.com",
+      "path": "/",
+      "secure": false,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "ADVC",
+      "domain": ".same.eastmoney.com",
+      "path": "/",
+      "secure": false,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "ADVS",
+      "domain": ".same.eastmoney.com",
+      "path": "/",
+      "secure": false,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "qgqp_b_id",
+      "domain": ".eastmoney.com",
+      "path": "/",
+      "secure": false,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "st_si",
+      "domain": ".eastmoney.com",
+      "path": "/",
+      "secure": false,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "st_pvi",
+      "domain": ".eastmoney.com",
+      "path": "/",
+      "secure": false,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "st_sp",
+      "domain": ".eastmoney.com",
+      "path": "/",
+      "secure": false,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "st_inirUrl",
+      "domain": ".eastmoney.com",
+      "path": "/",
+      "secure": false,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "st_sn",
+      "domain": ".eastmoney.com",
+      "path": "/",
+      "secure": false,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "st_psi",
+      "domain": ".eastmoney.com",
+      "path": "/",
+      "secure": false,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "st_asi",
+      "domain": ".eastmoney.com",
+      "path": "/",
+      "secure": false,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "st_nvi",
+      "domain": ".eastmoney.com",
+      "path": "/",
+      "secure": false,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "nid18",
+      "domain": ".eastmoney.com",
+      "path": "/",
+      "secure": false,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "nid18_create_time",
+      "domain": ".eastmoney.com",
+      "path": "/",
+      "secure": false,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "gviem",
+      "domain": ".eastmoney.com",
+      "path": "/",
+      "secure": false,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "gviem_create_time",
+      "domain": ".eastmoney.com",
+      "path": "/",
+      "secure": false,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "wsc_checkuser_ok",
+      "domain": ".eastmoney.com",
+      "path": "/",
+      "secure": false,
+      "sameSite": "Lax"
+    }
+  ],
+  "har_file": "data\\diagnostics\\browser_network.har",
+  "launch_errors": [],
+  "ok": true,
+  "interpretation": "浏览器上下文成功取得历史K线数据响应，普通requests失败更可能与请求指纹、Cookie、TLS或反自动化策略有关。"
+}

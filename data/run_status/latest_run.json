@@ -1,0 +1,202 @@
+{
+  "status": "SUCCESS",
+  "message": "报告已生成。历史日线=CACHE；实时快照=SUCCESS；一分钟分时=SUCCESS；昨日走势=APPROXIMATE；邮件=SKIPPED: status WAIT is disabled or missing in email.triggers。",
+  "mode": "auto",
+  "phase": "AM_SESSION",
+  "started_at": "2026-07-17T10:59:57",
+  "finished_at": "2026-07-17T11:00:21",
+  "report_path": "C:\\Users\\flywi\\Desktop\\gitRepos\\ETF-Monitor\\output\\report.html",
+  "errors": [],
+  "steps": [
+    {
+      "key": "config",
+      "label": "读取配置",
+      "status": "SUCCESS",
+      "message": "配置加载成功",
+      "details": null,
+      "time": "2026-07-17T10:59:57"
+    },
+    {
+      "key": "market_validation",
+      "label": "检查运行时段",
+      "status": "SUCCESS",
+      "message": "已按当前市场阶段运行。",
+      "details": {
+        "now": "2026-07-17 10:59:57",
+        "phase": "AM_SESSION",
+        "phase_label": "上午交易时段",
+        "close_ready": false,
+        "can_intraday": true,
+        "can_close": false
+      },
+      "time": "2026-07-17T10:59:57"
+    },
+    {
+      "key": "data_history",
+      "label": "历史日线",
+      "status": "SUCCESS",
+      "message": "今天已成功刷新过历史接口；缓存内最新交易日=2026-07-17，盘中只获取实时行情",
+      "details": {
+        "status": "CACHE",
+        "source": "本地日线缓存(data\\cache\\561380_daily.json)",
+        "api_requested": false,
+        "latest_date": "2026-07-17",
+        "message": "今天已成功刷新过历史接口；缓存内最新交易日=2026-07-17，盘中只获取实时行情",
+        "errors": []
+      },
+      "time": "2026-07-17T11:00:21"
+    },
+    {
+      "key": "data_realtime",
+      "label": "实时快照",
+      "status": "SUCCESS",
+      "message": "实时快照获取成功",
+      "details": {
+        "status": "SUCCESS",
+        "source": "AKShare fund_etf_spot_em(EastMoney)",
+        "timestamp": "2026-07-17T10:59:57",
+        "message": "实时快照获取成功",
+        "errors": []
+      },
+      "time": "2026-07-17T11:00:21"
+    },
+    {
+      "key": "data_intraday",
+      "label": "今日一分钟分时",
+      "status": "SUCCESS",
+      "message": "今日一分钟分时获取成功，共92个点",
+      "details": {
+        "status": "SUCCESS",
+        "source": "AKShare fund_etf_hist_min_em",
+        "points": 92,
+        "approximate": false,
+        "message": "今日一分钟分时获取成功，共92个点",
+        "errors": []
+      },
+      "time": "2026-07-17T11:00:21"
+    },
+    {
+      "key": "data_previous_intraday",
+      "label": "昨日走势",
+      "status": "WARNING",
+      "message": "2026-07-16分钟数据不可用；仅用开、高、低、收生成示意线，不代表真实日内先后顺序",
+      "details": {
+        "status": "APPROXIMATE",
+        "source": "历史日线OHLC示意",
+        "points": 4,
+        "approximate": true,
+        "date": "2026-07-16",
+        "message": "2026-07-16分钟数据不可用；仅用开、高、低、收生成示意线，不代表真实日内先后顺序",
+        "errors": [
+          "previous-intraday-etf-wrapper attempt 1: REMOTE_DISCONNECTED: ConnectionError: ('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))",
+          "previous-intraday-stock-wrapper attempt 1: TYPEERROR: TypeError: 'NoneType' object is not subscriptable"
+        ]
+      },
+      "time": "2026-07-17T11:00:21"
+    },
+    {
+      "key": "transactions",
+      "label": "交易记录与待确认处理",
+      "status": "SUCCESS",
+      "message": "已读取1条交易记录；可用收盘数据会自动更新估算记录",
+      "details": null,
+      "time": "2026-07-17T11:00:21"
+    },
+    {
+      "key": "position",
+      "label": "计算当前仓位",
+      "status": "SUCCESS",
+      "message": "持有10000.0000份，投入成本10000.00元",
+      "details": null,
+      "time": "2026-07-17T11:00:21"
+    },
+    {
+      "key": "indicators",
+      "label": "计算行情指标",
+      "status": "SUCCESS",
+      "message": "涨跌幅、回撤、连续趋势和横盘指标计算完成",
+      "details": null,
+      "time": "2026-07-17T11:00:21"
+    },
+    {
+      "key": "strategy",
+      "label": "执行策略规则",
+      "status": "SUCCESS",
+      "message": "策略状态：WAIT",
+      "details": {
+        "status": "WAIT",
+        "should_notify": false,
+        "suggested_amount": 0.0,
+        "reasons": [
+          "连续下跌 3 个交易日",
+          "最新价格仍处于近10个交易日低位",
+          "短期下跌尚未停止，默认不加仓"
+        ],
+        "action_type": "NONE"
+      },
+      "time": "2026-07-17T11:00:21"
+    },
+    {
+      "key": "storage",
+      "label": "保存运行数据",
+      "status": "SUCCESS",
+      "message": "latest.json、历史指标和决策记录已更新",
+      "details": null,
+      "time": "2026-07-17T11:00:21"
+    },
+    {
+      "key": "email",
+      "label": "发送邮件",
+      "status": "SKIPPED",
+      "message": "status WAIT is disabled or missing in email.triggers",
+      "details": null,
+      "time": "2026-07-17T11:00:21"
+    },
+    {
+      "key": "html_report",
+      "label": "生成网页报告",
+      "status": "SUCCESS",
+      "message": "报告已生成：C:\\Users\\flywi\\Desktop\\gitRepos\\ETF-Monitor\\output\\report.html",
+      "details": null,
+      "time": "2026-07-17T11:00:21"
+    }
+  ],
+  "data_status": {
+    "history": {
+      "status": "CACHE",
+      "source": "本地日线缓存(data\\cache\\561380_daily.json)",
+      "api_requested": false,
+      "latest_date": "2026-07-17",
+      "message": "今天已成功刷新过历史接口；缓存内最新交易日=2026-07-17，盘中只获取实时行情",
+      "errors": []
+    },
+    "realtime": {
+      "status": "SUCCESS",
+      "source": "AKShare fund_etf_spot_em(EastMoney)",
+      "timestamp": "2026-07-17T10:59:57",
+      "message": "实时快照获取成功",
+      "errors": []
+    },
+    "intraday": {
+      "status": "SUCCESS",
+      "source": "AKShare fund_etf_hist_min_em",
+      "points": 92,
+      "approximate": false,
+      "message": "今日一分钟分时获取成功，共92个点",
+      "errors": []
+    },
+    "previous_intraday": {
+      "status": "APPROXIMATE",
+      "source": "历史日线OHLC示意",
+      "points": 4,
+      "approximate": true,
+      "date": "2026-07-16",
+      "message": "2026-07-16分钟数据不可用；仅用开、高、低、收生成示意线，不代表真实日内先后顺序",
+      "errors": [
+        "previous-intraday-etf-wrapper attempt 1: REMOTE_DISCONNECTED: ConnectionError: ('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))",
+        "previous-intraday-stock-wrapper attempt 1: TYPEERROR: TypeError: 'NoneType' object is not subscriptable"
+      ]
+    }
+  },
+  "email_status": "SKIPPED: status WAIT is disabled or missing in email.triggers"
+}

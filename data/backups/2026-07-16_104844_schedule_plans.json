@@ -1,0 +1,21 @@
+{
+  "plans": [
+    {
+      "id": "bf655ea1-81ba-4abc-9fc6-cd01d669e473",
+      "name": "1445",
+      "mode": "auto",
+      "time": "14:45",
+      "weekdays": [
+        "MON",
+        "TUE",
+        "WED",
+        "THU",
+        "FRI"
+      ],
+      "enabled": true,
+      "task_name": "ETFMonitor_bf655ea181ba4abc9fc6cd01d669e473",
+      "created_at": "2026-07-16T09:52:29",
+      "updated_at": "2026-07-16T09:52:29"
+    }
+  ]
+}
