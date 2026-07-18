@@ -11,4 +11,3 @@ __pycache__/
 
 # Microsoft OAuth token cache (defense in depth)
 *msal_token_cache*.json
-/tests/
