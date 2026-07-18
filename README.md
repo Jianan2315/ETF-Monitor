@@ -1331,3 +1331,7 @@ The control center now separates three workflows:
 - `/system-settings`: global LLM, email, data, report and default schedule settings.
 
 The home page keeps one asset selector. Selecting a concrete asset enables “Edit Current Asset” and “Enter Current Asset”; “New Asset” remains available at all times. One Flask service and one port manage all assets.
+
+## V13.1 clean multi-asset storage
+
+V13.1 no longer uses legacy shared runtime files such as `data/transactions.json`, `data/latest.json`, or `output/report.html`. Each asset owns its configuration, transactions, cache and reports. The distributed package intentionally contains empty `data/`, `logs/`, and `output/` directories so the first run builds fresh data.

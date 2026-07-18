@@ -44,6 +44,7 @@ def main() -> int:
     parser.add_argument("--mode", required=True)
     parser.add_argument("--slot", default="")
     parser.add_argument("--name", default="")
+    parser.add_argument("--asset", default="")
     args = parser.parse_args()
 
     status_path = (
@@ -77,6 +78,8 @@ def main() -> int:
     ]
     if args.slot:
         command.extend(["--slot", args.slot])
+    if args.asset:
+        command.extend(["--asset", args.asset])
 
     completed = subprocess.run(
         command,
@@ -92,7 +95,7 @@ def main() -> int:
     )
 
     run_status = _read_json(
-        ROOT / "data" / "run_status" / "latest_run.json",
+        ROOT / "data" / "global" / "run_status" / "latest_run.json",
         {},
     )
     finished = datetime.now()

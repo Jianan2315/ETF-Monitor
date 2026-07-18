@@ -1,3 +1,4 @@
+const assetId = new URLSearchParams(location.search).get("asset_id") || "";
 const form = document.getElementById("schedule-form");
 const plansList = document.getElementById("plans-list");
 const resultBox = document.getElementById("schedule-result");
@@ -43,6 +44,7 @@ function resetForm() {
 
 function buildPayload() {
   return {
+    asset_id: assetId,
     id: document.getElementById("plan-id").value || undefined,
     name: document.getElementById("plan-name").value.trim(),
     mode: document.getElementById("plan-mode").value,
@@ -124,7 +126,7 @@ function planCard(plan) {
 async function loadPlans() {
   plansList.innerHTML = "<p>正在读取计划……</p>";
   try {
-    const response = await fetch("/api/schedules");
+    const response = await fetch(`/api/schedules?asset_id=${encodeURIComponent(assetId)}`);
     const data = await response.json();
     plans = data.plans || [];
 
@@ -194,7 +196,7 @@ async function runPlan(id) {
 }
 
 async function savePlan() {
-  const response = await fetch("/api/schedules/save", {
+  const response = await fetch(`/api/schedules/save?asset_id=${encodeURIComponent(assetId)}`, {
     method: "POST",
     headers: {"Content-Type": "application/json"},
     body: JSON.stringify(pendingPayload),

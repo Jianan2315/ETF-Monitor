@@ -38,6 +38,11 @@ from src.transactions import (
     reconcile_pending_transactions,
     save_transaction,
 )
+from src.asset_store import (
+    ensure_layout, load_assets, save_asset, delete_asset,
+    asset_transactions_path, asset_cache_dir, asset_latest_path,
+    asset_report_path, asset_history_dir, asset_history_index_path,
+)
 from src.power_management import (
     disable_keep_awake,
     enable_keep_awake,
@@ -48,7 +53,7 @@ from src.power_management import (
 ROOT = Path(__file__).resolve().parent
 HOST = "127.0.0.1"
 PORT = 8765
-CONTROL_VERSION = "13.0.0"
+CONTROL_VERSION = "13.1.0"
 
 app = Flask(
     __name__,
@@ -100,7 +105,7 @@ def _disable_legacy_force_email_once() -> None:
     if marker.exists():
         return
 
-    email_path = ROOT / "config" / "email.json"
+    email_path = ROOT / "config" / "global" / "email.json"
     email_doc = _read_json(email_path, {"email": {}})
     debug = email_doc.setdefault("email", {}).setdefault(
         "debug",
@@ -139,14 +144,14 @@ def _python_executable() -> str:
 
 def _schedule_config() -> dict[str, Any]:
     schedule_doc = _read_json(
-        ROOT / "config" / "schedule.json",
+        ROOT / "config" / "global" / "schedule.json",
         {"schedule": {"timezone": "Asia/Shanghai"}},
     )
     return {"schedule": schedule_doc.get("schedule", {})}
 
 
 def _run_status_file() -> Path:
-    return ROOT / "data" / "run_status" / "latest_run.json"
+    return ROOT / "data" / "global" / "run_status" / "latest_run.json"
 
 
 def _read_run_status() -> dict[str, Any]:
@@ -201,11 +206,16 @@ def _run_monitor(mode: str, slot: str, asset_id: str = "") -> dict[str, Any]:
         )
 
         status = _read_run_status()
-        report_path = ROOT / "output" / "report.html"
+        report_path = None
+        if asset_id:
+            try:
+                report_path = asset_report_path(ROOT, _asset_identity(_find_asset(asset_id)))
+            except ValueError:
+                report_path = None
         success = (
             completed.returncode == 0
             and status.get("status") == "SUCCESS"
-            and report_path.exists()
+            and (not asset_id or (report_path is not None and report_path.exists()))
         )
 
         message = status.get("message") or (
@@ -225,7 +235,7 @@ def _run_monitor(mode: str, slot: str, asset_id: str = "") -> dict[str, Any]:
             "data_status": status.get("data_status", {}),
             "email_status": status.get("email_status", "UNKNOWN"),
             "errors": status.get("errors", []),
-            "report_url": "/report" if success else None,
+            "report_url": (f"/report?asset_id={asset_id}" if success and asset_id else None),
         }
     except subprocess.TimeoutExpired:
         return {
@@ -238,7 +248,7 @@ def _run_monitor(mode: str, slot: str, asset_id: str = "") -> dict[str, Any]:
 
 
 def _ollama_url() -> str:
-    llm_doc = _read_json(ROOT / "config" / "llm.json", {})
+    llm_doc = _read_json(ROOT / "config" / "global" / "llm.json", {})
     llm = llm_doc.get("llm", {})
     return str(llm.get("base_url", "http://127.0.0.1:11434")).rstrip("/")
 
@@ -376,14 +386,14 @@ def _normalize_asset(asset: dict[str, Any], index: int = 0) -> dict[str, Any]:
 
 
 def _all_assets() -> list[dict[str, Any]]:
-    doc = _read_json(ROOT / "config" / "assets.json", {"assets": []})
-    return [_normalize_asset(asset, idx) for idx, asset in enumerate(doc.get("assets", []))]
+    ensure_layout(ROOT)
+    return [_normalize_asset(asset, idx) for idx, asset in enumerate(load_assets(ROOT))]
 
 
 def _find_asset(asset_id: str | None = None) -> dict[str, Any]:
     assets = _all_assets()
     if not assets:
-        return _normalize_asset({"symbol": "561380", "name": "ETF"})
+        raise ValueError("尚未添加任何资产")
     wanted = str(asset_id or "").strip()
     if wanted:
         for asset in assets:
@@ -499,7 +509,7 @@ def _market_status() -> dict[str, Any]:
 
 def _environment_status() -> dict[str, Any]:
     ollama = _check_ollama()
-    token_path = ROOT / "data" / "private" / "msal_token_cache.json"
+    token_path = ROOT / "data" / "global" / "private" / "msal_token_cache.json"
     report_path = ROOT / "output" / "report.html"
 
     packages = {}
@@ -544,11 +554,11 @@ def _environment_status() -> dict[str, Any]:
 
 def _load_settings(asset_id: str | None = None) -> dict[str, Any]:
     assets_doc = _read_json(ROOT / "config" / "assets.json", {"assets": []})
-    email_doc = _read_json(ROOT / "config" / "email.json", {"email": {}})
-    llm_doc = _read_json(ROOT / "config" / "llm.json", {"llm": {}})
-    data_doc = _read_json(ROOT / "config" / "data.json", {"data": {}})
-    report_doc = _read_json(ROOT / "config" / "report.json", {"report": {}})
-    schedule_doc = _read_json(ROOT / "config" / "schedule.json", {"schedule": {}})
+    email_doc = _read_json(ROOT / "config" / "global" / "email.json", {"email": {}})
+    llm_doc = _read_json(ROOT / "config" / "global" / "llm.json", {"llm": {}})
+    data_doc = _read_json(ROOT / "config" / "global" / "data.json", {"data": {}})
+    report_doc = _read_json(ROOT / "config" / "global" / "report.json", {"report": {}})
+    schedule_doc = _read_json(ROOT / "config" / "global" / "schedule.json", {"schedule": {}})
     transactions_doc = _read_json(
         ROOT / "data" / "transactions.json",
         {},
@@ -601,11 +611,11 @@ def _coerce_int(value: Any, field: str) -> int:
 
 def _save_settings(payload: dict[str, Any], asset_id: str | None = None) -> dict[str, Any]:
     assets_path = ROOT / "config" / "assets.json"
-    email_path = ROOT / "config" / "email.json"
-    llm_path = ROOT / "config" / "llm.json"
-    data_path = ROOT / "config" / "data.json"
-    report_path = ROOT / "config" / "report.json"
-    schedule_path = ROOT / "config" / "schedule.json"
+    email_path = ROOT / "config" / "global" / "email.json"
+    llm_path = ROOT / "config" / "global" / "llm.json"
+    data_path = ROOT / "config" / "global" / "data.json"
+    report_path = ROOT / "config" / "global" / "report.json"
+    schedule_path = ROOT / "config" / "global" / "schedule.json"
 
     assets_doc = _read_json(assets_path, {"assets": []})
     email_doc = _read_json(email_path, {"email": {}})
@@ -856,9 +866,10 @@ def _save_settings(payload: dict[str, Any], asset_id: str | None = None) -> dict
 
 def _transaction_context(asset_id: str | None = None) -> tuple[str, str, Path]:
     asset = _find_asset(asset_id)
-    transaction_key = str(asset.get("asset_code") or asset.get("id") or asset.get("symbol"))
+    asset_key = _asset_identity(asset)
+    transaction_key = str(asset.get("asset_code") or asset_key)
     tracking_code = _asset_tracking_code(asset)
-    return transaction_key, tracking_code, ROOT / "data" / "transactions.json"
+    return transaction_key, tracking_code, asset_transactions_path(ROOT, asset_key)
 
 
 def _list_transactions(asset_id: str | None = None) -> dict[str, Any]:
@@ -867,7 +878,7 @@ def _list_transactions(asset_id: str | None = None) -> dict[str, Any]:
         "success": True,
         "symbol": symbol,
         "tracking_code": tracking_code,
-        "records": list(reversed(
+        "transactions": list(reversed(
             load_transactions(transaction_path, symbol)
         )),
     }
@@ -885,7 +896,7 @@ def _save_transaction_record(payload: dict[str, Any], asset_id: str | None = Non
     # When the selected trade date already exists in the local daily cache,
     # calculate shares and price immediately. Otherwise the record remains
     # pending and run.py will reconcile it after fresh daily data is available.
-    cache_path = ROOT / "data" / "cache" / f"{tracking_code}_daily.json"
+    cache_path = asset_cache_dir(ROOT, _asset_identity(_find_asset(asset_id))) / f"{tracking_code}_daily.json"
     cache_doc = _read_json(cache_path, {})
     rows = cache_doc.get("rows", [])
     if rows:
@@ -947,8 +958,8 @@ def _delete_transaction_record(transaction_id: str, asset_id: str | None = None)
     }
 
 
-SCHEDULE_PLANS_FILE = ROOT / "config" / "schedule_plans.json"
-SCHEDULE_WRAPPER_DIR = ROOT / "data" / "scheduled_tasks"
+SCHEDULE_PLANS_FILE = ROOT / "data" / "global" / "schedule_plans.json"
+SCHEDULE_WRAPPER_DIR = ROOT / "data" / "global" / "scheduled_tasks"
 TASK_PREFIX = "ETFMonitor_"
 
 DAY_ORDER = ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"]
@@ -1369,7 +1380,7 @@ def _task_exists(task_name: str) -> bool:
 
 
 def _schedule_status_path(plan_id: str) -> Path:
-    return ROOT / "data" / "schedule_status" / f"{plan_id}.json"
+    return ROOT / "data" / "global" / "schedule_status" / f"{plan_id}.json"
 
 
 def _schedule_task_xml_path(plan_id: str) -> Path:
@@ -1441,7 +1452,7 @@ def _schedule_task_xml(plan: dict[str, Any]) -> str:
         f'--plan-id "{plan["id"]}" '
         f'--mode "{plan["mode"]}" '
         f'--slot "{plan["time"]}" '
-        f'--name "{safe_plan_name}"'
+        f'--name "{safe_plan_name}" ' f'--asset "{plan.get("asset_id", "")}"'
     )
     working_dir = html.escape(str(ROOT))
     sid = html.escape(_current_user_sid())
@@ -1622,6 +1633,10 @@ def _upsert_schedule_plan(payload: dict[str, Any]) -> dict[str, Any]:
     run_time = _normalize_plan_time(payload.get("time"))
     weekdays = _normalize_weekdays(payload.get("weekdays"))
     enabled = bool(payload.get("enabled", True))
+    asset_id = str(payload.get("asset_id", "")).strip()
+    if not asset_id:
+        raise ValueError("定时计划必须绑定一只资产")
+    _find_asset(asset_id)
     _validate_plan_time_for_mode(mode, run_time)
 
     now_text = datetime.now().isoformat(timespec="seconds")
@@ -1632,6 +1647,7 @@ def _upsert_schedule_plan(payload: dict[str, Any]) -> dict[str, Any]:
         "time": run_time,
         "weekdays": weekdays,
         "enabled": enabled,
+        "asset_id": asset_id,
         "task_name": _plan_task_name(plan_id),
         "created_at": existing.get("created_at", now_text) if existing else now_text,
         "updated_at": now_text,
@@ -1742,9 +1758,118 @@ def _sync_all_schedule_plans() -> dict[str, Any]:
         "import_result": import_result,
     }
 
+
+# Clean V13.1 data/config layer overrides. These definitions intentionally
+# replace the legacy single-file helpers above without carrying old runtime data.
+def _global_config(name: str, default: dict[str, Any]) -> dict[str, Any]:
+    return _read_json(ROOT / "config" / "global" / f"{name}.json", default)
+
+
+def _asset_summary(item: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "id": _asset_identity(item),
+        "name": item.get("name", ""),
+        "asset_code": item.get("asset_code", ""),
+        "asset_type": item.get("asset_type", ""),
+        "tracking_type": item.get("tracking_type", ""),
+        "tracking_code": item.get("tracking_code", item.get("symbol", "")),
+        "enabled": item.get("enabled", True),
+        "has_report": asset_report_path(ROOT, _asset_identity(item)).exists(),
+        "report_url": f"/report?asset_id={_asset_identity(item)}",
+        "history_url": f"/history?asset_id={_asset_identity(item)}",
+    }
+
+
+def _load_settings(asset_id: str | None = None) -> dict[str, Any]:
+    assets = _all_assets()
+    asset = _find_asset(asset_id) if assets and asset_id else (assets[0] if assets else {})
+    transactions: list[dict[str, Any]] = []
+    if asset:
+        key = _asset_identity(asset)
+        transaction_key = str(asset.get("asset_code") or key)
+        transactions = load_transactions(asset_transactions_path(ROOT, key), transaction_key)
+    return {
+        "asset": asset,
+        "assets": [_asset_summary(item) for item in assets],
+        "email": _global_config("email", {"email": {}}).get("email", {}),
+        "llm": _global_config("llm", {"llm": {}}).get("llm", {}),
+        "data": _global_config("data", {"data": {}}).get("data", {}),
+        "report": _global_config("report", {"report": {}}).get("report", {}),
+        "schedule": _global_config("schedule", {"schedule": {}}).get("schedule", {}),
+        "transactions": transactions,
+    }
+
+
+def _save_settings(payload: dict[str, Any], asset_id: str | None = None) -> dict[str, Any]:
+    wanted = str(asset_id or payload.get("asset_id") or "").strip()
+    if not wanted:
+        raise ValueError("请先选择要编辑的资产")
+    current = _find_asset(wanted)
+    old_id = _asset_identity(current)
+    asset_payload = payload.get("asset", {})
+    strategy_payload = payload.get("strategy", {})
+    updated = dict(current)
+    changes: list[str] = []
+    labels = {
+        "name": "资产名称", "asset_code": "持有基金代码", "asset_type": "资产类型",
+        "tracking_type": "跟踪对象类型", "tracking_code": "盘中跟踪代码",
+        "tracking_name": "盘中跟踪名称",
+    }
+    for key, label in labels.items():
+        if key in asset_payload:
+            value = str(asset_payload.get(key, "")).strip()
+            if not value:
+                raise ValueError(f"{label}不能为空")
+            if updated.get(key) != value:
+                changes.append(f"{label}: {updated.get(key)} → {value}")
+                updated[key] = value
+    if "enabled" in asset_payload:
+        updated["enabled"] = bool(asset_payload["enabled"])
+    updated["id"] = str(updated.get("asset_code") or old_id)
+    updated["symbol"] = str(updated.get("tracking_code") or "")
+    position = dict(updated.get("position", {}))
+    if "target_amount" in asset_payload:
+        position["target_amount"] = _coerce_float(asset_payload["target_amount"], "目标仓位")
+    updated["position"] = position
+    strategy = dict(updated.get("strategy", {}))
+    integer_fields = {"stable_days_required", "consecutive_down_warning_days", "reversal_confirmation_days"}
+    for key, value in strategy_payload.items():
+        if value in (None, ""):
+            continue
+        strategy[key] = _coerce_int(value, key) if key in integer_fields else _coerce_float(value, key)
+    updated["strategy"] = strategy
+    saved = save_asset(ROOT, updated, old_id=old_id)
+    return {"success": True, "message": "资产与策略已保存。", "changes": changes, "asset": saved}
+
+
+def _environment_status() -> dict[str, Any]:
+    assets = _all_assets()
+    selected = assets[0] if assets else None
+    token_path = ROOT / "data" / "global" / "private" / "msal_token_cache.json"
+    report_exists = bool(selected and asset_report_path(ROOT, _asset_identity(selected)).exists())
+    packages = {}
+    for package in ["pandas", "akshare", "msal", "flask", "requests", "playwright"]:
+        try:
+            __import__(package); packages[package] = True
+        except Exception:
+            packages[package] = False
+    empty = {"ok": False, "message": "尚未添加资产"}
+    return {
+        "control_version": CONTROL_VERSION,
+        "python": {"ok": True, "message": sys.version.split()[0]},
+        "packages": {"ok": all(packages.values()), "message": ", ".join(f"{n}:{'正常' if ok else '缺失'}" for n, ok in packages.items())},
+        "market": _market_status(), "network": _network_check(),
+        "eastmoney": _eastmoney_check() if selected else empty,
+        "cache": _cache_status() if selected else empty,
+        "latest": _latest_status() if selected else empty,
+        "keep_awake": keep_awake_status(ROOT), "ollama": _check_ollama(),
+        "microsoft_token": {"ok": token_path.exists(), "message": "本地Token缓存已存在" if token_path.exists() else "尚未找到Token缓存，首次发信时需要授权"},
+        "report": {"ok": report_exists, "message": "所选资产已有报告" if report_exists else "所选资产尚未生成报告"},
+    }
+
 @app.get("/")
 def index():
-    _migrate_legacy_report()
+    ensure_layout(ROOT)
     return render_template("control_index.html")
 
 
@@ -1775,32 +1900,34 @@ def schedules_page():
 
 @app.get("/report")
 def report_page():
-    report_path = ROOT / "output" / "report.html"
+    asset_id = str(request.args.get("asset_id", "")).strip()
+    if not asset_id:
+        return (render_template("empty_report.html", message="请先在控制台选择一只资产。"), 404)
+    try:
+        asset = _find_asset(asset_id)
+    except ValueError as exc:
+        return (render_template("empty_report.html", message=str(exc)), 404)
+    report_path = asset_report_path(ROOT, _asset_identity(asset))
     if not report_path.exists():
-        return redirect(url_for("index"))
-    return send_from_directory(
-        ROOT / "output",
-        "report.html",
-    )
+        return (render_template("empty_report.html", asset=asset, message="当前资产尚未生成报告。请返回控制台运行一次报告。"), 404)
+    return send_from_directory(report_path.parent, report_path.name)
 
 
 @app.get("/history")
 def history_page():
-    history_path = ROOT / "output" / "history.html"
-    if not history_path.exists():
-        return redirect(url_for("index"))
-    return send_from_directory(
-        ROOT / "output",
-        "history.html",
-    )
+    asset_id = str(request.args.get("asset_id", "")).strip()
+    if not asset_id:
+        return (render_template("empty_report.html", message="历史报告属于单个资产，请先选择资产。"), 404)
+    asset = _find_asset(asset_id)
+    path = asset_history_index_path(ROOT, _asset_identity(asset))
+    if not path.exists():
+        return (render_template("empty_report.html", asset=asset, message="当前资产尚无历史报告。"), 404)
+    return send_from_directory(path.parent, path.name)
 
 
-@app.get("/history/<path:filename>")
-def history_file(filename: str):
-    return send_from_directory(
-        ROOT / "output" / "history",
-        filename,
-    )
+@app.get("/history/<asset_id>/<path:filename>")
+def history_file(asset_id: str, filename: str):
+    return send_from_directory(asset_history_dir(ROOT, asset_id), filename)
 
 
 @app.get("/static/<path:filename>")
@@ -1882,11 +2009,11 @@ def api_refresh_history_cache():
     try:
         full_config = {
             "data": _read_json(
-                ROOT / "config" / "data.json",
+                ROOT / "config" / "global" / "data.json",
                 {},
             ).get("data", {}),
             "storage": _read_json(
-                ROOT / "config" / "storage.json",
+                ROOT / "config" / "global" / "storage.json",
                 {},
             ).get("storage", {}),
         }
@@ -1945,7 +2072,7 @@ def api_data_sources_explore():
     try:
         full_config = {
             "data": _read_json(
-                ROOT / "config" / "data.json",
+                ROOT / "config" / "global" / "data.json",
                 {},
             ).get("data", {}),
         }
@@ -1977,8 +2104,8 @@ def api_data_sources_diagnose():
     )
     try:
         config = {
-            **_read_json(ROOT / "config" / "app.json", {}),
-            "data": _read_json(ROOT / "config" / "data.json", {}).get("data", {}),
+            **_read_json(ROOT / "config" / "global" / "app.json", {}),
+            "data": _read_json(ROOT / "config" / "global" / "data.json", {}).get("data", {}),
         }
         # data_fetcher expects the merged config shape used by run.py.
         full_config = {
@@ -2026,7 +2153,8 @@ def api_report_run():
 @app.get("/api/schedules")
 def api_schedules_get():
     import_result = _import_existing_windows_plans()
-    plans = [_schedule_plan_view(plan) for plan in _load_schedule_plans()]
+    asset_id = str(request.args.get("asset_id", "")).strip()
+    plans = [_schedule_plan_view(plan) for plan in _load_schedule_plans() if not asset_id or str(plan.get("asset_id", "")) == asset_id]
     return jsonify({
         "success": True,
         "platform_supported": os.name == "nt",
@@ -2038,6 +2166,7 @@ def api_schedules_get():
 @app.post("/api/schedules/save")
 def api_schedules_save():
     payload = request.get_json(silent=True) or {}
+    payload.setdefault("asset_id", request.args.get("asset_id", ""))
     try:
         return jsonify(_upsert_schedule_plan(payload))
     except ValueError as exc:
@@ -2095,59 +2224,47 @@ def api_schedules_sync():
         return jsonify({"success": False, "message": str(exc)}), 500
 @app.get("/api/assets")
 def api_assets_get():
-    return jsonify({"success": True, "assets": _load_settings().get("assets", [])})
+    return jsonify({"success": True, "assets": [_asset_summary(item) for item in _all_assets()]})
 
 
 @app.post("/api/assets/create")
 def api_assets_create():
     payload = request.get_json(silent=True) or {}
-    assets_path = ROOT / "config" / "assets.json"
-    doc = _read_json(assets_path, {"assets": []})
-    template = dict(doc.get("assets", [{}])[0]) if doc.get("assets") else {}
     asset_code = str(payload.get("asset_code", "")).strip()
     tracking_code = str(payload.get("tracking_code", "")).strip()
     name = str(payload.get("name", "")).strip()
     if not asset_code or not tracking_code or not name:
         return jsonify({"success": False, "message": "资产名称、持有基金代码和盘中跟踪代码不能为空。"}), 400
-    if any(asset_code == str(item.get("asset_code") or item.get("id") or "") for item in doc.get("assets", [])):
+    if any(asset_code in {_asset_identity(item), str(item.get("asset_code", ""))} for item in _all_assets()):
         return jsonify({"success": False, "message": f"资产 {asset_code} 已存在。"}), 400
-    template.update({
-        "id": asset_code, "name": name, "asset_code": asset_code,
+    template = _read_json(ROOT / "config" / "asset_template.json", {"asset": {}}).get("asset", {})
+    asset = {
+        **template,
+        "id": asset_code,
+        "name": name,
+        "asset_code": asset_code,
         "asset_type": str(payload.get("asset_type") or "INDEX_FUND"),
         "tracking_type": str(payload.get("tracking_type") or "ETF"),
-        "tracking_code": tracking_code, "tracking_name": str(payload.get("tracking_name") or name),
-        "symbol": tracking_code, "enabled": True,
-    })
-    template["position"] = {**template.get("position", {}), "target_amount": float(payload.get("target_amount") or 0)}
-    doc.setdefault("assets", []).append(template)
-    _backup_file(assets_path)
-    _atomic_write_json(assets_path, doc)
-    return jsonify({"success": True, "message": "资产已新增。", "asset": _normalize_asset(template, len(doc["assets"])-1)})
+        "tracking_code": tracking_code,
+        "tracking_name": str(payload.get("tracking_name") or name),
+        "symbol": tracking_code,
+        "enabled": True,
+    }
+    asset["position"] = {**asset.get("position", {}), "target_amount": float(payload.get("target_amount") or 0)}
+    saved = save_asset(ROOT, asset)
+    return jsonify({"success": True, "message": "资产已新增。", "asset": saved})
 
 
 @app.post("/api/assets/delete")
 def api_assets_delete():
     payload = request.get_json(silent=True) or {}
     wanted = str(payload.get("asset_id", "")).strip()
-    assets_path = ROOT / "config" / "assets.json"
-    doc = _read_json(assets_path, {"assets": []})
-    assets = doc.get("assets", [])
-    if len(assets) <= 1:
-        return jsonify({"success": False, "message": "至少需要保留一个资产。"}), 400
-    kept = []
-    removed = None
-    for idx, item in enumerate(assets):
-        normalized = _normalize_asset(item, idx)
-        if wanted and wanted in {_asset_identity(normalized), str(normalized.get("asset_code", ""))}:
-            removed = normalized
-        else:
-            kept.append(item)
-    if not removed:
-        return jsonify({"success": False, "message": "未找到要删除的资产。"}), 404
-    doc["assets"] = kept
-    _backup_file(assets_path)
-    _atomic_write_json(assets_path, doc)
-    return jsonify({"success": True, "message": f"已删除 {removed.get('name') or wanted}。"})
+    try:
+        asset = _find_asset(wanted)
+        delete_asset(ROOT, _asset_identity(asset), purge_runtime=True)
+    except ValueError as exc:
+        return jsonify({"success": False, "message": str(exc)}), 404
+    return jsonify({"success": True, "message": f"已删除 {asset.get('name') or wanted}，其本地运行数据和报告也已清理。"})
 
 
 @app.get("/api/settings")

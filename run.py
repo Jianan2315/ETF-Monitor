@@ -7,6 +7,10 @@ from pathlib import Path
 from typing import Any
 
 from src.config_loader import load_config
+from src.asset_store import (
+    ensure_layout, asset_transactions_path, asset_cache_dir, asset_data_dir,
+    asset_report_path, asset_history_dir, asset_history_index_path,
+)
 from src.data_fetcher import DataFetchError, fetch_asset_data
 from src.email_sender import (
     evaluate_email_delivery,
@@ -116,7 +120,7 @@ def _step(
 
 
 def _run_status_path() -> Path:
-    return ROOT / "data" / "run_status" / "latest_run.json"
+    return ROOT / "data" / "global" / "run_status" / "latest_run.json"
 
 
 def _write_run_status(
@@ -275,9 +279,10 @@ def main(argv: list[str] | None = None) -> int:
 
     results = []
     run_errors: list[str] = []
-    transaction_path = (
-        ROOT / config["storage"]["transactions_file"]
-    )
+    ensure_layout(ROOT)
+    if not config["assets"]:
+        _write_run_status(status="NO_ASSETS", message="尚未添加任何资产。", mode=args.mode, phase=validation.context.phase, started_at=started_at, steps=steps, email_status=email_status)
+        return 4
 
     for configured_asset in config["assets"]:
         if not configured_asset.get("enabled", True):
@@ -291,11 +296,30 @@ def main(argv: list[str] | None = None) -> int:
             "symbol": tracking_code,
             "name": configured_asset.get("tracking_name") or configured_asset.get("name"),
         }
+        asset_key = str(configured_asset.get("id") or configured_asset.get("asset_code") or tracking_code)
+        transaction_path = asset_transactions_path(ROOT, asset_key)
+        asset_config = {**config}
+        asset_config["data"] = {**config.get("data", {}), "cache_directory": str(asset_cache_dir(ROOT, asset_key).relative_to(ROOT)).replace("\\", "/")}
+        data_dir = asset_data_dir(ROOT, asset_key)
+        asset_config["storage"] = {
+            **config.get("storage", {}),
+            "history_file": str((data_dir / "history.xlsx").relative_to(ROOT)).replace("\\", "/"),
+            "decisions_file": str((data_dir / "decisions.xlsx").relative_to(ROOT)).replace("\\", "/"),
+            "latest_file": str((data_dir / "latest.json").relative_to(ROOT)).replace("\\", "/"),
+            "transactions_file": str(transaction_path.relative_to(ROOT)).replace("\\", "/"),
+        }
+        asset_config["report"] = {
+            **config.get("report", {}),
+            "output_file": str(asset_report_path(ROOT, asset_key).relative_to(ROOT)).replace("\\", "/"),
+            "history_directory": str(asset_history_dir(ROOT, asset_key).relative_to(ROOT)).replace("\\", "/"),
+            "history_index_file": str(asset_history_index_path(ROOT, asset_key).relative_to(ROOT)).replace("\\", "/"),
+            "asset_id": asset_key,
+        }
 
         try:
             bundle = fetch_asset_data(
                 market_asset,
-                config,
+                asset_config,
                 mode=args.mode,
                 project_root=ROOT,
                 logger=logger,
@@ -544,12 +568,13 @@ def main(argv: list[str] | None = None) -> int:
                 reversed(transactions[-10:])
             ),
             "llm_summary": None,
+            "_asset_runtime_config": asset_config,
         }
 
         try:
             save_run_result(
                 result,
-                config,
+                asset_config,
                 ROOT,
             )
             steps.append(
@@ -670,16 +695,19 @@ def main(argv: list[str] | None = None) -> int:
 
     if results:
         try:
-            path = generate_html_report(
-                results,
-                config,
-                ROOT,
-                run_mode=args.mode,
-                run_slot=args.slot,
-            )
-            report_path = str(
-                ROOT / config["report"]["output_file"]
-            )
+            generated_paths = []
+            for report_result in results:
+                report_config = report_result.pop("_asset_runtime_config", config)
+                path = generate_html_report(
+                    [report_result],
+                    report_config,
+                    ROOT,
+                    run_mode=args.mode,
+                    run_slot=args.slot,
+                )
+                generated_paths.append(str(path))
+            report_path = str(asset_report_path(ROOT, str(results[0]["asset"].get("id") or results[0]["asset"].get("asset_code"))))
+            path = Path(generated_paths[-1])
             steps.append(
                 _step(
                     "html_report",

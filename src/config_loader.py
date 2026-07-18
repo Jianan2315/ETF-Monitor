@@ -2,39 +2,43 @@ from __future__ import annotations
 import json
 from pathlib import Path
 from dotenv import load_dotenv
+from src.asset_store import ensure_layout, load_assets
 
 REQUIRED_SECTIONS = ['assets','data','llm','email','storage','report']
 
 
 def load_config(path: Path) -> dict:
-    """Load split config directory, with legacy single-file fallback."""
-    base = path if path.is_dir() else path.parent
-    load_dotenv(base.parent / '.env' if path.is_dir() else path.parent / '.env')
+    """Load clean Portfolio Monitor configuration.
 
-    if path.is_dir():
-        merged: dict = {}
-        files = ['app.json','assets.json','email.json','llm.json','storage.json','data.json','report.json','schedule.json']
-        for name in files:
-            file_path = path / name
-            if not file_path.exists():
-                raise FileNotFoundError(f'配置文件不存在: {file_path}')
-            with file_path.open('r',encoding='utf-8') as f:
-                part=json.load(f)
-            overlap=set(merged).intersection(part)
-            if overlap:
-                raise ValueError(f'配置一级字段重复: {sorted(overlap)}')
-            merged.update(part)
-        config=merged
-    else:
-        with path.open('r',encoding='utf-8') as f:
-            config=json.load(f)
+    Global settings live under config/global/*.json. Each asset has its own
+    config/assets/<asset_id>.json file. Runtime data is never read from legacy
+    single-asset files.
+    """
+    root = path.parent if path.name == "config" else path.parent
+    ensure_layout(root)
+    load_dotenv(root / '.env')
 
-    missing=[k for k in REQUIRED_SECTIONS if k not in config]
+    config_dir = root / 'config' / 'global'
+    merged: dict = {}
+    files = ['app.json','email.json','llm.json','storage.json','data.json','report.json','schedule.json','power.json']
+    for name in files:
+        file_path = config_dir / name
+        if not file_path.exists():
+            continue
+        with file_path.open('r', encoding='utf-8') as f:
+            part = json.load(f)
+        overlap = set(merged).intersection(part)
+        if overlap:
+            raise ValueError(f'配置一级字段重复: {sorted(overlap)}')
+        merged.update(part)
+
+    merged['assets'] = load_assets(root)
+    missing = [k for k in REQUIRED_SECTIONS if k not in merged]
     if missing:
         raise ValueError(f'配置缺少字段: {missing}')
-    validate_email_config(config['email'])
-    validate_llm_config(config['llm'])
-    return config
+    validate_email_config(merged['email'])
+    validate_llm_config(merged['llm'])
+    return merged
 
 
 def validate_email_config(email: dict) -> None:

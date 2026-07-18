@@ -3,38 +3,62 @@ let selectedAssetId = localStorage.getItem("portfolio.selectedAssetId") || "";
 async function loadAssets() {
   const selector = document.getElementById("asset-selector");
   const summary = document.getElementById("asset-summary");
+  const emptyNote = document.getElementById("asset-empty-note");
   if (!selector || !summary) return;
   try {
-    const data = await fetch("/api/assets").then(r => r.json());
+    const data = await fetch("/api/assets", {cache: "no-store"}).then(r => r.json());
     const assets = data.assets || [];
     selector.innerHTML = '<option value="">全部已启用资产</option>' + assets.map(asset =>
-      `<option value="${asset.id}">${asset.name}（${asset.asset_code}）→ ${asset.tracking_type} ${asset.tracking_code}</option>`
+      `<option value="${asset.id}">${asset.name}（${asset.asset_code}）</option>`
     ).join("");
     if (assets.some(asset => asset.id === selectedAssetId)) selector.value = selectedAssetId;
     else selectedAssetId = "";
-    summary.innerHTML = assets.map(asset => `
-      <article class="status-item ${asset.enabled ? 'ok' : 'bad'}">
-        <strong>${asset.name}</strong>
-        <span>持有：${asset.asset_code}</span>
-        <span>盘中跟踪：${asset.tracking_type} ${asset.tracking_code}</span>
-      </article>`).join("");
+
+    if (!assets.length) {
+      summary.innerHTML = '<p class="muted">尚未添加资产。</p>';
+      emptyNote.hidden = false;
+      emptyNote.innerHTML = '<strong>这是一个全新的数据架构。</strong><p>请先点击“新增资产”。程序会为该资产建立独立的配置、交易记录、缓存和报告目录。</p>';
+    } else {
+      emptyNote.hidden = true;
+      summary.innerHTML = assets.map(asset => `
+        <button type="button" class="status-item asset-card ${asset.enabled ? 'ok' : 'bad'} ${asset.id === selectedAssetId ? 'selected' : ''}" data-select-asset="${asset.id}">
+          <strong>${asset.name}</strong>
+          <span>持有：${asset.asset_code}</span>
+          <span>盘中跟踪：${asset.tracking_type} ${asset.tracking_code}</span>
+          <span>${asset.has_report ? '已有报告' : '尚无报告'}</span>
+        </button>`).join("");
+    }
+
     const updateAssetLinks = () => {
-      const edit = document.getElementById("edit-asset-link");
-      const manage = document.getElementById("manage-asset-link");
-      const href = selectedAssetId ? `/asset/manage?asset_id=${encodeURIComponent(selectedAssetId)}` : "#";
-      [edit, manage].forEach(link => {
-        if (!link) return;
+      const selected = assets.find(asset => asset.id === selectedAssetId);
+      const links = {
+        "edit-asset-link": selected ? `/asset/manage?asset_id=${encodeURIComponent(selected.id)}` : "#",
+        "latest-report-link": selected ? `/report?asset_id=${encodeURIComponent(selected.id)}` : "#",
+        "asset-history-link": selected ? `/history?asset_id=${encodeURIComponent(selected.id)}` : "#",
+        "schedule-link": selected ? `/schedules?asset_id=${encodeURIComponent(selected.id)}` : "#",
+      };
+      Object.entries(links).forEach(([id, href]) => {
+        const link = document.getElementById(id); if (!link) return;
         link.href = href;
-        link.setAttribute("aria-disabled", String(!selectedAssetId));
-        link.classList.toggle("disabled", !selectedAssetId);
+        link.setAttribute("aria-disabled", String(!selected));
+        link.classList.toggle("disabled", !selected);
       });
+      document.querySelectorAll("[data-select-asset]").forEach(card => card.classList.toggle("selected", card.dataset.selectAsset === selectedAssetId));
     };
     updateAssetLinks();
-    selector.addEventListener("change", () => {
+    selector.onchange = () => {
       selectedAssetId = selector.value;
       localStorage.setItem("portfolio.selectedAssetId", selectedAssetId);
       updateAssetLinks();
-    });
+    };
+    summary.onclick = event => {
+      const card = event.target.closest("[data-select-asset]");
+      if (!card) return;
+      selectedAssetId = card.dataset.selectAsset;
+      selector.value = selectedAssetId;
+      localStorage.setItem("portfolio.selectedAssetId", selectedAssetId);
+      updateAssetLinks();
+    };
   } catch (error) {
     summary.textContent = `读取资产列表失败：${error}`;
   }
@@ -100,7 +124,7 @@ async function loadEnvironment() {
     }
     const data = await response.json();
 
-    if (data.control_version && data.control_version !== "13.0.0") {
+    if (data.control_version && data.control_version !== "13.1.0") {
       environmentGrid.innerHTML = `
         <div class="result-box error">
           当前浏览器连接的是旧版控制服务（${data.control_version}）。

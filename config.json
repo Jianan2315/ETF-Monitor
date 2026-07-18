@@ -1,4 +1,0 @@
-{
-  "deprecated": true,
-  "message": "配置已拆分到 config/ 目录；程序会优先读取 config/*.json。"
-}
