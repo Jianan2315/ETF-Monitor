@@ -1,110 +1,49 @@
 <!doctype html>
 <html lang="zh-CN">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Portfolio Monitor 控制台</title>
   <link rel="stylesheet" href="/control-static/control.css">
 </head>
 <body>
-  <main class="shell">
-    <header class="hero">
-      <div>
-        <p class="eyebrow">LOCAL CONTROL CENTER</p>
-        <h1>Portfolio Monitor 控制台</h1>
-        <p>生成报告、查看历史、录入交易和修改参数，都可以在这里完成。</p>
-      </div>
-      <a class="secondary-button" href="/report">查看最新报告</a>
-    </header>
+<main class="shell">
+  <header class="hero">
+    <div><p class="eyebrow">PORTFOLIO CONTROL CENTER</p><h1>Portfolio Monitor</h1><p>一个端口管理多个指数基金与 ETF。</p></div>
+    <a class="secondary-button" href="/report">查看最新报告</a>
+  </header>
 
-
-    <section class="card">
-      <div class="section-title-row">
-        <div>
-          <h2>我的指数基金</h2>
-          <p>一个控制台可以管理多个资产。选择“全部资产”会一次生成组合报告；选择单个资产则只运行该基金。</p>
-        </div>
-        <a class="button-link secondary" href="/settings">新增或编辑资产</a>
-      </div>
-      <div class="form-grid">
-        <label>当前查看/运行对象
-          <select id="asset-selector"><option value="">全部已启用资产</option></select>
-        </label>
-      </div>
-      <div id="asset-summary" class="status-grid"></div>
-    </section>
-
-    <section class="action-grid">
-      <article class="card action-card">
-        <h2>生成报告</h2>
-        <p>“按当前时间”会自动判断开盘前、上午盘中、午间休市、下午盘中或收盘后；不符合时段的按钮会自动禁用。</p>
-        <div class="button-row">
-          <button data-run-mode="auto">按当前时间生成</button>
-          <button data-run-mode="intraday">生成盘中报告</button>
-          <button data-run-mode="close">生成收盘报告</button>
-        </div>
-        <p id="mode-guidance" class="muted"></p>
-        <div id="run-result" class="result-box" hidden></div>
-      </article>
-
-      <article class="card action-card">
-        <h2>管理</h2>
-        <p>录入买卖、修改目标仓位、策略、模型、邮件和数据参数。</p>
-        <div class="button-row">
-          <a class="button-link" href="/settings">进入参数管理</a>
-          <a class="button-link" href="/schedules">定时运行计划</a>
-          <a class="button-link secondary" href="/history">查看历史报告</a>
-        </div>
-      </article>
-    </section>
-
-    <section class="card">
-      <div class="section-title-row">
-        <div>
-          <h2>交易时段防休眠</h2>
-          <p>工作日按设定时段阻止电脑因空闲自动休眠。显示器仍可关闭，时段结束后恢复原有电源策略。</p>
-        </div>
-      </div>
-      <div class="form-grid power-grid">
-        <label>开始时间
-          <input id="keep-awake-start" type="time" value="09:00">
-        </label>
-        <label>结束时间
-          <input id="keep-awake-end" type="time" value="15:30">
-        </label>
-      </div>
+  <section class="card">
+    <div class="section-title-row">
+      <div><h2>我的资产</h2><p>先选择当前查看或运行的资产；新增与编辑已经完全分开。</p></div>
       <div class="button-row">
-        <button id="enable-keep-awake">启用或更新防休眠</button>
-        <button id="disable-keep-awake" class="secondary-button">停用防休眠</button>
+        <a class="button-link" href="/asset/new">＋ 新增资产</a>
+        <a id="edit-asset-link" class="button-link secondary" href="#" aria-disabled="true">✎ 编辑当前资产</a>
       </div>
-      <div id="keep-awake-result" class="result-box" hidden></div>
-      <p class="muted power-note">
-        该功能使用 Windows 任务计划程序。电脑处于睡眠状态时会请求在开始时间唤醒；
-        完全关机时无法自动开机，合盖休眠也可能受笔记本合盖策略影响。
-      </p>
-    </section>
+    </div>
+    <div class="form-grid"><label>当前查看/运行对象<select id="asset-selector"><option value="">全部已启用资产</option></select></label></div>
+    <div id="asset-summary" class="status-grid"></div>
+    <div class="button-row">
+      <a id="manage-asset-link" class="button-link secondary" href="#" aria-disabled="true">进入当前资产</a>
+      <a class="button-link secondary" href="/system-settings">系统设置</a>
+    </div>
+  </section>
 
-    <section class="card">
-      <div class="section-title-row">
-        <div>
-          <h2>环境状态</h2>
-          <p>检测 Python、依赖、网络、Microsoft Token、Ollama 和本地模型。</p>
-        </div>
-        <div class="button-row">
-          <button id="refresh-environment" class="secondary-button">重新检测</button>
-          <button id="diagnose-data-sources" class="secondary-button">诊断数据源</button>
-          <button id="explore-api" class="secondary-button">接口探测器</button>
-          <button id="browser-inspector" class="secondary-button">浏览器接口检查</button>
-          <button id="refresh-history-cache" class="secondary-button">验证后立即刷新历史缓存</button>
-          <button id="start-ollama" class="secondary-button">启动 Ollama</button>
-        </div>
-      </div>
-      <div id="environment-grid" class="status-grid"></div>
-      <div id="data-source-diagnostic" class="result-box" hidden></div>
-      <div id="api-explorer-result" class="result-box" hidden></div>
-      <div id="browser-inspector-result" class="result-box" hidden></div>
-    </section>
-  </main>
-  <script src="/control-static/control.js"></script>
-</body>
-</html>
+  <section class="action-grid">
+    <article class="card action-card"><h2>生成报告</h2><p>选择“全部已启用资产”生成组合报告；选择单个资产则只运行该资产。</p>
+      <div class="button-row"><button data-run-mode="auto">按当前时间生成</button><button data-run-mode="intraday">生成盘中报告</button><button data-run-mode="close">生成收盘报告</button></div>
+      <p id="mode-guidance" class="muted"></p><div id="run-result" class="result-box" hidden></div>
+    </article>
+    <article class="card action-card"><h2>全局管理</h2><p>模型、邮件、数据、报告与默认时点属于整个程序，不绑定某一只基金。</p>
+      <div class="button-row"><a class="button-link" href="/system-settings">系统设置</a><a class="button-link" href="/schedules">定时运行计划</a><a class="button-link secondary" href="/history">历史报告</a></div>
+    </article>
+  </section>
+
+  <section class="card"><div class="section-title-row"><div><h2>交易时段防休眠</h2><p>工作日按设定时段阻止电脑因空闲自动休眠。</p></div></div>
+    <div class="form-grid power-grid"><label>开始时间<input id="keep-awake-start" type="time" value="09:00"></label><label>结束时间<input id="keep-awake-end" type="time" value="15:30"></label></div>
+    <div class="button-row"><button id="enable-keep-awake">启用或更新防休眠</button><button id="disable-keep-awake" class="secondary-button">停用防休眠</button></div><div id="keep-awake-result" class="result-box" hidden></div>
+  </section>
+
+  <section class="card"><div class="section-title-row"><div><h2>环境状态</h2><p>检测 Python、依赖、网络、Microsoft Token、Ollama 和本地模型。</p></div><div class="button-row"><button id="refresh-environment" class="secondary-button">重新检测</button><button id="diagnose-data-sources" class="secondary-button">诊断数据源</button><button id="explore-api" class="secondary-button">接口探测器</button><button id="browser-inspector" class="secondary-button">浏览器接口检查</button><button id="refresh-history-cache" class="secondary-button">刷新历史缓存</button><button id="start-ollama" class="secondary-button">启动 Ollama</button></div></div>
+    <div id="environment-grid" class="status-grid"></div><div id="data-source-diagnostic" class="result-box" hidden></div><div id="api-explorer-result" class="result-box" hidden></div><div id="browser-inspector-result" class="result-box" hidden></div>
+  </section>
+</main><script src="/control-static/control.js"></script></body></html>

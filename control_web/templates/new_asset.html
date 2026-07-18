@@ -1,0 +1,12 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>新增资产</title><link rel="stylesheet" href="/control-static/control.css"></head><body><main class="shell">
+<header class="hero compact"><div><p class="eyebrow">NEW ASSET</p><h1>新增资产</h1><p>此页面只负责创建新资产，不会显示或修改已有资产。</p></div><a class="secondary-button" href="/">返回控制台</a></header>
+<section class="card"><h2>资产信息</h2><div class="form-grid">
+<label>资产名称<input id="name" type="text" placeholder="例如：电网ETF联接"></label>
+<label>持有基金代码<input id="asset-code" type="text" placeholder="例如：023639"></label>
+<label>资产类型<select id="asset-type"><option value="ETF_LINK">ETF联接基金</option><option value="INDEX_FUND">场外指数基金</option><option value="ETF">ETF</option><option value="INDEX">指数</option></select></label>
+<label>盘中跟踪对象类型<select id="tracking-type"><option value="ETF">ETF</option><option value="INDEX">指数</option></select></label>
+<label>盘中跟踪代码<input id="tracking-code" type="text" placeholder="例如：561380 或 399395"></label>
+<label>盘中跟踪名称<input id="tracking-name" type="text"></label>
+<label>目标仓位（元）<input id="target-amount" type="number" step="0.01" value="0"></label>
+</div><div class="button-row"><button id="create-asset">创建资产</button></div><div id="result" class="result-box" hidden></div></section>
+</main><script src="/control-static/new_asset.js"></script></body></html>

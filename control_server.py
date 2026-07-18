@@ -48,7 +48,7 @@ from src.power_management import (
 ROOT = Path(__file__).resolve().parent
 HOST = "127.0.0.1"
 PORT = 8765
-CONTROL_VERSION = "12.0.0"
+CONTROL_VERSION = "13.0.0"
 
 app = Flask(
     __name__,
@@ -1750,7 +1750,22 @@ def index():
 
 @app.get("/settings")
 def settings_page():
-    return render_template("settings.html")
+    return render_template("system_settings.html")
+
+
+@app.get("/asset/new")
+def new_asset_page():
+    return render_template("new_asset.html")
+
+
+@app.get("/asset/manage")
+def asset_manage_page():
+    return render_template("asset_manage.html")
+
+
+@app.get("/system-settings")
+def system_settings_page():
+    return render_template("system_settings.html")
 
 
 @app.get("/schedules")

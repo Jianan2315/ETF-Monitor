@@ -1321,3 +1321,13 @@ published NAV.
 Legacy `assets.json` remains compatible. An old asset containing only `symbol` is
 automatically treated as an ETF whose held code and tracking code are both that
 symbol. Save it once from Parameter Management to persist the new fields.
+
+## V13.0 Portfolio UI refactor
+
+The control center now separates three workflows:
+
+- `/asset/new`: create a new asset only.
+- `/asset/manage?asset_id=...`: edit one asset, its transactions, position and strategy.
+- `/system-settings`: global LLM, email, data, report and default schedule settings.
+
+The home page keeps one asset selector. Selecting a concrete asset enables “Edit Current Asset” and “Enter Current Asset”; “New Asset” remains available at all times. One Flask service and one port manage all assets.

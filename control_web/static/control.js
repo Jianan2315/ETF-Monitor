@@ -18,9 +18,22 @@ async function loadAssets() {
         <span>持有：${asset.asset_code}</span>
         <span>盘中跟踪：${asset.tracking_type} ${asset.tracking_code}</span>
       </article>`).join("");
+    const updateAssetLinks = () => {
+      const edit = document.getElementById("edit-asset-link");
+      const manage = document.getElementById("manage-asset-link");
+      const href = selectedAssetId ? `/asset/manage?asset_id=${encodeURIComponent(selectedAssetId)}` : "#";
+      [edit, manage].forEach(link => {
+        if (!link) return;
+        link.href = href;
+        link.setAttribute("aria-disabled", String(!selectedAssetId));
+        link.classList.toggle("disabled", !selectedAssetId);
+      });
+    };
+    updateAssetLinks();
     selector.addEventListener("change", () => {
       selectedAssetId = selector.value;
       localStorage.setItem("portfolio.selectedAssetId", selectedAssetId);
+      updateAssetLinks();
     });
   } catch (error) {
     summary.textContent = `读取资产列表失败：${error}`;
@@ -87,7 +100,7 @@ async function loadEnvironment() {
     }
     const data = await response.json();
 
-    if (data.control_version && data.control_version !== "12.0.0") {
+    if (data.control_version && data.control_version !== "13.0.0") {
       environmentGrid.innerHTML = `
         <div class="result-box error">
           当前浏览器连接的是旧版控制服务（${data.control_version}）。
