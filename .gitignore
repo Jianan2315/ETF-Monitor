@@ -8,11 +8,8 @@ __pycache__/
 .vscode/
 
 # Runtime-generated and private local state
-logs/
-output/
-data/private/
 
 # Microsoft OAuth token cache (defense in depth)
 *msal_token_cache*.json
 /tests/
-/data/
+
