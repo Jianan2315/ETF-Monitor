@@ -14,11 +14,30 @@ def test_v13_2_system_tools_route_loads():
     assert "系统工具" in response.get_data(as_text=True)
 
 
-def test_homepage_keeps_a_single_system_tools_navigation_entry():
+def test_homepage_places_system_navigation_in_dedicated_cards():
     client = control_server.app.test_client()
     body = client.get("/").get_data(as_text=True)
     assert body.count('href="/system-tools"') == 1
-    assert "打开系统工具" not in body
+    assert body.count('href="/system-settings"') == 1
+    assert "打开系统工具" in body
+    assert "打开系统设置" in body
+    assert "页面顶部的“系统工具”入口" not in body
+
+
+def test_system_tools_header_only_returns_to_dashboard():
+    client = control_server.app.test_client()
+    body = client.get("/system-tools").get_data(as_text=True)
+    assert 'href="/"' in body
+    assert "返回控制台" in body
+    assert "返回组合" not in body
+    assert 'href="/system-settings"' not in body
+
+
+def test_system_settings_returns_to_dashboard():
+    client = control_server.app.test_client()
+    body = client.get("/system-settings").get_data(as_text=True)
+    assert 'href="/"' in body
+    assert "返回控制台" in body
 
 
 def test_homepage_uses_consistent_disabled_asset_action_markup():
