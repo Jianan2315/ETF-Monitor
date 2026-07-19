@@ -1,4 +1,5 @@
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 from flask import render_template
@@ -45,7 +46,9 @@ def test_system_settings_returns_to_dashboard():
 def test_homepage_uses_consistent_disabled_asset_action_markup():
     client = control_server.app.test_client()
     body = client.get("/").get_data(as_text=True)
-    assert 'id="edit-asset-link"' in body
+    assert 'id="schedule-link"' in body
+    assert 'id="edit-asset-link"' not in body
+    assert 'id="latest-report-link"' not in body
     assert 'aria-disabled="true"' in body
     script = (control_server.ROOT / "control_web" / "static" / "control.js").read_text(encoding="utf-8")
     assert "请先选择或创建一个资产。" in script
@@ -62,6 +65,21 @@ def test_homepage_has_one_add_asset_entry_and_a_button_free_empty_state():
     assert "添加资产后即可开始监控。" in script
     assert "添加第一个资产后即可开始监控。" not in script
     assert '<article class="empty-state"><h3>暂无资产</h3><p>添加资产后即可开始监控。</p></article>' in script
+
+
+def test_homepage_keeps_asset_actions_only_inside_asset_cards():
+    client = control_server.app.test_client()
+    body = client.get("/").get_data(as_text=True)
+    script = (control_server.ROOT / "control_web" / "static" / "control.js").read_text(encoding="utf-8")
+
+    assert 'href="/asset/new"' in body
+    assert "编辑当前资产" not in body
+    assert "latest-report-link" not in body
+    assert "edit-asset-link" not in body
+    assert '>编辑</a><a class="secondary-button" href="/report?asset_id=${encodeURIComponent(a.id)}">查看报告</a>' in script
+    assert ">报告</a>" not in script
+    assert script.count('href="/asset/manage?asset_id=${encodeURIComponent(a.id)}"') == 1
+    assert script.count('href="/report?asset_id=${encodeURIComponent(a.id)}"') == 1
 
 
 def test_asset_forms_expose_only_the_four_identity_fields():
@@ -144,7 +162,68 @@ def test_asset_report_and_history_return_to_the_same_asset_workspace(tmp_path: P
             "keep_history": True,
         },
     }
-    generate_html_report([], config, tmp_path, run_mode="close", run_slot="1500")
+    result = SimpleNamespace(
+        asset=SimpleNamespace(
+            asset_code="510300",
+            symbol="510300",
+            is_estimated_tracking=False,
+            tracking_code="510300",
+            name="Demo ETF",
+            strategy=SimpleNamespace(name="Demo strategy", version="1"),
+            strategy_document=None,
+        ),
+        data_source="Test provider",
+        using_local_cache=False,
+        cache_date=None,
+        data_phase_label="收盘后",
+        data_phase="AFTER_CLOSE",
+        market_timestamp="2026-07-20 15:00",
+        run_time="2026-07-20 15:01",
+        data_warnings=[],
+        data_status={
+            "history": {},
+            "realtime": {},
+            "intraday": {"status": "SUCCESS", "message": "今日分时获取成功", "source": "Test provider"},
+            "previous_intraday": {
+                "status": "SUCCESS",
+                "date": "2026-07-17",
+                "period": "1",
+                "points": 241,
+                "source": "AKShare fund_etf_hist_min_em(1m)",
+            },
+        },
+        decision=SimpleNamespace(status="HOLD", suggested_amount=0, reasons=["测试规则"]),
+        status_label="持有",
+        position_metrics=SimpleNamespace(
+            invested_amount=1000,
+            shares=100,
+            average_cost=10,
+            profit_pct=1,
+            profit_amount=10,
+        ),
+        llm_summary=None,
+        indicators=SimpleNamespace(
+            daily_change_pct=1,
+            five_day_change_pct=1,
+            ten_day_change_pct=1,
+            twenty_day_change_pct=1,
+            one_month_high_date="2026-07-01",
+            one_month_drawdown_pct=1,
+            three_month_high_date="2026-06-01",
+            three_month_drawdown_pct=1,
+            six_month_high_date="2026-01-01",
+            six_month_drawdown_pct=1,
+            consecutive_down_days=0,
+            consecutive_up_days=0,
+            consecutive_trend_pct=0,
+            drawdown_from_last_buy_pct=0,
+        ),
+        operation_history=[],
+        intraday_chart_data=[],
+        previous_intraday_chart_data=[],
+        chart_data=[],
+    )
+    generate_html_report([result], config, tmp_path, run_mode="close", run_slot="1500")
 
     report = (tmp_path / "output" / "report.html").read_text(encoding="utf-8")
     history = (tmp_path / "output" / "history.html").read_text(encoding="utf-8")
@@ -153,8 +232,19 @@ def test_asset_report_and_history_return_to_the_same_asset_workspace(tmp_path: P
     assert "返回资产管理页面" in report
     assert 'href="/">返回控制台</a>' in report
     assert "返回组合" not in report
+    assert "上一交易日走势（2026-07-17）" in report
+    assert "昨日走势" not in report
+    assert "1 分钟走势获取成功，共 241 个点；来源：AKShare fund_etf_hist_min_em(1m)。" in report
+    assert "2026-07-171分钟走势" not in report
+    assert 'class="report-chart-sections"' in report
     assert "/report?asset_id=demo" in history
     assert "/asset/manage?asset_id=demo" in history
+    assert 'href="/">返回控制台</a>' in history
+
+    report_styles = (control_server.ROOT / "static" / "style.css").read_text(encoding="utf-8")
+    assert ".report-chart-sections" in report_styles
+    assert "gap:24px" in report_styles
+    assert ".asset-heading + .report-rule-grid{margin-top:20px}" in report_styles
 
 
 def test_empty_asset_report_preserves_the_asset_management_return_link():

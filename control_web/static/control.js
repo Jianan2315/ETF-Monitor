@@ -31,13 +31,10 @@ async function loadAssets() {
   const cards = document.getElementById("asset-summary");
   cards.classList.toggle("asset-list", !!assets.length);
   cards.innerHTML = assets.length
-    ? assets.map(a => `<article class="status-item asset-card ${a.enabled ? "ok" : "bad"} ${a.id === selectedAssetId ? "selected" : ""}" data-select="${a.id}"><strong>${a.name}</strong><p>持有代码：${a.asset_code}</p><p>跟踪名称：${a.tracking_name || "-"}</p><p>跟踪代码：${a.tracking_code}</p><div class="button-row"><a class="secondary-button" href="/asset/manage?asset_id=${encodeURIComponent(a.id)}">编辑</a><a class="secondary-button" href="/report?asset_id=${encodeURIComponent(a.id)}">报告</a></div></article>`).join("")
+    ? assets.map(a => `<article class="status-item asset-card ${a.enabled ? "ok" : "bad"} ${a.id === selectedAssetId ? "selected" : ""}" data-select="${a.id}"><strong>${a.name}</strong><p>持有代码：${a.asset_code}</p><p>跟踪名称：${a.tracking_name || "-"}</p><p>跟踪代码：${a.tracking_code}</p><div class="button-row"><a class="secondary-button" href="/asset/manage?asset_id=${encodeURIComponent(a.id)}">编辑</a><a class="secondary-button" href="/report?asset_id=${encodeURIComponent(a.id)}">查看报告</a></div></article>`).join("")
     : `<article class="empty-state"><h3>暂无资产</h3><p>添加资产后即可开始监控。</p></article>`;
 
-  document.getElementById("asset-empty-note").hidden = true;
   const id = encodeURIComponent(selectedAssetId);
-  setLink("edit-asset-link", `/asset/manage?asset_id=${id}`, !!selected);
-  setLink("latest-report-link", `/report?asset_id=${id}`, !!selected);
   setLink("schedule-link", `/schedules?asset_id=${id}`, !!selected);
   setAssetButton(!!selected);
 

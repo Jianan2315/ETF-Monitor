@@ -50,7 +50,7 @@
           {% endif %}
           {% if result.data_status %}
           <div class="data-status-grid">
-            {% for key, label in [('history', '历史日线'), ('realtime', '实时快照'), ('intraday', '今日一分钟分时'), ('previous_intraday', '昨日走势')] %}
+            {% for key, label in [('history', '历史日线'), ('realtime', '实时快照'), ('intraday', '今日一分钟分时'), ('previous_intraday', '上一交易日走势')] %}
               {% set item = result.data_status.get(key, {}) %}
               <article class="data-status-item status-data-{{ item.get('status', 'unknown')|lower }}">
                 <span>{{ label }}</span>
@@ -71,7 +71,7 @@
         </div>
       </div>
 
-      <div class="top-grid">
+      <div class="top-grid report-rule-grid">
         <section class="panel decision-panel">
           <div class="panel-title-row">
             <div class="panel-title-actions">
@@ -186,6 +186,7 @@
         {% else %}<p class="muted">暂无操作记录。</p>{% endif %}
       </section>
 
+      <div class="report-chart-sections">
       <section class="panel chart-panel intraday-panel">
         <div class="chart-header">
           <div>
@@ -214,11 +215,17 @@
       <section class="panel chart-panel intraday-panel">
         <div class="chart-header">
           <div>
-            <h3 class="chart-title">昨日走势</h3>
+            {% set previous_status = result.data_status.get('previous_intraday', {}) if result.data_status else {} %}
+            {% set previous_has_data = previous_status.get('points', 0) %}
+            <h3 class="chart-title">上一交易日走势{% if previous_has_data and previous_status.get('date') %}（{{ previous_status.get('date') }}）{% endif %}</h3>
             <p class="muted">
-              {% set previous_status = result.data_status.get('previous_intraday', {}) if result.data_status else {} %}
-              {{ previous_status.get('message', '暂无昨日走势说明') }}
-              {% if previous_status.get('source') %}；来源：{{ previous_status.get('source') }}。{% endif %}
+              {% if previous_status.get('status') == 'SUCCESS' %}
+                {{ previous_status.get('period', '1') }} 分钟走势获取成功，共 {{ previous_status.get('points', 0) }} 个点；来源：{{ previous_status.get('source') }}。
+              {% elif previous_status.get('status') == 'CACHE' %}
+                {{ previous_status.get('period', '1') }} 分钟走势已从本地缓存读取，共 {{ previous_status.get('points', 0) }} 个点；来源：{{ previous_status.get('source') }}。
+              {% else %}
+                {{ previous_status.get('message', '暂无上一交易日走势说明')|replace('昨日走势', '上一交易日走势') }}{% if previous_status.get('source') %}；来源：{{ previous_status.get('source') }}。{% endif %}
+              {% endif %}
             </p>
           </div>
         </div>
@@ -250,6 +257,7 @@
         </div>
         <script type="application/json" id="chart-data-{{ result.asset.asset_code or result.asset.symbol }}">{{ result.chart_data | tojson }}</script>
       </section>
+      </div>
 
       {% if result.asset.strategy_document %}
       <div
