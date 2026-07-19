@@ -88,6 +88,8 @@ body.modal-open{overflow:hidden}
   .data-status-grid{grid-template-columns:1fr}
 }
 
+.page-header{display:flex;justify-content:space-between;align-items:flex-start;gap:20px}
+.report-header-actions{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:10px}
 .control-return-link{
   display:inline-flex;
   align-items:center;
@@ -99,3 +101,4 @@ body.modal-open{overflow:hidden}
   text-decoration:none;
   font-weight:700
 }
+@media(max-width:800px){.page-header{flex-direction:column}.report-header-actions{justify-content:flex-start}}

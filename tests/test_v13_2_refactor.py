@@ -52,6 +52,18 @@ def test_homepage_uses_consistent_disabled_asset_action_markup():
     assert "button.disabled = !enabled" in script
 
 
+def test_homepage_has_one_add_asset_entry_and_a_button_free_empty_state():
+    client = control_server.app.test_client()
+    body = client.get("/").get_data(as_text=True)
+    script = (control_server.ROOT / "control_web" / "static" / "control.js").read_text(encoding="utf-8")
+
+    assert body.count('href="/asset/new"') == 1
+    assert "添加第一个资产" not in script
+    assert "添加资产后即可开始监控。" in script
+    assert "添加第一个资产后即可开始监控。" not in script
+    assert '<article class="empty-state"><h3>暂无资产</h3><p>添加资产后即可开始监控。</p></article>' in script
+
+
 def test_asset_forms_expose_only_the_four_identity_fields():
     client = control_server.app.test_client()
     new_asset = client.get("/asset/new").get_data(as_text=True)
@@ -91,12 +103,22 @@ def test_asset_identity_forms_use_the_shared_two_column_layout_and_action_spacin
     assert ".form-actions" in styles
 
 
+def test_add_asset_returns_to_dashboard_with_consistent_wording():
+    client = control_server.app.test_client()
+    body = client.get("/asset/new").get_data(as_text=True)
+    assert 'href="/"' in body
+    assert "返回控制台" in body
+    assert "返回组合" not in body
+
+
 def test_asset_workspace_uses_clear_asset_specific_navigation_labels():
     client = control_server.app.test_client()
     body = client.get("/asset/manage").get_data(as_text=True)
-    for label in ("返回控制台", "资产报告", "报告记录", "运行计划"):
+    for label in ("返回控制台", "最新资产报告", "过往报告记录", "运行计划"):
         assert label in body
     assert "返回组合" not in body
+    assert '>资产报告</a>' not in body
+    assert '>报告记录</a>' not in body
 
     links = (control_server.ROOT / "control_web" / "static" / "asset_manage.js").read_text(encoding="utf-8")
     assert '"asset-report-link":"/report"' in links
@@ -129,6 +151,8 @@ def test_asset_report_and_history_return_to_the_same_asset_workspace(tmp_path: P
     assert "/history?asset_id=demo" in report
     assert "/asset/manage?asset_id=demo" in report
     assert "返回资产管理页面" in report
+    assert 'href="/">返回控制台</a>' in report
+    assert "返回组合" not in report
     assert "/report?asset_id=demo" in history
     assert "/asset/manage?asset_id=demo" in history
 
@@ -141,8 +165,10 @@ def test_empty_asset_report_preserves_the_asset_management_return_link():
             message="No report yet",
         )
     assert "返回资产管理页面" in body
+    assert "返回控制台" in body
     assert "返回组合" not in body
     assert 'href="/asset/manage?asset_id=demo"' in body
+    assert 'href="/">返回控制台</a>' in body
 
 
 def test_schedule_page_keeps_the_asset_id_when_returning_to_asset_management():
