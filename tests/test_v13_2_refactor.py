@@ -14,6 +14,23 @@ def test_v13_2_system_tools_route_loads():
     assert "系统工具" in response.get_data(as_text=True)
 
 
+def test_homepage_keeps_a_single_system_tools_navigation_entry():
+    client = control_server.app.test_client()
+    body = client.get("/").get_data(as_text=True)
+    assert body.count('href="/system-tools"') == 1
+    assert "打开系统工具" not in body
+
+
+def test_homepage_uses_consistent_disabled_asset_action_markup():
+    client = control_server.app.test_client()
+    body = client.get("/").get_data(as_text=True)
+    assert 'id="edit-asset-link"' in body
+    assert 'aria-disabled="true"' in body
+    script = (control_server.ROOT / "control_web" / "static" / "control.js").read_text(encoding="utf-8")
+    assert "请先选择或创建一个资产。" in script
+    assert "button.disabled = !enabled" in script
+
+
 def test_asset_forms_expose_only_the_four_identity_fields():
     client = control_server.app.test_client()
     new_asset = client.get("/asset/new").get_data(as_text=True)

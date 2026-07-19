@@ -19,7 +19,14 @@ button, .button-link, .secondary-button {
   align-items: center;
   justify-content: center;
 }
-button:disabled { opacity: .45; cursor: not-allowed; }
+button:disabled,
+.button-link.disabled,
+.secondary-button.disabled {
+  opacity: .5;
+  cursor: not-allowed;
+  filter: grayscale(.35);
+  box-shadow: none;
+}
 .secondary-button, .button-link.secondary {
   background: #e7edf1;
   color: #253342;
@@ -52,7 +59,7 @@ button:disabled { opacity: .45; cursor: not-allowed; }
   border-radius: 18px;
   padding: 22px;
   box-shadow: 0 10px 30px rgba(31, 51, 68, .06);
-  margin-bottom: 18px;
+  margin-bottom: 24px;
 }
 .card h2 { margin-top: 0; }
 .action-grid {
@@ -79,6 +86,9 @@ button:disabled { opacity: .45; cursor: not-allowed; }
   grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
   gap: 12px;
 }
+#running-status[data-count="4"] { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+#running-status[data-count="5"],
+#running-status[data-count="6"] { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .status-item {
   border: 1px solid #e5eaee;
   border-radius: 12px;
@@ -96,6 +106,17 @@ button:disabled { opacity: .45; cursor: not-allowed; }
   border: 1px solid #dbe3e8;
   white-space: pre-wrap;
 }
+.homepage-card .form-grid,
+.homepage-card .status-grid,
+.homepage-card > .button-row,
+.homepage-card > .result-box {
+  margin-top: 24px;
+}
+.homepage-card .asset-card .button-row { margin-top: 16px; }
+.homepage-card .empty-state p { margin: 8px 0 18px; }
+.system-tools-page .status-grid,
+.system-tools-page .result-box { margin-top: 24px; }
+.system-tools-page .result-box + .button-row { margin-top: 24px; }
 .result-box.success { border-color: #9dd6b8; background: #effaf4; }
 .result-box.error { border-color: #efb3ad; background: #fff4f3; }
 .form-grid {
@@ -153,10 +174,13 @@ dialog::backdrop { background: rgba(15,23,42,.62); }
   .form-grid { grid-template-columns: 1fr 1fr; }
   .form-grid label.wide { grid-column: span 2; }
   .hero, .section-title-row { align-items: stretch; flex-direction: column; }
+  #running-status[data-count="5"],
+  #running-status[data-count="6"] { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 @media (max-width: 560px) {
   .form-grid { grid-template-columns: 1fr; }
   .form-grid label.wide { grid-column: span 1; }
+  #running-status[data-count] { grid-template-columns: 1fr; }
 }
 
 
