@@ -27,7 +27,7 @@
         "Mail.Send"
       ],
       "endpoint": "https://graph.microsoft.com/v1.0/me/sendMail",
-      "token_cache_file": "data/private/msal_token_cache.json",
+      "token_cache_file": "config/private/msal_token_cache.json",
       "timeout_seconds": 30,
       "save_to_sent_items": true
     },

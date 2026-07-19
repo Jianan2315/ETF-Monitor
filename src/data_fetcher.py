@@ -957,7 +957,7 @@ def _load_history_cache(
                     return (
                         frame,
                         result.get("generated_at", "legacy latest.json"),
-                        str(latest_path.relative_to(project_root)),
+                        latest_path.relative_to(project_root).as_posix(),
                     )
         except Exception:
             pass

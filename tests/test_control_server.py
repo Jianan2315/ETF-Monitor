@@ -60,7 +60,7 @@ def test_control_version_endpoint():
     response = client.get("/api/version")
     assert response.status_code == 200
     data = response.get_json()
-    assert data["version"] == "13.0.0"
+    assert data["version"] == "13.2.0"
     assert "pid" in data
 
 
@@ -77,11 +77,11 @@ def test_asset_manage_page_contains_transaction_manager():
     client = control_server.app.test_client()
     response = client.get("/asset/manage")
     body = response.get_data(as_text=True)
-    assert "现有交易记录" in body
-    assert "按交易日收盘价自动计算" in body
+    assert "交易记录" in body
+    assert "按交易日收盘价" in body
 
 def test_new_asset_page_is_separate():
     client = control_server.app.test_client()
     body = client.get("/asset/new").get_data(as_text=True)
-    assert "新增资产" in body
+    assert "添加资产" in body
     assert "选择资产" not in body

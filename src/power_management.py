@@ -8,10 +8,11 @@ import os
 import re
 import subprocess
 import sys
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 from xml.etree import ElementTree as ET
+from zoneinfo import ZoneInfo
 
 TASK_NAME = "ETFMonitor_KeepAwake"
 
@@ -134,7 +135,7 @@ def _parse_task_xml(xml_text: str) -> dict[str, Any]:
         "end": _validate_time(end),
         "weekdays": weekdays,
         "task_name": TASK_NAME,
-        "wake_to_run": str(wake_text or "true").lower() != "false",
+        "wake_to_run": str(wake_text or "false").lower() != "false",
     }
 
 
@@ -245,7 +246,7 @@ def _task_xml(root: Path, start: str, end: str, sid: str) -> str:
     <AllowStartOnDemand>true</AllowStartOnDemand>
     <Enabled>true</Enabled>
     <Hidden>false</Hidden>
-    <WakeToRun>true</WakeToRun>
+    <WakeToRun>false</WakeToRun>
     <ExecutionTimeLimit>PT8H</ExecutionTimeLimit>
     <Priority>7</Priority>
   </Settings>
@@ -279,7 +280,7 @@ def _default_config() -> dict[str, Any]:
         "end": "15:30",
         "weekdays": ["MON", "TUE", "WED", "THU", "FRI"],
         "task_name": TASK_NAME,
-        "wake_to_run": True,
+        "wake_to_run": False,
     }}
 
 
@@ -287,6 +288,29 @@ def load_power_config(root: Path) -> dict[str, Any]:
     config = _read_json(_config_path(root), _default_config())
     config.setdefault("keep_awake", _default_config()["keep_awake"])
     return config
+
+
+def _window_context() -> dict[str, Any]:
+    """Return the fixed Beijing monitoring window in the system timezone."""
+    local_now = datetime.now().astimezone()
+    beijing_now = datetime.now(timezone.utc).astimezone(ZoneInfo("Asia/Shanghai"))
+    start = beijing_now.replace(hour=9, minute=0, second=0, microsecond=0)
+    end = beijing_now.replace(hour=15, minute=30, second=0, microsecond=0)
+    active = beijing_now.weekday() < 5 and start <= beijing_now < end
+    next_start = start
+    if beijing_now >= end or beijing_now.weekday() >= 5:
+        days = 1
+        while (beijing_now + timedelta(days=days)).weekday() >= 5:
+            days += 1
+        next_start = (beijing_now + timedelta(days=days)).replace(hour=9, minute=0, second=0, microsecond=0)
+    return {
+        "system_timezone": str(local_now.tzinfo),
+        "system_time": local_now.strftime("%Y-%m-%d %H:%M"),
+        "beijing_time": beijing_now.strftime("%Y-%m-%d %H:%M"),
+        "local_window": f"{start.astimezone(local_now.tzinfo):%H:%M}–{end.astimezone(local_now.tzinfo):%H:%M}",
+        "next_window": f"下一个窗口开始于 {next_start.astimezone(local_now.tzinfo):%Y-%m-%d %H:%M}",
+        "window_active": active,
+    }
 
 
 def _currently_in_window(start: str, end: str) -> bool:
@@ -304,7 +328,9 @@ def _currently_in_window(start: str, end: str) -> bool:
 def enable_keep_awake(root: Path, start: str = "09:00", end: str = "15:30") -> dict[str, Any]:
     if os.name != "nt":
         raise RuntimeError("防休眠计划仅支持Windows")
-    start, end = _validate_window(start, end)
+    # Task Scheduler uses local wall time, so translate the fixed Beijing
+    # window before creating the task (including windows that span midnight).
+    start, end = _window_context()["local_window"].split("–")
     sid = _current_user_sid()
     task_dir = root / "data" / "scheduled_tasks"
     task_dir.mkdir(parents=True, exist_ok=True)
@@ -327,13 +353,13 @@ def enable_keep_awake(root: Path, start: str = "09:00", end: str = "15:30") -> d
     _stop_path(root).unlink(missing_ok=True)
 
     started_now = False
-    if _currently_in_window(start, end):
+    if _window_context()["window_active"]:
         started_now = _run_schtasks(["/Run", "/TN", TASK_NAME]).returncode == 0
 
     return {
         "success": True,
         "message": (
-            f"已启用工作日{start}–{end}防休眠。"
+            "已启用保持系统唤醒（北京时间工作日09:00–15:30）。"
             + ("当前处于设定时段，任务已立即启动。" if started_now else "任务将在下一个工作日开始时间自动启动。")
         ),
         "started_now": started_now,
@@ -385,6 +411,7 @@ def keep_awake_status(root: Path) -> dict[str, Any]:
     task_settings = _windows_task_settings() if os.name == "nt" else None
     task_exists = task_settings is not None
     detected_from_windows = False
+    window = _window_context()
     if task_settings is not None:
         config = _sync_config_from_windows_task(root, task_settings)
         settings = config.get("keep_awake", {})
@@ -409,13 +436,13 @@ def keep_awake_status(root: Path) -> dict[str, Any]:
         enabled = bool(task_settings.get("enabled"))
         start = str(task_settings.get("start", "09:00"))
         end = str(task_settings.get("end", "15:30"))
-        wake_to_run = bool(task_settings.get("wake_to_run", True))
+        wake_to_run = bool(task_settings.get("wake_to_run", False))
         weekdays = list(task_settings.get("weekdays", []))
     else:
         enabled = bool(settings.get("enabled")) and task_exists
         start = str(settings.get("start", "09:00"))
         end = str(settings.get("end", "15:30"))
-        wake_to_run = bool(settings.get("wake_to_run", True))
+        wake_to_run = bool(settings.get("wake_to_run", False))
         weekdays = list(
             settings.get(
                 "weekdays",
@@ -458,6 +485,7 @@ def keep_awake_status(root: Path) -> dict[str, Any]:
         "end": end,
         "weekdays": weekdays,
         "wake_to_run": wake_to_run,
+        **window,
         "message": message,
         "state": state,
     }

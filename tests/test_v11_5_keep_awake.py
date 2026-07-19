@@ -27,7 +27,7 @@ def test_task_xml_contains_wake_and_weekdays(tmp_path):
         "15:30",
         "S-1-5-21-123",
     )
-    assert "<WakeToRun>true</WakeToRun>" in xml
+    assert "<WakeToRun>false</WakeToRun>" in xml
     assert "<Monday />" in xml
     assert "<Friday />" in xml
     assert "--until 15:30" in xml
@@ -37,7 +37,7 @@ def test_task_xml_contains_wake_and_weekdays(tmp_path):
 def test_keep_awake_status_is_safe_off_windows(tmp_path):
     status = keep_awake_status(tmp_path)
     assert status["enabled"] is False
-    assert status["platform_supported"] is False
+    assert status["platform_supported"] is (power_management.os.name == "nt")
 
 
 def test_parse_existing_windows_task_xml(tmp_path):
@@ -52,7 +52,7 @@ def test_parse_existing_windows_task_xml(tmp_path):
     assert parsed["start"] == "08:45"
     assert parsed["end"] == "15:40"
     assert parsed["weekdays"] == ["MON", "TUE", "WED", "THU", "FRI"]
-    assert parsed["wake_to_run"] is True
+    assert parsed["wake_to_run"] is False
 
 
 def test_status_recovers_existing_windows_task_when_local_config_is_stale(

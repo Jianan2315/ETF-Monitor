@@ -33,7 +33,7 @@ def validate_graph_environment(email_config: dict) -> dict[str, Any]:
         graph.get("endpoint", "https://graph.microsoft.com/v1.0/me/sendMail")
     ).strip()
     cache_file = str(
-        graph.get("token_cache_file", "data/private/msal_token_cache.json")
+        graph.get("token_cache_file", "config/private/msal_token_cache.json")
     ).strip()
     timeout_seconds = int(graph.get("timeout_seconds", 30))
     save_to_sent_items = bool(graph.get("save_to_sent_items", True))

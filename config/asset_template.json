@@ -3,13 +3,10 @@
     "id": "",
     "name": "",
     "asset_code": "",
-    "asset_type": "INDEX_FUND",
-    "tracking_type": "ETF",
     "tracking_code": "",
     "tracking_name": "",
     "market": "A_SHARE",
     "enabled": true,
-    "position": {"target_amount": 0},
     "strategy": {
       "type": "staged_buy",
       "drop_from_last_buy_trigger_pct": 8.0,

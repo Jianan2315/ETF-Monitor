@@ -53,7 +53,7 @@ from src.power_management import (
 ROOT = Path(__file__).resolve().parent
 HOST = "127.0.0.1"
 PORT = 8765
-CONTROL_VERSION = "13.1.0"
+CONTROL_VERSION = "13.2.0"
 
 app = Flask(
     __name__,
@@ -873,14 +873,17 @@ def _transaction_context(asset_id: str | None = None) -> tuple[str, str, Path]:
 
 
 def _list_transactions(asset_id: str | None = None) -> dict[str, Any]:
-    symbol, tracking_code, transaction_path = _transaction_context(asset_id)
+    try:
+        symbol, tracking_code, transaction_path = _transaction_context(asset_id)
+    except ValueError:
+        return {"success": True, "symbol": "", "tracking_code": "", "transactions": [], "records": []}
+    transactions = list(reversed(load_transactions(transaction_path, symbol)))
     return {
         "success": True,
         "symbol": symbol,
         "tracking_code": tracking_code,
-        "transactions": list(reversed(
-            load_transactions(transaction_path, symbol)
-        )),
+        "transactions": transactions,
+        "records": transactions,
     }
 
 
@@ -1770,8 +1773,7 @@ def _asset_summary(item: dict[str, Any]) -> dict[str, Any]:
         "id": _asset_identity(item),
         "name": item.get("name", ""),
         "asset_code": item.get("asset_code", ""),
-        "asset_type": item.get("asset_type", ""),
-        "tracking_type": item.get("tracking_type", ""),
+        "tracking_name": item.get("tracking_name", ""),
         "tracking_code": item.get("tracking_code", item.get("symbol", "")),
         "enabled": item.get("enabled", True),
         "has_report": asset_report_path(ROOT, _asset_identity(item)).exists(),
@@ -1811,8 +1813,8 @@ def _save_settings(payload: dict[str, Any], asset_id: str | None = None) -> dict
     updated = dict(current)
     changes: list[str] = []
     labels = {
-        "name": "资产名称", "asset_code": "持有基金代码", "asset_type": "资产类型",
-        "tracking_type": "跟踪对象类型", "tracking_code": "盘中跟踪代码",
+        "name": "资产名称", "asset_code": "持有代码",
+        "tracking_code": "跟踪代码",
         "tracking_name": "盘中跟踪名称",
     }
     for key, label in labels.items():
@@ -1827,10 +1829,6 @@ def _save_settings(payload: dict[str, Any], asset_id: str | None = None) -> dict
         updated["enabled"] = bool(asset_payload["enabled"])
     updated["id"] = str(updated.get("asset_code") or old_id)
     updated["symbol"] = str(updated.get("tracking_code") or "")
-    position = dict(updated.get("position", {}))
-    if "target_amount" in asset_payload:
-        position["target_amount"] = _coerce_float(asset_payload["target_amount"], "目标仓位")
-    updated["position"] = position
     strategy = dict(updated.get("strategy", {}))
     integer_fields = {"stable_days_required", "consecutive_down_warning_days", "reversal_confirmation_days"}
     for key, value in strategy_payload.items():
@@ -1845,7 +1843,7 @@ def _save_settings(payload: dict[str, Any], asset_id: str | None = None) -> dict
 def _environment_status() -> dict[str, Any]:
     assets = _all_assets()
     selected = assets[0] if assets else None
-    token_path = ROOT / "data" / "global" / "private" / "msal_token_cache.json"
+    token_path = ROOT / "config" / "private" / "msal_token_cache.json"
     report_exists = bool(selected and asset_report_path(ROOT, _asset_identity(selected)).exists())
     packages = {}
     for package in ["pandas", "akshare", "msal", "flask", "requests", "playwright"]:
@@ -1854,6 +1852,10 @@ def _environment_status() -> dict[str, Any]:
         except Exception:
             packages[package] = False
     empty = {"ok": False, "message": "尚未添加资产"}
+    required_config = ["app.json", "data.json", "email.json", "llm.json", "report.json", "schedule.json", "storage.json"]
+    missing_config = [name for name in required_config if not (ROOT / "config" / "global" / name).exists()]
+    runtime_paths = [ROOT / "data", ROOT / "logs", ROOT / "output", ROOT / "config" / "private"]
+    directory_ok = all(path.exists() and os.access(path, os.W_OK) for path in runtime_paths)
     return {
         "control_version": CONTROL_VERSION,
         "python": {"ok": True, "message": sys.version.split()[0]},
@@ -1863,6 +1865,8 @@ def _environment_status() -> dict[str, Any]:
         "cache": _cache_status() if selected else empty,
         "latest": _latest_status() if selected else empty,
         "keep_awake": keep_awake_status(ROOT), "ollama": _check_ollama(),
+        "configuration": {"ok": not missing_config, "message": "配置文件正常" if not missing_config else "缺少：" + ", ".join(missing_config)},
+        "directories": {"ok": directory_ok, "message": "运行目录可写" if directory_ok else "运行目录不存在或不可写"},
         "microsoft_token": {"ok": token_path.exists(), "message": "本地Token缓存已存在" if token_path.exists() else "尚未找到Token缓存，首次发信时需要授权"},
         "report": {"ok": report_exists, "message": "所选资产已有报告" if report_exists else "所选资产尚未生成报告"},
     }
@@ -1891,6 +1895,11 @@ def asset_manage_page():
 @app.get("/system-settings")
 def system_settings_page():
     return render_template("system_settings.html")
+
+
+@app.get("/system-tools")
+def system_tools_page():
+    return render_template("system_tools.html")
 
 
 @app.get("/schedules")
@@ -1958,15 +1967,8 @@ def api_keep_awake_status():
 
 @app.post("/api/power/keep-awake/enable")
 def api_keep_awake_enable():
-    payload = request.get_json(silent=True) or {}
-    start = str(payload.get("start", "09:00")).strip()
-    end = str(payload.get("end", "15:30")).strip()
     try:
-        result = enable_keep_awake(
-            ROOT,
-            start=start,
-            end=end,
-        )
+        result = enable_keep_awake(ROOT)
         return jsonify({
             **result,
             "status": keep_awake_status(ROOT),
@@ -2063,6 +2065,28 @@ def api_browser_inspect():
             "success": False,
             "message": f"{type(exc).__name__}: {exc}",
         }), 500
+
+
+@app.post("/api/system/browser-check")
+def api_system_browser_check():
+    """Verify browser automation, then refresh the selected asset cache on success."""
+    logger = configure_logging(ROOT / "logs" / "global" / "application.log", ROOT / "logs" / "global" / "mail.log")
+    try:
+        asset = _primary_asset()
+        inspection = inspect_browser_requests(
+            symbol=str(asset.get("symbol", "")), project_root=ROOT, logger=logger, visible_seconds=8,
+        )
+        if not inspection.get("ok"):
+            return jsonify({"success": False, "message": inspection.get("interpretation", "浏览器检查未通过。"), "inspection": inspection}), 409
+        full_config = {
+            "data": _global_config("data", {"data": {}}).get("data", {}),
+            "storage": _global_config("storage", {"storage": {}}).get("storage", {}),
+        }
+        refresh = refresh_history_cache_now(asset, full_config, ROOT, logger, market_now(_schedule_config()))
+        return jsonify({"success": bool(refresh.get("success")), "inspection": inspection, "cache_refresh": refresh, "message": refresh.get("message", "浏览器检查完成。")})
+    except Exception as exc:
+        logger.exception("System browser check crashed")
+        return jsonify({"success": False, "message": f"浏览器检查失败：{type(exc).__name__}: {exc}"}), 500
 @app.post("/api/data-sources/explore")
 def api_data_sources_explore():
     logger = configure_logging(
@@ -2233,8 +2257,11 @@ def api_assets_create():
     asset_code = str(payload.get("asset_code", "")).strip()
     tracking_code = str(payload.get("tracking_code", "")).strip()
     name = str(payload.get("name", "")).strip()
-    if not asset_code or not tracking_code or not name:
-        return jsonify({"success": False, "message": "资产名称、持有基金代码和盘中跟踪代码不能为空。"}), 400
+    tracking_name = str(payload.get("tracking_name", "")).strip()
+    if not name or not asset_code or not tracking_name or not tracking_code:
+        return jsonify({"success": False, "message": "资产名称、持有代码、跟踪名称和跟踪代码均不能为空。"}), 400
+    if not asset_code.replace("-", "").replace("_", "").isalnum() or not tracking_code.replace("-", "").replace("_", "").isalnum():
+        return jsonify({"success": False, "message": "持有代码和跟踪代码只能使用字母、数字、连字符或下划线。"}), 400
     if any(asset_code in {_asset_identity(item), str(item.get("asset_code", ""))} for item in _all_assets()):
         return jsonify({"success": False, "message": f"资产 {asset_code} 已存在。"}), 400
     template = _read_json(ROOT / "config" / "asset_template.json", {"asset": {}}).get("asset", {})
@@ -2243,14 +2270,11 @@ def api_assets_create():
         "id": asset_code,
         "name": name,
         "asset_code": asset_code,
-        "asset_type": str(payload.get("asset_type") or "INDEX_FUND"),
-        "tracking_type": str(payload.get("tracking_type") or "ETF"),
         "tracking_code": tracking_code,
-        "tracking_name": str(payload.get("tracking_name") or name),
+        "tracking_name": tracking_name,
         "symbol": tracking_code,
         "enabled": True,
     }
-    asset["position"] = {**asset.get("position", {}), "target_amount": float(payload.get("target_amount") or 0)}
     saved = save_asset(ROOT, asset)
     return jsonify({"success": True, "message": "资产已新增。", "asset": saved})
 
@@ -2261,10 +2285,22 @@ def api_assets_delete():
     wanted = str(payload.get("asset_id", "")).strip()
     try:
         asset = _find_asset(wanted)
-        delete_asset(ROOT, _asset_identity(asset), purge_runtime=True)
+        asset_id = _asset_identity(asset)
+        schedule_failures = []
+        for plan in _load_schedule_plans():
+            if str(plan.get("asset_id", "")) != asset_id:
+                continue
+            result = _delete_schedule_plan(str(plan.get("id", "")))
+            if not result.get("success"):
+                schedule_failures.append(result.get("message", "未能删除资产计划"))
+        if schedule_failures:
+            raise RuntimeError("；".join(schedule_failures))
+        delete_asset(ROOT, asset_id, purge_runtime=True)
     except ValueError as exc:
         return jsonify({"success": False, "message": str(exc)}), 404
-    return jsonify({"success": True, "message": f"已删除 {asset.get('name') or wanted}，其本地运行数据和报告也已清理。"})
+    except RuntimeError as exc:
+        return jsonify({"success": False, "message": f"资产计划删除失败，资产未删除：{exc}"}), 500
+    return jsonify({"success": True, "message": f"已删除 {asset.get('name') or wanted} 的配置、交易、报告、缓存、计划和资产日志；全局组合数据未受影响。"})
 
 
 @app.get("/api/settings")
@@ -2350,7 +2386,6 @@ def _port_is_open() -> bool:
 
 
 if __name__ == "__main__":
-    _migrate_legacy_report()
     _disable_legacy_force_email_once()
 
     if _port_is_open():

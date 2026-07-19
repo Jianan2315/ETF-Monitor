@@ -6,7 +6,7 @@ import json
 import os
 import signal
 import time
-from datetime import datetime, time as dt_time
+from datetime import datetime, time as dt_time, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -69,16 +69,11 @@ def main() -> int:
     now = datetime.now()
     until_dt = datetime.combine(now.date(), args.until)
 
-    if now >= until_dt:
-        _append_log(log_path, f"未启动防休眠：当前时间已超过{args.until:%H:%M}")
-        _write_json(state_path, {
-            "active": False,
-            "pid": os.getpid(),
-            "updated_at": now.isoformat(timespec="seconds"),
-            "until": until_dt.isoformat(timespec="seconds"),
-            "message": "当前时间已超过防休眠结束时间",
-        })
-        return 0
+    # A Beijing window can cross midnight in the local timezone (for example
+    # 21:00–03:30 in New York).  The scheduled helper therefore treats an
+    # earlier end time as the following local day.
+    if until_dt <= now:
+        until_dt += timedelta(days=1)
 
     if not _set_awake(True):
         _append_log(log_path, "SetThreadExecutionState调用失败")
