@@ -15,7 +15,7 @@ def sample_result() -> dict:
             "name": "电网设备ETF",
             "symbol": "561380",
             "strategy": {"name": "Staged Grid", "version": "1.1"},
-            "position": {"target_amount": 100000},
+            "strategy": {"planned_capital": 100000},
         },
         "decision": {
             "status": "WAIT",
@@ -72,7 +72,7 @@ def test_graph_environment_reads_client_id(monkeypatch):
                 "authority": "https://login.microsoftonline.com/consumers",
                 "scopes": ["Mail.Send"],
                 "endpoint": "https://graph.microsoft.com/v1.0/me/sendMail",
-                "token_cache_file": "data/private/cache.json",
+                "token_cache_file": "config/private/cache.json",
                 "timeout_seconds": 20,
                 "save_to_sent_items": True,
             },
@@ -93,7 +93,7 @@ def test_graph_environment_requires_client_id(monkeypatch):
                     "authority": "https://login.microsoftonline.com/consumers",
                     "scopes": ["Mail.Send"],
                     "endpoint": "https://graph.microsoft.com/v1.0/me/sendMail",
-                    "token_cache_file": "data/private/cache.json",
+                    "token_cache_file": "config/private/cache.json",
                 },
             }
         )
@@ -116,7 +116,7 @@ def test_send_notification_email_calls_graph(monkeypatch, tmp_path):
             "authority": "https://login.microsoftonline.com/consumers",
             "scopes": ["Mail.Send"],
             "endpoint": "https://graph.microsoft.com/v1.0/me/sendMail",
-            "cache_file": "data/private/cache.json",
+            "cache_file": "config/private/cache.json",
             "timeout_seconds": 30,
             "save_to_sent_items": True,
             "client_id": "client-id",

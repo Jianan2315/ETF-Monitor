@@ -205,8 +205,8 @@ def _data_steps(data_status: dict[str, Any]) -> list[dict[str, Any]]:
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
     logger = configure_logging(
-        ROOT / "logs" / "monitor.log",
-        ROOT / "logs" / "email.log",
+        ROOT / "logs" / "global" / "application.log",
+        ROOT / "logs" / "global" / "mail.log",
     )
     email_logger = get_email_logger()
     steps: list[dict[str, Any]] = []
@@ -298,9 +298,13 @@ def main(argv: list[str] | None = None) -> int:
         }
         asset_key = str(configured_asset.get("id") or configured_asset.get("asset_code") or tracking_code)
         transaction_path = asset_transactions_path(ROOT, asset_key)
-        asset_config = {**config}
-        asset_config["data"] = {**config.get("data", {}), "cache_directory": str(asset_cache_dir(ROOT, asset_key).relative_to(ROOT)).replace("\\", "/")}
         data_dir = asset_data_dir(ROOT, asset_key)
+        asset_config = {**config}
+        asset_config["data"] = {
+            **config.get("data", {}),
+            "cache_directory": str(asset_cache_dir(ROOT, asset_key).relative_to(ROOT)).replace("\\", "/"),
+            "provider_state_file": str((data_dir / "provider_state.json").relative_to(ROOT)).replace("\\", "/"),
+        }
         asset_config["storage"] = {
             **config.get("storage", {}),
             "history_file": str((data_dir / "history.xlsx").relative_to(ROOT)).replace("\\", "/"),
@@ -464,13 +468,8 @@ def main(argv: list[str] | None = None) -> int:
                 "symbol": tracking_code,
                 "asset_code": str(configured_asset.get("asset_code") or configured_asset.get("id") or tracking_code),
                 "tracking_code": tracking_code,
-                "tracking_type": configured_asset.get("tracking_type", "ETF"),
-                "asset_type": configured_asset.get("asset_type", "ETF"),
                 "is_estimated_tracking": str(configured_asset.get("asset_code") or tracking_code) != tracking_code,
-                "position": {
-                    **configured_asset.get("position", {}),
-                    **position_metrics,
-                },
+                "position": position_metrics,
             }
             steps.append(
                 _step(

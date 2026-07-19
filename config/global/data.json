@@ -12,9 +12,9 @@
         30
       ]
     },
-    "cache_directory": "data/cache",
+    "cache_directory": "data/global/cache",
     "history_circuit_breaker_hours": 6,
-    "provider_state_file": "data/provider_state.json",
+    "provider_state_file": "data/global/provider_state.json",
     "request_policy": {
       "minimum_interval_seconds": 8,
       "maximum_interval_seconds": 12,

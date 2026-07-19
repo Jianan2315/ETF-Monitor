@@ -174,7 +174,7 @@ def _plain_body(result: dict, include_raw: bool = True, forced: bool = False) ->
             f"当前总收益率：{position['profit_pct']:.2f}%\n"
             f"当前总收益金额：{position['profit_amount']:.2f} 元\n"
             f"已投入成本：{position['invested_amount']:.2f} 元\n"
-            f"目标上限：{asset['position'].get('target_amount', 0):.2f} 元"
+            f"持有份额：{position.get('shares', 0):.4f}"
         )
 
     parts.append("仅用于人工复核，不构成投资建议。")

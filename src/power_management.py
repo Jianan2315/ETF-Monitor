@@ -332,7 +332,7 @@ def enable_keep_awake(root: Path, start: str = "09:00", end: str = "15:30") -> d
     # window before creating the task (including windows that span midnight).
     start, end = _window_context()["local_window"].split("–")
     sid = _current_user_sid()
-    task_dir = root / "data" / "scheduled_tasks"
+    task_dir = root / "data" / "global" / "scheduled_tasks"
     task_dir.mkdir(parents=True, exist_ok=True)
     xml_path = task_dir / "keep_awake_task.xml"
     xml_path.write_text(_task_xml(root, start, end, sid), encoding="utf-16")

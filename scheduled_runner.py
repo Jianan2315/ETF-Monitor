@@ -30,7 +30,7 @@ def _read_json(path: Path, default: Any) -> Any:
 
 
 def _append_log(message: str) -> None:
-    path = ROOT / "logs" / "scheduled_tasks.log"
+    path = ROOT / "logs" / "global" / "scheduler.log"
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("a", encoding="utf-8") as handle:
         handle.write(

@@ -104,6 +104,10 @@ def save_asset(root: Path, asset: dict[str, Any], *, old_id: str | None = None) 
         new_output = root / 'output' / 'assets' / asset_id
         if old_output.exists() and not new_output.exists():
             old_output.rename(new_output)
+        old_logs = root / 'logs' / 'assets' / safe_asset_id(old_id)
+        new_logs = root / 'logs' / 'assets' / asset_id
+        if old_logs.exists() and not new_logs.exists():
+            old_logs.rename(new_logs)
     ensure_asset_runtime(root, asset_id)
     return {**item, 'strategy': strategy}
 
@@ -115,6 +119,7 @@ def delete_asset(root: Path, asset_id: str, *, purge_runtime: bool = True) -> No
     if purge_runtime:
         shutil.rmtree(root / 'data' / 'assets' / key, ignore_errors=True)
         shutil.rmtree(root / 'output' / 'assets' / key, ignore_errors=True)
+        shutil.rmtree(root / 'logs' / 'assets' / key, ignore_errors=True)
 
 
 def ensure_asset_runtime(root: Path, asset_id: str) -> None:

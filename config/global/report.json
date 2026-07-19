@@ -1,9 +1,9 @@
 {
   "report": {
     "template_file": "templates/dashboard.html",
-    "output_file": "output/report.html",
-    "history_index_file": "output/history.html",
-    "history_directory": "output/history",
+    "output_file": "output/portfolio/latest/report.html",
+    "history_index_file": "output/portfolio/history.html",
+    "history_directory": "output/portfolio/history",
     "keep_history": true,
     "retention_days": 180,
     "max_history_files": 600

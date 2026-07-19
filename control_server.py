@@ -128,11 +128,11 @@ def _disable_legacy_force_email_once() -> None:
     )
 
 def _migrate_legacy_report() -> None:
-    old_path = ROOT / "output" / "index.html"
-    new_path = ROOT / "output" / "report.html"
-    if old_path.exists() and not new_path.exists():
-        new_path.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(old_path, new_path)
+    """Retained as a no-op for callers from older launchers.
+
+    V13.2 never migrates a global report: reports belong to individual assets.
+    """
+    return None
 
 
 def _python_executable() -> str:
@@ -241,7 +241,7 @@ def _run_monitor(mode: str, slot: str, asset_id: str = "") -> dict[str, Any]:
         return {
             "success": False,
             "code": "TIMEOUT",
-            "message": "运行超时。请查看 logs/monitor.log。",
+            "message": "运行超时。请查看 logs/global/application.log。",
         }
     finally:
         _RUN_LOCK.release()
@@ -376,8 +376,6 @@ def _normalize_asset(asset: dict[str, Any], index: int = 0) -> dict[str, Any]:
     legacy_symbol = str(item.get("symbol") or "").strip()
     item.setdefault("id", item.get("asset_code") or legacy_symbol or f"asset-{index+1}")
     item.setdefault("asset_code", legacy_symbol)
-    item.setdefault("asset_type", "ETF" if legacy_symbol else "INDEX_FUND")
-    item.setdefault("tracking_type", "ETF")
     item.setdefault("tracking_code", legacy_symbol)
     item.setdefault("tracking_name", item.get("name", ""))
     # Keep symbol as the market-data code for backward compatibility.
@@ -472,7 +470,7 @@ def _cache_status() -> dict[str, Any]:
 
 
 def _latest_status() -> dict[str, Any]:
-    path = ROOT / "data" / "latest.json"
+    path = ROOT / "data" / "global" / "portfolio_latest.json"
     if not path.exists():
         return {"ok": False, "message": "尚未找到 latest.json"}
     try:
@@ -510,7 +508,7 @@ def _market_status() -> dict[str, Any]:
 def _environment_status() -> dict[str, Any]:
     ollama = _check_ollama()
     token_path = ROOT / "data" / "global" / "private" / "msal_token_cache.json"
-    report_path = ROOT / "output" / "report.html"
+    report_path = ROOT / "output" / "portfolio" / "latest" / "report.html"
 
     packages = {}
     for package in ["pandas", "akshare", "msal", "flask", "requests", "playwright"]:
@@ -552,49 +550,6 @@ def _environment_status() -> dict[str, Any]:
     }
 
 
-def _load_settings(asset_id: str | None = None) -> dict[str, Any]:
-    assets_doc = _read_json(ROOT / "config" / "assets.json", {"assets": []})
-    email_doc = _read_json(ROOT / "config" / "global" / "email.json", {"email": {}})
-    llm_doc = _read_json(ROOT / "config" / "global" / "llm.json", {"llm": {}})
-    data_doc = _read_json(ROOT / "config" / "global" / "data.json", {"data": {}})
-    report_doc = _read_json(ROOT / "config" / "global" / "report.json", {"report": {}})
-    schedule_doc = _read_json(ROOT / "config" / "global" / "schedule.json", {"schedule": {}})
-    transactions_doc = _read_json(
-        ROOT / "data" / "transactions.json",
-        {},
-    )
-
-    raw_assets = assets_doc.get("assets", [])
-    assets = [_normalize_asset(item, idx) for idx, item in enumerate(raw_assets)]
-    asset = _find_asset(asset_id) if assets else {}
-    transaction_key = str(asset.get("asset_code") or asset.get("id") or asset.get("symbol", ""))
-
-    return {
-        "asset": asset,
-        "assets": [
-            {
-                "id": _asset_identity(item),
-                "name": item.get("name", ""),
-                "asset_code": item.get("asset_code", ""),
-                "asset_type": item.get("asset_type", ""),
-                "tracking_type": item.get("tracking_type", ""),
-                "tracking_code": item.get("tracking_code", item.get("symbol", "")),
-                "enabled": item.get("enabled", True),
-            }
-            for item in assets
-        ],
-        "email": email_doc.get("email", {}),
-        "llm": llm_doc.get("llm", {}),
-        "data": data_doc.get("data", {}),
-        "report": report_doc.get("report", {}),
-        "schedule": schedule_doc.get("schedule", {}),
-        "transactions": load_transactions(
-            ROOT / "data" / "transactions.json",
-            transaction_key,
-        ),
-    }
-
-
 def _coerce_float(value: Any, field: str) -> float:
     try:
         return float(value)
@@ -610,7 +565,7 @@ def _coerce_int(value: Any, field: str) -> int:
 
 
 def _save_settings(payload: dict[str, Any], asset_id: str | None = None) -> dict[str, Any]:
-    assets_path = ROOT / "config" / "assets.json"
+    assets_path = ROOT / "config" / "assets_legacy_unused.json"
     email_path = ROOT / "config" / "global" / "email.json"
     llm_path = ROOT / "config" / "global" / "llm.json"
     data_path = ROOT / "config" / "global" / "data.json"
@@ -625,7 +580,7 @@ def _save_settings(payload: dict[str, Any], asset_id: str | None = None) -> dict
     schedule_doc = _read_json(schedule_path, {"schedule": {}})
 
     if not assets_doc.get("assets"):
-        raise ValueError("config/assets.json 中没有可编辑标的")
+        raise ValueError("config/assets 目录中没有可编辑资产")
 
     selected_index = 0
     wanted = str(asset_id or payload.get("asset_id") or "").strip()
@@ -639,7 +594,7 @@ def _save_settings(payload: dict[str, Any], asset_id: str | None = None) -> dict
             raise ValueError(f"未找到资产：{wanted}")
     asset = assets_doc["assets"][selected_index]
     normalized_asset = _normalize_asset(asset, selected_index)
-    for key in ("id", "asset_code", "asset_type", "tracking_type", "tracking_code", "tracking_name"):
+    for key in ("id", "asset_code", "tracking_code", "tracking_name"):
         asset.setdefault(key, normalized_asset.get(key))
     position = asset.setdefault("position", {})
     strategy = asset.setdefault("strategy", {})
@@ -663,8 +618,6 @@ def _save_settings(payload: dict[str, Any], asset_id: str | None = None) -> dict
     for key, label in [
         ("name", "资产名称"),
         ("asset_code", "持有基金代码"),
-        ("asset_type", "资产类型"),
-        ("tracking_type", "跟踪对象类型"),
         ("tracking_code", "盘中跟踪代码"),
         ("tracking_name", "盘中跟踪名称"),
     ]:
@@ -684,13 +637,6 @@ def _save_settings(payload: dict[str, Any], asset_id: str | None = None) -> dict
             changes.append(f"启用资产: {asset.get('enabled', True)} → {enabled}")
             asset["enabled"] = enabled
 
-    if "target_amount" in asset_payload:
-        update_number(
-            position,
-            "target_amount",
-            asset_payload["target_amount"],
-            "目标仓位",
-        )
 
     strategy_fields = {
         "drop_from_last_buy_trigger_pct": ("回撤触发阈值", False),
@@ -1338,9 +1284,9 @@ def _write_plan_wrapper(plan: dict[str, Any]) -> Path:
         'if not exist "logs" mkdir "logs"',
         f'set "PYTHON_EXE={ROOT / ".venv" / "Scripts" / "python.exe"}"',
         'if not exist "%PYTHON_EXE%" set "PYTHON_EXE=python"',
-        f'echo [%date% %time%] Scheduled plan {plan["id"]} started. >> "logs\\scheduled_tasks.log"',
-        f'"%PYTHON_EXE%" run.py --mode {mode} --slot {run_time} >> "logs\\scheduled_tasks.log" 2>&1',
-        f'echo [%date% %time%] Scheduled plan {plan["id"]} finished with code %errorlevel%. >> "logs\\scheduled_tasks.log"',
+        f'echo [%date% %time%] Scheduled plan {plan["id"]} started. >> "logs\\global\\scheduler.log"',
+        f'"%PYTHON_EXE%" run.py --mode {mode} --slot {run_time} >> "logs\\global\\scheduler.log" 2>&1',
+        f'echo [%date% %time%] Scheduled plan {plan["id"]} finished with code %errorlevel%. >> "logs\\global\\scheduler.log"',
     ]
     wrapper_path.write_bytes(("\r\n".join(lines) + "\r\n").encode("utf-8"))
     return wrapper_path
@@ -2005,8 +1951,8 @@ def api_environment():
 @app.post("/api/data-sources/refresh-history")
 def api_refresh_history_cache():
     logger = configure_logging(
-        ROOT / "logs" / "monitor.log",
-        ROOT / "logs" / "email.log",
+        ROOT / "logs" / "global" / "application.log",
+        ROOT / "logs" / "global" / "mail.log",
     )
     try:
         full_config = {
@@ -2037,8 +1983,8 @@ def api_refresh_history_cache():
 @app.post("/api/data-sources/browser-inspect")
 def api_browser_inspect():
     logger = configure_logging(
-        ROOT / "logs" / "monitor.log",
-        ROOT / "logs" / "email.log",
+        ROOT / "logs" / "global" / "application.log",
+        ROOT / "logs" / "global" / "mail.log",
     )
     payload = request.get_json(silent=True) or {}
     visible_seconds = payload.get("visible_seconds", 12)
@@ -2090,8 +2036,8 @@ def api_system_browser_check():
 @app.post("/api/data-sources/explore")
 def api_data_sources_explore():
     logger = configure_logging(
-        ROOT / "logs" / "monitor.log",
-        ROOT / "logs" / "email.log",
+        ROOT / "logs" / "global" / "application.log",
+        ROOT / "logs" / "global" / "mail.log",
     )
     try:
         full_config = {
@@ -2123,8 +2069,8 @@ def api_data_sources_explore():
 @app.post("/api/data-sources/diagnose")
 def api_data_sources_diagnose():
     logger = configure_logging(
-        ROOT / "logs" / "monitor.log",
-        ROOT / "logs" / "email.log",
+        ROOT / "logs" / "global" / "application.log",
+        ROOT / "logs" / "global" / "mail.log",
     )
     try:
         config = {

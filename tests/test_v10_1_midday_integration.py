@@ -9,7 +9,7 @@ from src.data_fetcher import fetch_asset_data
 
 
 def test_midday_uses_cache_and_tolerates_missing_open(tmp_path, monkeypatch):
-    cache_dir = tmp_path / "data" / "cache"
+    cache_dir = tmp_path / "data" / "assets" / "test-asset" / "cache"
     cache_dir.mkdir(parents=True)
     (cache_dir / "561380_daily.json").write_text(
         json.dumps(
@@ -91,10 +91,10 @@ def test_midday_uses_cache_and_tolerates_missing_open(tmp_path, monkeypatch):
         "data": {
             "history_days": 1000,
             "adjust": "qfq",
-            "cache_directory": "data/cache",
+            "cache_directory": "data/assets/test-asset/cache",
             "retry": {"max_attempts": 1, "delays_seconds": []},
         },
-        "storage": {"latest_file": "data/latest.json"},
+        "storage": {"latest_file": "data/assets/test-asset/latest.json"},
     }
     asset = {"symbol": "561380", "name": "电网设备ETF"}
 

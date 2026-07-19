@@ -32,7 +32,7 @@ def _task_xml(command: str, arguments: str) -> str:
 def test_legacy_cmd_task_is_migrated_when_schedule_page_loads(monkeypatch):
     legacy_xml = _task_xml(
         r"C:\Windows\System32\cmd.exe",
-        rf'/c "C:\ETF-Monitor\data\scheduled_tasks\{PLAN["id"]}.cmd"',
+        rf'/c "C:\ETF-Monitor\data\global\scheduled_tasks\{PLAN["id"]}.cmd"',
     )
     synced = []
 

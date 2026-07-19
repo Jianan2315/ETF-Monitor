@@ -18,8 +18,8 @@ def configure_logging(monitor_path: Path, email_path: Path | None = None) -> log
     """
     Configure two independent loggers:
 
-    - etf_monitor -> logs/monitor.log and console
-    - etf_email   -> logs/email.log
+    - etf_monitor -> a caller-provided global or asset log and console
+    - etf_email   -> a caller-provided global or asset mail log
 
     Email logs do not propagate into monitor.log, so Microsoft Graph troubleshooting stays
     separate from the market-data and strategy pipeline.

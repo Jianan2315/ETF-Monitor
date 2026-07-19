@@ -505,7 +505,7 @@ def diagnose_data_sources(
 def _provider_state_path(project_root: Path, config: dict) -> Path:
     relative = config.get("data", {}).get(
         "provider_state_file",
-        "data/provider_state.json",
+        "data/global/provider_state.json",
     )
     return project_root / relative
 
@@ -860,7 +860,7 @@ def _expected_history_date(now: datetime, phase: str) -> pd.Timestamp:
 
 
 def _cache_path(project_root: Path, config: dict, symbol: str) -> Path:
-    cache_dir = config.get("data", {}).get("cache_directory", "data/cache")
+    cache_dir = config.get("data", {}).get("cache_directory", "data/global/cache")
     return project_root / cache_dir / f"{symbol}_daily.json"
 
 
@@ -933,32 +933,6 @@ def _load_history_cache(
                     temp.replace(path)
                     frame.attrs["adjustment_notes"] = adjustment_notes
                 return frame, payload.get("cached_at"), str(path.relative_to(project_root))
-        except Exception:
-            pass
-
-    latest_path = project_root / config.get("storage", {}).get("latest_file", "data/latest.json")
-    if latest_path.exists():
-        try:
-            payload = json.loads(latest_path.read_text(encoding="utf-8"))
-            result = payload.get(str(symbol), {})
-            chart_data = result.get("chart_data", [])
-            if chart_data:
-                frame = pd.DataFrame(chart_data).rename(columns={"price": "close"})
-                frame["date"] = pd.to_datetime(frame["date"], errors="coerce")
-                frame["close"] = pd.to_numeric(frame["close"], errors="coerce")
-                frame = frame.dropna(subset=["date", "close"]).sort_values("date").reset_index(drop=True)
-                if not frame.empty:
-                    frame["open"] = frame["close"].shift(1).fillna(frame["close"])
-                    frame["high"] = frame[["open", "close"]].max(axis=1)
-                    frame["low"] = frame[["open", "close"]].min(axis=1)
-                    frame["volume"] = 0.0
-                    frame["amount"] = 0.0
-                    frame["daily_change_pct"] = frame["close"].pct_change().fillna(0) * 100
-                    return (
-                        frame,
-                        result.get("generated_at", "legacy latest.json"),
-                        latest_path.relative_to(project_root).as_posix(),
-                    )
         except Exception:
             pass
 
