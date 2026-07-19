@@ -33,6 +33,7 @@ def generate_html_report(results, config, root: Path, *, run_mode: str, run_slot
         run_mode=run_mode,
         run_slot=run_slot,
         report_generated_at=generated_at.isoformat(timespec="seconds"),
+        asset_id=str(report.get("asset_id", "")),
     )
     output_path.write_text(html, encoding="utf-8")
 
@@ -78,7 +79,7 @@ def _generate_history_index(root: Path, report: dict, history_dir: Path) -> None
         f"""<!doctype html><html lang="zh-CN"><meta charset="utf-8"><title>历史报告</title>
         <style>body{{font-family:Arial,Microsoft YaHei,sans-serif;max-width:900px;margin:40px auto;padding:0 20px}}
         table{{width:100%;border-collapse:collapse}}th,td{{padding:10px;border-bottom:1px solid #ddd;text-align:left}}</style>
-        <h1>Portfolio Monitor 历史报告</h1><p><a href="/report?asset_id={asset_id}">返回最新报告</a> · <a href="/">返回控制台</a></p>
+        <h1>Portfolio Monitor 历史报告</h1><p><a href="/report?asset_id={asset_id}">返回最新报告</a> · <a href="/asset/manage?asset_id={asset_id}">返回资产管理页面</a></p>
         <table><thead><tr><th>日期</th><th>时点</th><th>类型</th><th>报告</th></tr></thead><tbody>{body}</tbody></table></html>""",
         encoding="utf-8",
     )

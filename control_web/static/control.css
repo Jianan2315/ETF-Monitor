@@ -124,12 +124,26 @@ button:disabled,
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 14px;
 }
-.form-grid label {
+.form-grid label,
+.asset-identity-grid label {
   display: flex;
   flex-direction: column;
   gap: 7px;
   color: #475569;
   font-size: 14px;
+}
+.asset-identity-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px 24px;
+}
+.asset-enabled-row { margin-top: 18px; }
+.form-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin-top: 22px;
 }
 .form-grid label.wide { grid-column: span 2; }
 input, select {
@@ -181,6 +195,9 @@ dialog::backdrop { background: rgba(15,23,42,.62); }
   .form-grid { grid-template-columns: 1fr; }
   .form-grid label.wide { grid-column: span 1; }
   #running-status[data-count] { grid-template-columns: 1fr; }
+}
+@media (max-width: 760px) {
+  .asset-identity-grid { grid-template-columns: 1fr; }
 }
 
 

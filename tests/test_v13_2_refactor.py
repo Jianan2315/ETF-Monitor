@@ -1,9 +1,11 @@
 from pathlib import Path
 
 import pytest
+from flask import render_template
 
 import control_server
 from src.asset_store import asset_report_path, load_assets, save_asset
+from src.html_report import generate_html_report
 from src.power_management import _window_context
 
 
@@ -63,6 +65,91 @@ def test_asset_forms_expose_only_the_four_identity_fields():
     assert "持有代码" in new_asset
     assert "跟踪名称" in new_asset
     assert "跟踪代码" in new_asset
+
+
+def test_asset_identity_forms_use_the_shared_two_column_layout_and_action_spacing():
+    client = control_server.app.test_client()
+    new_asset = client.get("/asset/new").get_data(as_text=True)
+    edit_asset = client.get("/asset/manage").get_data(as_text=True)
+
+    assert new_asset.count('class="asset-identity-grid"') == 1
+    assert edit_asset.count('class="asset-identity-grid"') == 1
+    field_order = ("资产名称", "持有代码", "跟踪名称", "跟踪代码")
+    for page in (new_asset, edit_asset):
+        positions = [page.index(label) for label in field_order]
+        assert positions == sorted(positions)
+    identity_grid = edit_asset.split('<div class="asset-identity-grid">', 1)[1].split("</div>", 1)[0]
+    assert 'name="asset_enabled"' not in identity_grid
+    assert '<div class="asset-enabled-row">' in edit_asset
+    assert new_asset.count('class="form-actions"') == 1
+    assert edit_asset.count('class="form-actions"') == 3
+
+    styles = (control_server.ROOT / "control_web" / "static" / "control.css").read_text(encoding="utf-8")
+    assert ".asset-identity-grid" in styles
+    assert "grid-template-columns: repeat(2, minmax(0, 1fr));" in styles
+    assert "@media (max-width: 760px)" in styles
+    assert ".form-actions" in styles
+
+
+def test_asset_workspace_uses_clear_asset_specific_navigation_labels():
+    client = control_server.app.test_client()
+    body = client.get("/asset/manage").get_data(as_text=True)
+    for label in ("返回控制台", "资产报告", "报告记录", "运行计划"):
+        assert label in body
+    assert "返回组合" not in body
+
+    links = (control_server.ROOT / "control_web" / "static" / "asset_manage.js").read_text(encoding="utf-8")
+    assert '"asset-report-link":"/report"' in links
+    assert '"asset-history-link":"/history"' in links
+    assert '"asset-schedule-link":"/schedules"' in links
+
+
+def test_asset_report_and_history_return_to_the_same_asset_workspace(tmp_path: Path):
+    template_dir = tmp_path / "templates"
+    template_dir.mkdir()
+    (template_dir / "dashboard.html").write_text(
+        (control_server.ROOT / "templates" / "dashboard.html").read_text(encoding="utf-8"),
+        encoding="utf-8",
+    )
+    config = {
+        "monitor_name": "Test",
+        "report": {
+            "asset_id": "demo",
+            "template_file": "templates/dashboard.html",
+            "output_file": "output/report.html",
+            "history_directory": "output/history",
+            "history_index_file": "output/history.html",
+            "keep_history": True,
+        },
+    }
+    generate_html_report([], config, tmp_path, run_mode="close", run_slot="1500")
+
+    report = (tmp_path / "output" / "report.html").read_text(encoding="utf-8")
+    history = (tmp_path / "output" / "history.html").read_text(encoding="utf-8")
+    assert "/history?asset_id=demo" in report
+    assert "/asset/manage?asset_id=demo" in report
+    assert "返回资产管理页面" in report
+    assert "/report?asset_id=demo" in history
+    assert "/asset/manage?asset_id=demo" in history
+
+
+def test_empty_asset_report_preserves_the_asset_management_return_link():
+    with control_server.app.app_context():
+        body = render_template(
+            "empty_report.html",
+            asset={"id": "demo", "name": "Demo"},
+            message="No report yet",
+        )
+    assert "返回资产管理页面" in body
+    assert "返回组合" not in body
+    assert 'href="/asset/manage?asset_id=demo"' in body
+
+
+def test_schedule_page_keeps_the_asset_id_when_returning_to_asset_management():
+    client = control_server.app.test_client()
+    body = client.get("/schedules?asset_id=demo").get_data(as_text=True)
+    assert 'href="/asset/manage?asset_id=demo"' in body
+    assert "返回资产管理页面" in body
 
 
 def test_asset_basic_configuration_and_strategy_are_stored_separately(tmp_path: Path):

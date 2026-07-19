@@ -20,8 +20,8 @@
       <div><span>运行类型</span><strong>{{ run_mode }}</strong></div>
       <div><span>计划时点</span><strong>{{ run_slot or '手动/自动识别' }}</strong></div>
       <div><span>报告生成时间</span><strong>{{ report_generated_at }}</strong></div>
-      <div><a href="/history">查看历史报告</a></div>
-      <div><a class="control-return-link" href="http://127.0.0.1:8765/">返回控制台</a></div>
+      <div><a href="/history?asset_id={{ asset_id }}">报告记录</a></div>
+      <div><a class="control-return-link" href="/asset/manage?asset_id={{ asset_id }}">返回资产管理页面</a></div>
     </section>
 
     {% for result in results %}
