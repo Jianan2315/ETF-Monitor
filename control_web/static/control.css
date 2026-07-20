@@ -168,8 +168,21 @@ input, select {
   flex-wrap: wrap;
   gap: 12px 20px;
 }
+.trigger-explainer {
+  margin: 10px 0 16px;
+  padding: 14px 16px;
+  border: 1px solid #cfe3ed;
+  border-radius: 10px;
+  background: #f4f9fc;
+  color: #334155;
+  font-size: 14px;
+  line-height: 1.55;
+}
+.trigger-explainer p { margin: 0; }
+.trigger-explainer ul { margin: 9px 0 0; padding-left: 20px; }
+.trigger-explainer li + li { margin-top: 5px; }
 .save-card {
-  position: sticky;
+  /*position: sticky;*/
   bottom: 12px;
   z-index: 5;
 }

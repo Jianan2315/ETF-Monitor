@@ -57,6 +57,21 @@ def test_homepage_uses_consistent_disabled_asset_action_markup():
     assert "button.disabled = !enabled" in script
 
 
+def test_system_settings_explains_each_email_trigger_before_its_checkboxes():
+    body = control_server.app.test_client().get("/system-settings").get_data(as_text=True)
+
+    assert 'class="trigger-explainer"' in body
+    assert body.index('class="trigger-explainer"') < body.index('class="checkbox-grid"')
+    for status in (
+        "WAIT（等待）",
+        "WATCH（观察）",
+        "HOLD（持有）",
+        "REVIEW_BUY（人工复核加仓）",
+        "PARTIAL_SELL（部分卖出）",
+    ):
+        assert status in body
+
+
 def test_dashboard_schedule_action_uses_the_explicit_plan_label():
     client = control_server.app.test_client()
     body = client.get("/").get_data(as_text=True)
