@@ -72,6 +72,38 @@ def test_system_settings_explains_each_email_trigger_before_its_checkboxes():
         assert status in body
 
 
+def test_system_settings_save_is_global_and_has_no_default_report_time_fields(monkeypatch, tmp_path: Path):
+    monkeypatch.setattr(control_server, "ROOT", tmp_path)
+    response = control_server.app.test_client().post("/api/system-settings/save", json={
+        "llm": {"enabled": True, "model": "test-model", "timeout_seconds": "120"},
+        "email": {"enabled": True, "recipient": "test@example.com", "triggers": {"WAIT": True}},
+        "data": {"history_days": "300", "retry_max_attempts": "2"},
+        "report": {"retention_days": "90", "max_history_files": "50"},
+    })
+    body = response.get_json()
+    page = control_server.app.test_client().get("/system-settings").get_data(as_text=True)
+
+    assert response.status_code == 200
+    assert body["success"] is True
+    assert json.loads((tmp_path / "config" / "global" / "email.json").read_text(encoding="utf-8"))["email"]["triggers"]["WAIT"] is True
+    assert "trigger-conditions" in page
+    assert "intraday_slots" not in page
+    assert "close_slot" not in page
+
+
+def test_trigger_conditions_page_edits_asset_specific_strategy_settings():
+    client = control_server.app.test_client()
+    response = client.get("/trigger-conditions")
+    body = response.get_data(as_text=True)
+    script = (control_server.ROOT / "control_web" / "static" / "trigger_conditions.js").read_text(encoding="utf-8")
+
+    assert response.status_code == 200
+    assert 'name="consecutive_down_warning_days"' in body
+    assert 'name="reversal_confirmation_days"' in body
+    assert 'name="first_take_profit_pct"' in body
+    assert 'fetch(api("/api/settings/save")' in script
+
+
 def test_dashboard_schedule_action_uses_the_explicit_plan_label():
     client = control_server.app.test_client()
     body = client.get("/").get_data(as_text=True)

@@ -13,6 +13,7 @@ def evaluate_strategy(asset: dict, indicators: IndicatorResult) -> StrategyDecis
     stable_required = int(s.get("stable_days_required", 5))
     reversal_days = int(s.get("reversal_confirmation_days", 3))
     reversal_watch_days = int(s.get("reversal_watch_days", 2))
+    low_window_days = int(s.get("new_low_window_days", 10))
     minimum_rebound = float(s.get("minimum_rebound_pct", 8.0))
     normal_add = float(s.get("normal_add_amount", 10000))
     enhanced_add = float(s.get("enhanced_add_amount", 15000))
@@ -21,7 +22,7 @@ def evaluate_strategy(asset: dict, indicators: IndicatorResult) -> StrategyDecis
     if indicators.consecutive_down_days >= down_warning and indicators.is_new_10d_low:
         reasons.extend([
             f"连续下跌 {indicators.consecutive_down_days} 个交易日",
-            "最新价格仍处于近10个交易日低位",
+            f"最新价格仍处于近 {low_window_days} 个交易日低位",
             "短期下跌尚未停止，默认不加仓",
         ])
         return StrategyDecision("WAIT", bool(s.get("notify_on_wait", False)), 0.0, reasons, "NONE")

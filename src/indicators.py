@@ -49,7 +49,7 @@ def calculate_indicators(asset: dict, history: pd.DataFrame, latest: MarketSnaps
         preceding_down_days=preceding_down_days,
         rebound_pct=rebound_pct,
         is_new_5d_low=is_new_low(close, 5),
-        is_new_10d_low=is_new_low(close, 10),
+        is_new_10d_low=is_new_low(close, max(int(strategy.get("new_low_window_days", 10)), 1)),
         stable_days=count_stable_days(close, float(strategy.get("stable_range_pct", 3.0))),
         latest_price=float(latest.price),
     )

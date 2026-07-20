@@ -1,11 +1,6 @@
 {
   "schedule": {
     "timezone": "Asia/Shanghai",
-    "intraday_slots": [
-      "14:45",
-      "14:55"
-    ],
-    "close_slot": "15:10",
     "close_send_email": false
   }
 }

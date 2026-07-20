@@ -1451,6 +1451,91 @@ def _asset_summary(item: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _load_system_settings() -> dict[str, Any]:
+    """Return only configuration that is global to every asset."""
+    return {
+        "email": _global_config("email", {"email": {}}).get("email", {}),
+        "llm": _global_config("llm", {"llm": {}}).get("llm", {}),
+        "data": _global_config("data", {"data": {}}).get("data", {}),
+        "report": _global_config("report", {"report": {}}).get("report", {}),
+    }
+
+
+def _save_system_settings(payload: dict[str, Any]) -> dict[str, Any]:
+    """Save global settings without requiring or modifying an asset."""
+    docs = {
+        "email": _global_config("email", {"email": {}}),
+        "llm": _global_config("llm", {"llm": {}}),
+        "data": _global_config("data", {"data": {}}),
+        "report": _global_config("report", {"report": {}}),
+    }
+    changed_docs: set[str] = set()
+    changes: list[str] = []
+
+    def update_value(document: str, container: dict[str, Any], key: str, value: Any, label: str) -> None:
+        if container.get(key) != value:
+            container[key] = value
+            changed_docs.add(document)
+            changes.append(f"{label}: 已更新")
+
+    def update_integer(document: str, container: dict[str, Any], key: str, value: Any, label: str) -> None:
+        if value not in (None, ""):
+            update_value(document, container, key, _coerce_int(value, label), label)
+
+    llm = docs["llm"].setdefault("llm", {})
+    for key, label in {
+        "enabled": "启用本地模型",
+        "model": "主模型",
+        "keep_alive": "keep_alive",
+    }.items():
+        if key in payload.get("llm", {}):
+            update_value("llm", llm, key, payload["llm"][key], label)
+    for key, label in {
+        "timeout_seconds": "模型超时",
+        "max_summary_chars": "最大摘要长度",
+        "num_ctx": "上下文长度",
+        "num_predict": "最大生成 Token",
+    }.items():
+        update_integer("llm", llm, key, payload.get("llm", {}).get(key), label)
+
+    email = docs["email"].setdefault("email", {})
+    for key, label in {
+        "enabled": "启用邮件",
+        "recipient": "收件人",
+        "include_llm_summary": "包含模型摘要",
+        "include_raw_metrics": "包含原始指标",
+    }.items():
+        if key in payload.get("email", {}):
+            update_value("email", email, key, payload["email"][key], label)
+    debug = email.setdefault("debug", {})
+    if "force_send_email" in payload.get("email", {}):
+        update_value("email", debug, "force_send_email", bool(payload["email"]["force_send_email"]), "强制发送（调试）")
+    update_integer("email", email, "data_error_dedup_minutes", payload.get("email", {}).get("data_error_dedup_minutes"), "DATA_ERROR 去重分钟")
+    triggers = payload.get("email", {}).get("triggers")
+    if isinstance(triggers, dict):
+        configured_triggers = email.setdefault("triggers", {})
+        for status in {"WAIT", "WATCH", "HOLD", "REVIEW_BUY", "PARTIAL_SELL"}:
+            if status in triggers:
+                update_value("email", configured_triggers, status, bool(triggers[status]), f"邮件触发 {status}")
+
+    data = docs["data"].setdefault("data", {})
+    update_integer("data", data, "history_days", payload.get("data", {}).get("history_days"), "历史交易日数量")
+    retry = data.setdefault("retry", {})
+    update_integer("data", retry, "max_attempts", payload.get("data", {}).get("retry_max_attempts"), "数据重试次数")
+
+    report = docs["report"].setdefault("report", {})
+    update_integer("report", report, "retention_days", payload.get("report", {}).get("retention_days"), "报告保留天数")
+    update_integer("report", report, "max_history_files", payload.get("report", {}).get("max_history_files"), "历史报告最大数量")
+
+    for name in changed_docs:
+        _atomic_write_json(ROOT / "config" / "global" / f"{name}.json", docs[name])
+    return {
+        "success": True,
+        "message": "系统设置已保存。" if changes else "没有检测到需要保存的修改。",
+        "changes": changes,
+    }
+
+
 def _load_settings(asset_id: str | None = None) -> dict[str, Any]:
     assets = _all_assets()
     asset = _find_asset(asset_id) if assets and asset_id else (assets[0] if assets else {})
@@ -1499,7 +1584,13 @@ def _save_settings(payload: dict[str, Any], asset_id: str | None = None) -> dict
     updated["id"] = str(updated.get("asset_code") or old_id)
     updated["symbol"] = str(updated.get("tracking_code") or "")
     strategy = dict(updated.get("strategy", {}))
-    integer_fields = {"stable_days_required", "consecutive_down_warning_days", "reversal_confirmation_days"}
+    integer_fields = {
+        "stable_days_required",
+        "consecutive_down_warning_days",
+        "new_low_window_days",
+        "reversal_watch_days",
+        "reversal_confirmation_days",
+    }
     for key, value in strategy_payload.items():
         if value in (None, ""):
             continue
@@ -1564,6 +1655,11 @@ def asset_manage_page():
 @app.get("/system-settings")
 def system_settings_page():
     return render_template("system_settings.html")
+
+
+@app.get("/trigger-conditions")
+def trigger_conditions_page():
+    return render_template("trigger_conditions.html")
 
 
 @app.get("/system-tools")
@@ -1981,6 +2077,20 @@ def api_assets_delete():
 @app.get("/api/settings")
 def api_settings_get():
     return jsonify(_load_settings(request.args.get("asset_id")))
+
+
+@app.get("/api/system-settings")
+def api_system_settings_get():
+    return jsonify(_load_system_settings())
+
+
+@app.post("/api/system-settings/save")
+def api_system_settings_save():
+    payload = request.get_json(silent=True) or {}
+    try:
+        return jsonify(_save_system_settings(payload))
+    except ValueError as exc:
+        return jsonify({"success": False, "message": str(exc)}), 400
 
 
 @app.post("/api/settings/save")

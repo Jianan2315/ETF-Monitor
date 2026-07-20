@@ -181,6 +181,8 @@ input, select {
 .trigger-explainer p { margin: 0; }
 .trigger-explainer ul { margin: 9px 0 0; padding-left: 20px; }
 .trigger-explainer li + li { margin-top: 5px; }
+.trigger-title-row { align-items: center; margin-top: 22px; }
+.trigger-title-row h3 { margin: 0; }
 .save-card {
   /*position: sticky;*/
   bottom: 12px;
