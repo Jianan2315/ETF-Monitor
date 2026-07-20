@@ -5,6 +5,7 @@ from pathlib import Path
 import shutil
 import re
 from html import escape
+from urllib.parse import quote
 
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
@@ -16,16 +17,21 @@ def _environment(template_path: Path) -> Environment:
     )
 
 
-def generate_html_report(results, config, root: Path, *, run_mode: str, run_slot: str) -> Path:
+def generate_html_report(
+    results,
+    config,
+    root: Path,
+    *,
+    run_mode: str,
+    run_slot: str,
+    generated_at: datetime | None = None,
+) -> Path:
     report = config["report"]
     template_path = root / report["template_file"]
     output_path = root / report["output_file"]
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
-    generated_at = datetime.now()
-    stamp = generated_at.strftime("%Y-%m-%d_%H%M%S")
-    label = run_slot.replace(":", "") if run_slot else generated_at.strftime("%H%M")
-    snapshot_name = f"{generated_at:%Y-%m-%d}_{label}_{run_mode}.html"
+    generated_at = generated_at or datetime.now()
 
     html = _environment(template_path).get_template(template_path.name).render(
         monitor_name=config.get("monitor_name", "ETF Monitor"),
@@ -41,11 +47,27 @@ def generate_html_report(results, config, root: Path, *, run_mode: str, run_slot
     if report.get("keep_history", True):
         history_dir = root / report.get("history_directory", "output/history")
         history_dir.mkdir(parents=True, exist_ok=True)
-        snapshot_path = history_dir / snapshot_name
+        snapshot_stem = f"{generated_at:%Y-%m-%d_%H%M%S%f}_{run_mode}"
+        snapshot_path = history_dir / f"{snapshot_stem}.html"
+        collision = 1
+        while snapshot_path.exists():
+            snapshot_path = history_dir / f"{snapshot_stem}_{collision}.html"
+            collision += 1
         snapshot_html = html.replace('../static/', '../../static/')
         snapshot_path.write_text(snapshot_html, encoding="utf-8")
         _cleanup_history(history_dir, report)
-        _generate_history_index(root, report, history_dir)
+        first_result = results[0] if results else {}
+        first_asset = first_result.get("asset", {}) if isinstance(first_result, dict) else getattr(first_result, "asset", {})
+        asset_name = _field(first_asset, "name") or "当前资产"
+        asset_code = _field(first_asset, "asset_code")
+        generate_history_index(
+            root,
+            asset_id=str(report.get("asset_id", "")),
+            asset_name=str(asset_name),
+            asset_code=str(asset_code or ""),
+            history_dir=history_dir,
+            index_path=root / report.get("history_index_file", "output/history.html"),
+        )
 
     return snapshot_path
 
@@ -61,28 +83,99 @@ def _cleanup_history(history_dir: Path, report: dict) -> None:
             path.unlink(missing_ok=True)
 
 
-def _generate_history_index(root: Path, report: dict, history_dir: Path) -> None:
-    index_path = root / report.get("history_index_file", "output/history.html")
-    rows = []
-    for path in sorted(history_dir.glob("*.html"), reverse=True):
-        parts = path.stem.split("_")
-        date = parts[0] if parts else ""
-        time = parts[1] if len(parts) > 1 else ""
-        mode = parts[2] if len(parts) > 2 else ""
-        rows.append((date, time, mode, path.name))
-    asset_id = str(report.get("asset_id", ""))
-    body = "".join(
-        f'<tr><td>{date}</td><td>{time}</td><td>{mode}</td><td><a href="/history/{asset_id}/{name}">查看</a></td></tr>'
-        for date,time,mode,name in rows
+def _field(value, key: str, default=None):
+    if isinstance(value, dict):
+        return value.get(key, default)
+    return getattr(value, key, default)
+
+
+_HISTORY_SNAPSHOT_RE = re.compile(
+    r"^(?P<date>\d{4}-\d{2}-\d{2})_(?P<time>\d{12})_(?P<mode>[^_]+)(?:_\d+)?$"
+)
+_REPORT_GENERATED_AT_RE = re.compile(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}")
+
+
+def _stored_report_timestamp(path: Path) -> datetime | None:
+    try:
+        match = _REPORT_GENERATED_AT_RE.search(path.read_text(encoding="utf-8")[:65536])
+        return datetime.fromisoformat(match.group(0)) if match else None
+    except (OSError, UnicodeDecodeError, ValueError):
+        return None
+
+
+def _history_snapshot_details(path: Path) -> dict[str, object] | None:
+    match = _HISTORY_SNAPSHOT_RE.match(path.stem)
+    if not match:
+        return None
+    date = match.group("date")
+    time_text = match.group("time")
+    display_time = f"{time_text[:2]}:{time_text[2:4]}:{time_text[4:6]}"
+    sortable = datetime.strptime(f"{date} {time_text}", "%Y-%m-%d %H%M%S%f")
+    stored_timestamp = _stored_report_timestamp(path)
+    if stored_timestamp:
+        date = stored_timestamp.strftime("%Y-%m-%d")
+        display_time = stored_timestamp.strftime("%H:%M:%S")
+        sortable = stored_timestamp
+    return {
+        "date": date,
+        "time": display_time,
+        "mode": match.group("mode"),
+        "name": path.name,
+        "sort_key": sortable,
+    }
+
+
+def generate_history_index(
+    root: Path,
+    *,
+    asset_id: str,
+    asset_name: str,
+    asset_code: str = "",
+    history_dir: Path | None = None,
+    index_path: Path | None = None,
+) -> Path:
+    history_dir = history_dir or root / "output" / "assets" / asset_id / "history"
+    index_path = index_path or root / "output" / "assets" / asset_id / "history.html"
+    details = [
+        item for path in history_dir.glob("*.html")
+        if (item := _history_snapshot_details(path)) is not None
+    ]
+    rows = sorted(
+        details,
+        key=lambda row: (row["sort_key"], row["name"]),
+        reverse=True,
     )
+    safe_asset_id = quote(asset_id, safe="")
+    title = f"过往报告记录 — {asset_name}"
+    subtitle = "查看当前资产过去生成的报告。"
+    if asset_code:
+        subtitle += f" 持有代码：{asset_code}。"
+    if rows:
+        body = "".join(
+            "<tr>"
+            f"<td>{escape(str(row['date']))}</td>"
+            f"<td>{escape(str(row['time']))}</td>"
+            f"<td>{escape(str(row['mode']))}</td>"
+            f"<td><a class=\"secondary-button history-view-link\" href=\"/history/{safe_asset_id}/{quote(str(row['name']))}\">查看</a></td>"
+            "</tr>"
+            for row in rows
+        )
+        list_content = (
+            "<div class=\"table-wrapper\"><table class=\"history-table\">"
+            "<thead><tr><th>日期</th><th>生成时间</th><th>运行类型</th><th>报告</th></tr></thead>"
+            f"<tbody>{body}</tbody></table></div>"
+        )
+    else:
+        list_content = (
+            "<div class=\"history-empty\"><h3>暂无过往报告</h3>"
+            "<p>生成当前资产报告后，历史记录将显示在这里。</p></div>"
+        )
+    index_path.parent.mkdir(parents=True, exist_ok=True)
     index_path.write_text(
-        f"""<!doctype html><html lang="zh-CN"><meta charset="utf-8"><title>历史报告</title>
-        <style>body{{font-family:Arial,Microsoft YaHei,sans-serif;max-width:900px;margin:40px auto;padding:0 20px}}
-        table{{width:100%;border-collapse:collapse}}th,td{{padding:10px;border-bottom:1px solid #ddd;text-align:left}}</style>
-        <h1>Portfolio Monitor 历史报告</h1><p><a href="/report?asset_id={asset_id}">返回最新报告</a> · <a href="/asset/manage?asset_id={asset_id}">返回资产管理页面</a> · <a href="/">返回控制台</a></p>
-        <table><thead><tr><th>日期</th><th>时点</th><th>类型</th><th>报告</th></tr></thead><tbody>{body}</tbody></table></html>""",
+        f"""<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>{escape(title)}</title><link rel="stylesheet" href="/control-static/control.css"></head><body><main class="shell"><header class="hero compact"><div><p class="eyebrow">REPORT HISTORY</p><h1>{escape(title)}</h1><p>{escape(subtitle)}</p></div><div class="button-row"><a class="secondary-button" href="/report?asset_id={safe_asset_id}">返回最新报告</a><a class="secondary-button" href="/asset/manage?asset_id={safe_asset_id}">返回资产管理页面</a><a class="secondary-button" href="/">返回控制台</a></div></header><section class="card"><div class="section-title-row"><div><h2>报告列表</h2><p>按生成时间从新到旧排列。</p></div></div>{list_content}</section></main></body></html>""",
         encoding="utf-8",
     )
+    return index_path
 
 
 

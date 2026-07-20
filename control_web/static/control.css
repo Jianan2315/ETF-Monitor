@@ -183,6 +183,16 @@ dialog::backdrop { background: rgba(15,23,42,.62); }
 .dialog-content { padding: 22px; }
 .change-list { margin: 10px 0 0; padding-left: 22px; }
 .muted { color: #64748b; }
+.table-wrapper { overflow-x: auto; }
+.history-table { width: 100%; border-collapse: collapse; min-width: 620px; }
+.history-table th,
+.history-table td { padding: 13px 12px; border-bottom: 1px solid #e5eaee; text-align: left; }
+.history-table th { color: #64748b; font-size: 13px; font-weight: 700; }
+.history-table tbody tr:last-child td { border-bottom: 0; }
+.history-view-link { padding: 7px 12px; font-size: 13px; }
+.history-empty { padding: 26px 0 4px; text-align: center; }
+.history-empty h3 { margin: 0 0 8px; }
+.history-empty p { margin: 0; color: #64748b; }
 @media (max-width: 820px) {
   .action-grid { grid-template-columns: 1fr; }
   .form-grid { grid-template-columns: 1fr 1fr; }

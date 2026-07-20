@@ -1,12 +1,13 @@
 from pathlib import Path
 from types import SimpleNamespace
+from datetime import datetime
 
 import pytest
 from flask import render_template
 
 import control_server
 from src.asset_store import asset_report_path, load_assets, save_asset
-from src.html_report import generate_html_report
+from src.html_report import generate_history_index, generate_html_report
 from src.power_management import _window_context
 
 
@@ -53,6 +54,17 @@ def test_homepage_uses_consistent_disabled_asset_action_markup():
     script = (control_server.ROOT / "control_web" / "static" / "control.js").read_text(encoding="utf-8")
     assert "请先选择或创建一个资产。" in script
     assert "button.disabled = !enabled" in script
+
+
+def test_dashboard_schedule_action_uses_the_explicit_plan_label():
+    client = control_server.app.test_client()
+    body = client.get("/").get_data(as_text=True)
+    assert 'id="schedule-link"' in body
+    assert "定时运行计划" in body
+    assert '>资产计划</a>' not in body
+
+    script = (control_server.ROOT / "control_web" / "static" / "control.js").read_text(encoding="utf-8")
+    assert 'setLink("schedule-link", `/schedules?asset_id=${id}`, !!selected)' in script
 
 
 def test_homepage_has_one_add_asset_entry_and_a_button_free_empty_state():
@@ -132,11 +144,12 @@ def test_add_asset_returns_to_dashboard_with_consistent_wording():
 def test_asset_workspace_uses_clear_asset_specific_navigation_labels():
     client = control_server.app.test_client()
     body = client.get("/asset/manage").get_data(as_text=True)
-    for label in ("返回控制台", "最新资产报告", "过往报告记录", "运行计划"):
+    for label in ("返回控制台", "最新资产报告", "过往报告记录", "定时运行计划"):
         assert label in body
     assert "返回组合" not in body
     assert '>资产报告</a>' not in body
     assert '>报告记录</a>' not in body
+    assert '>运行计划</a>' not in body
 
     links = (control_server.ROOT / "control_web" / "static" / "asset_manage.js").read_text(encoding="utf-8")
     assert '"asset-report-link":"/report"' in links
@@ -231,6 +244,8 @@ def test_asset_report_and_history_return_to_the_same_asset_workspace(tmp_path: P
     assert "/asset/manage?asset_id=demo" in report
     assert "返回资产管理页面" in report
     assert 'href="/">返回控制台</a>' in report
+    assert 'class="secondary-button" href="/asset/manage?asset_id=demo"' in report
+    assert 'class="secondary-button" href="/"' in report
     assert "返回组合" not in report
     assert "上一交易日走势（2026-07-17）" in report
     assert "昨日走势" not in report
@@ -240,11 +255,19 @@ def test_asset_report_and_history_return_to_the_same_asset_workspace(tmp_path: P
     assert "/report?asset_id=demo" in history
     assert "/asset/manage?asset_id=demo" in history
     assert 'href="/">返回控制台</a>' in history
+    assert "过往报告记录 — Demo ETF" in history
+    assert 'class="shell"' in history
+    assert 'class="hero compact"' in history
+    assert 'class="card"' in history
+    assert 'class="table-wrapper"' in history
+    assert "生成时间" in history
 
     report_styles = (control_server.ROOT / "static" / "style.css").read_text(encoding="utf-8")
     assert ".report-chart-sections" in report_styles
     assert "gap:24px" in report_styles
     assert ".asset-heading + .report-rule-grid{margin-top:20px}" in report_styles
+    assert ".report-header-actions .secondary-button" in report_styles
+    assert "background:#e7edf1" in report_styles
 
 
 def test_empty_asset_report_preserves_the_asset_management_return_link():
@@ -257,6 +280,74 @@ def test_empty_asset_report_preserves_the_asset_management_return_link():
     assert "返回资产管理页面" in body
     assert "返回控制台" in body
     assert "返回组合" not in body
+    assert 'href="/asset/manage?asset_id=demo"' in body
+    assert 'href="/">返回控制台</a>' in body
+
+
+def test_history_snapshots_are_collision_safe_and_keep_second_precision(tmp_path: Path):
+    template_dir = tmp_path / "templates"
+    template_dir.mkdir()
+    (template_dir / "dashboard.html").write_text(
+        (control_server.ROOT / "templates" / "dashboard.html").read_text(encoding="utf-8"),
+        encoding="utf-8",
+    )
+    config = {
+        "report": {
+            "asset_id": "demo",
+            "template_file": "templates/dashboard.html",
+            "output_file": "output/report.html",
+            "history_directory": "output/history",
+            "history_index_file": "output/history.html",
+            "keep_history": True,
+        },
+    }
+    timestamps = [
+        datetime(2026, 7, 20, 10, 31, 10),
+        datetime(2026, 7, 20, 10, 31, 20),
+        datetime(2026, 7, 20, 10, 31, 20, 500000),
+    ]
+    snapshots = [
+        generate_html_report([], config, tmp_path, run_mode="auto", run_slot="1031", generated_at=timestamp)
+        for timestamp in timestamps
+    ]
+    history_dir = tmp_path / "output" / "history"
+    assert len(set(snapshots)) == 3
+    assert len(list(history_dir.glob("*.html"))) == 3
+    assert all("_1031_auto" not in path.name for path in snapshots)
+
+    history_path = generate_history_index(
+        tmp_path,
+        asset_id="demo",
+        asset_name="Demo ETF",
+        asset_code="510300",
+        history_dir=history_dir,
+        index_path=tmp_path / "output" / "history.html",
+    )
+    history = history_path.read_text(encoding="utf-8")
+    assert "过往报告记录 — Demo ETF" in history
+    assert "10:31:10" in history
+    assert history.count("10:31:20") == 2
+    assert history.index(snapshots[2].name) < history.index(snapshots[1].name) < history.index(snapshots[0].name)
+
+
+def test_history_route_rebuilds_a_styled_asset_specific_empty_state(monkeypatch, tmp_path: Path):
+    save_asset(tmp_path, {
+        "id": "demo",
+        "name": "Demo ETF",
+        "asset_code": "510300",
+        "tracking_name": "Demo index",
+        "tracking_code": "510300",
+    })
+    monkeypatch.setattr(control_server, "ROOT", tmp_path)
+
+    response = control_server.app.test_client().get("/history?asset_id=demo")
+    body = response.get_data(as_text=True)
+    assert response.status_code == 200
+    assert "过往报告记录 — Demo ETF" in body
+    assert "暂无过往报告" in body
+    assert 'class="shell"' in body
+    assert 'class="card"' in body
+    assert 'href="/report?asset_id=demo"' in body
     assert 'href="/asset/manage?asset_id=demo"' in body
     assert 'href="/">返回控制台</a>' in body
 

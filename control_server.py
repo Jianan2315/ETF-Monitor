@@ -48,6 +48,7 @@ from src.power_management import (
     enable_keep_awake,
     keep_awake_status,
 )
+from src.html_report import generate_history_index
 
 
 ROOT = Path(__file__).resolve().parent
@@ -1874,9 +1875,15 @@ def history_page():
     if not asset_id:
         return (render_template("empty_report.html", message="历史报告属于单个资产，请先选择资产。"), 404)
     asset = _find_asset(asset_id)
-    path = asset_history_index_path(ROOT, _asset_identity(asset))
-    if not path.exists():
-        return (render_template("empty_report.html", asset=asset, message="当前资产尚无历史报告。"), 404)
+    asset_key = _asset_identity(asset)
+    path = generate_history_index(
+        ROOT,
+        asset_id=asset_key,
+        asset_name=str(asset.get("name") or "当前资产"),
+        asset_code=str(asset.get("asset_code") or ""),
+        history_dir=asset_history_dir(ROOT, asset_key),
+        index_path=asset_history_index_path(ROOT, asset_key),
+    )
     return send_from_directory(path.parent, path.name)
 
 

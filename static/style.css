@@ -92,15 +92,19 @@ body.modal-open{overflow:hidden}
 
 .page-header{display:flex;justify-content:space-between;align-items:flex-start;gap:20px}
 .report-header-actions{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:10px}
+.report-header-actions .secondary-button,
 .control-return-link{
   display:inline-flex;
   align-items:center;
   justify-content:center;
-  padding:8px 12px;
-  border-radius:8px;
-  background:#17324f;
-  color:#fff!important;
+  padding:11px 16px;
+  border-radius:10px;
+  background:#e7edf1;
+  color:#253342;
   text-decoration:none;
-  font-weight:700
+  font-weight:700;
+  transition:background .15s ease,color .15s ease
 }
+.report-header-actions .secondary-button:hover,
+.control-return-link:hover{background:#d7e1e7;color:#172033}
 @media(max-width:800px){.page-header{flex-direction:column}.report-header-actions{justify-content:flex-start}}
