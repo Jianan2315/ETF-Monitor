@@ -35,7 +35,6 @@ config/assets/       每个资产的基本信息与独立 strategy 文件
 config/private/      Token 与其他私密配置（不进入 Git）
 data/global/         全局运行状态
 data/assets/<id>/    交易、缓存、运行数据
-output/portfolio/    组合级报告
 output/assets/<id>/  资产最新与历史报告
 logs/global/         全局日志
 logs/assets/<id>/    资产日志

@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 from types import SimpleNamespace
 from datetime import datetime
@@ -6,7 +7,7 @@ import pytest
 from flask import render_template
 
 import control_server
-from src.asset_store import asset_report_path, load_assets, save_asset
+from src.asset_store import asset_cache_dir, asset_latest_path, asset_report_path, load_assets, save_asset
 from src.html_report import generate_history_index, generate_html_report
 from src.power_management import _window_context
 
@@ -65,6 +66,7 @@ def test_dashboard_schedule_action_uses_the_explicit_plan_label():
 
     script = (control_server.ROOT / "control_web" / "static" / "control.js").read_text(encoding="utf-8")
     assert 'setLink("schedule-link", `/schedules?asset_id=${id}`, !!selected)' in script
+    assert 'fetch(`/api/environment${assetQuery}`, {cache: "no-store"})' in script
 
 
 def test_homepage_has_one_add_asset_entry_and_a_button_free_empty_state():
@@ -375,6 +377,34 @@ def test_asset_basic_configuration_and_strategy_are_stored_separately(tmp_path: 
     assert loaded["tracking_code"] == "159326"
     assert loaded["strategy"]["planned_capital"] == 100000
     assert asset_report_path(tmp_path, "grid-fund") == tmp_path / "output" / "assets" / "grid-fund" / "latest" / "report.html"
+
+
+def test_latest_status_uses_holding_scope_and_tracking_named_cache(monkeypatch, tmp_path: Path):
+    save_asset(tmp_path, {
+        "id": "023639",
+        "name": "Holding Fund",
+        "asset_code": "023639",
+        "tracking_name": "Tracking ETF",
+        "tracking_code": "561380",
+    })
+    latest_path = asset_latest_path(tmp_path, "023639")
+    latest_path.write_text(json.dumps({
+        "023639": {
+            "generated_at": "2026-07-20T12:00:00",
+            "market_timestamp": "2026-07-20 11:30:00",
+        },
+    }), encoding="utf-8")
+    monkeypatch.setattr(control_server, "ROOT", tmp_path)
+
+    asset = control_server._find_asset("561380")
+    status = control_server._latest_status(asset)
+
+    assert asset["asset_code"] == "023639"
+    assert status["ok"] is True
+    assert "2026-07-20T12:00:00" in status["message"]
+    assert asset_cache_dir(tmp_path, "023639") / "561380_daily.json" == (
+        tmp_path / "data" / "assets" / "023639" / "cache" / "561380_daily.json"
+    )
 
 
 def test_keep_awake_status_contains_timezone_context():

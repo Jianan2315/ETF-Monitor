@@ -59,7 +59,8 @@ function statusCard(title, ok, message) {
 }
 
 async function loadRunningStatus() {
-  const data = await fetch("/api/environment", {cache: "no-store"}).then(r => r.json());
+  const assetQuery = selectedAssetId ? `?asset_id=${encodeURIComponent(selectedAssetId)}` : "";
+  const data = await fetch(`/api/environment${assetQuery}`, {cache: "no-store"}).then(r => r.json());
   const power = data.keep_awake || {};
   const market = data.market || {};
   const latest = data.latest || {};

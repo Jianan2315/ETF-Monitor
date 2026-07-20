@@ -406,8 +406,8 @@ def _primary_asset() -> dict[str, Any]:
     return _find_asset(None)
 
 
-def _eastmoney_check() -> dict[str, Any]:
-    asset = _primary_asset()
+def _eastmoney_check(asset: dict[str, Any] | None = None) -> dict[str, Any]:
+    asset = asset or _primary_asset()
     symbol = str(asset.get("symbol", "561380"))
     market_prefix = "1" if symbol.startswith(("5", "6", "9")) else "0"
     now = market_now(_schedule_config())
@@ -445,10 +445,16 @@ def _eastmoney_check() -> dict[str, Any]:
         }
 
 
-def _cache_status() -> dict[str, Any]:
-    asset = _primary_asset()
-    symbol = str(asset.get("symbol", "561380"))
-    path = ROOT / "data" / "cache" / f"{symbol}_daily.json"
+def _cache_status(asset: dict[str, Any] | None = None) -> dict[str, Any]:
+    """Return cache status for one holding asset.
+
+    Asset-owned runtime data is scoped by the holding-code asset identity, while
+    the market-data cache filename is scoped by the tracking code.
+    """
+    asset = asset or _primary_asset()
+    asset_key = _asset_identity(asset)
+    tracking_code = _asset_tracking_code(asset)
+    path = asset_cache_dir(ROOT, asset_key) / f"{tracking_code}_daily.json"
     if not path.exists():
         return {"ok": False, "message": "尚未找到日线缓存"}
     try:
@@ -470,14 +476,20 @@ def _cache_status() -> dict[str, Any]:
         return {"ok": False, "message": f"读取日线缓存失败：{exc}"}
 
 
-def _latest_status() -> dict[str, Any]:
-    path = ROOT / "data" / "global" / "portfolio_latest.json"
+def _latest_status(asset: dict[str, Any] | None = None) -> dict[str, Any]:
+    """Return the latest report status from the selected asset's own storage."""
+    asset = asset or _primary_asset()
+    asset_key = _asset_identity(asset)
+    tracking_code = _asset_tracking_code(asset)
+    path = asset_latest_path(ROOT, asset_key)
     if not path.exists():
-        return {"ok": False, "message": "尚未找到 latest.json"}
+        return {
+            "ok": False,
+            "message": f"持有代码 {asset_key}（跟踪代码 {tracking_code}）尚未生成 latest.json",
+        }
     try:
         payload = json.loads(path.read_text(encoding="utf-8"))
-        asset = _primary_asset()
-        result = payload.get(str(asset.get("symbol", "")), {})
+        result = payload.get(asset_key, {})
         generated_at = result.get("generated_at") or "未知"
         market_time = result.get("market_timestamp") or "未知"
         return {
@@ -506,51 +518,6 @@ def _market_status() -> dict[str, Any]:
     }
 
 
-def _environment_status() -> dict[str, Any]:
-    ollama = _check_ollama()
-    token_path = ROOT / "data" / "global" / "private" / "msal_token_cache.json"
-    report_path = ROOT / "output" / "portfolio" / "latest" / "report.html"
-
-    packages = {}
-    for package in ["pandas", "akshare", "msal", "flask", "requests", "playwright"]:
-        try:
-            __import__(package)
-            packages[package] = True
-        except Exception:
-            packages[package] = False
-
-    return {
-        "control_version": CONTROL_VERSION,
-        "python": {"ok": True, "message": sys.version.split()[0]},
-        "packages": {
-            "ok": all(packages.values()),
-            "message": ", ".join(
-                f"{name}:{'正常' if ok else '缺失'}"
-                for name, ok in packages.items()
-            ),
-        },
-        "market": _market_status(),
-        "network": _network_check(),
-        "eastmoney": _eastmoney_check(),
-        "cache": _cache_status(),
-        "latest": _latest_status(),
-        "keep_awake": keep_awake_status(ROOT),
-        "ollama": ollama,
-        "microsoft_token": {
-            "ok": token_path.exists(),
-            "message": (
-                "本地Token缓存已存在"
-                if token_path.exists()
-                else "尚未找到Token缓存，首次发信时需要授权"
-            ),
-        },
-        "report": {
-            "ok": report_path.exists(),
-            "message": "最新报告已存在" if report_path.exists() else "尚未生成报告",
-        },
-    }
-
-
 def _coerce_float(value: Any, field: str) -> float:
     try:
         return float(value)
@@ -564,251 +531,6 @@ def _coerce_int(value: Any, field: str) -> int:
     except (TypeError, ValueError) as exc:
         raise ValueError(f"{field} 必须是整数") from exc
 
-
-def _save_settings(payload: dict[str, Any], asset_id: str | None = None) -> dict[str, Any]:
-    assets_path = ROOT / "config" / "assets_legacy_unused.json"
-    email_path = ROOT / "config" / "global" / "email.json"
-    llm_path = ROOT / "config" / "global" / "llm.json"
-    data_path = ROOT / "config" / "global" / "data.json"
-    report_path = ROOT / "config" / "global" / "report.json"
-    schedule_path = ROOT / "config" / "global" / "schedule.json"
-
-    assets_doc = _read_json(assets_path, {"assets": []})
-    email_doc = _read_json(email_path, {"email": {}})
-    llm_doc = _read_json(llm_path, {"llm": {}})
-    data_doc = _read_json(data_path, {"data": {}})
-    report_doc = _read_json(report_path, {"report": {}})
-    schedule_doc = _read_json(schedule_path, {"schedule": {}})
-
-    if not assets_doc.get("assets"):
-        raise ValueError("config/assets 目录中没有可编辑资产")
-
-    selected_index = 0
-    wanted = str(asset_id or payload.get("asset_id") or "").strip()
-    if wanted:
-        for idx, candidate in enumerate(assets_doc["assets"]):
-            normalized = _normalize_asset(candidate, idx)
-            if wanted in {_asset_identity(normalized), str(normalized.get("asset_code", "")), str(normalized.get("tracking_code", ""))}:
-                selected_index = idx
-                break
-        else:
-            raise ValueError(f"未找到资产：{wanted}")
-    asset = assets_doc["assets"][selected_index]
-    normalized_asset = _normalize_asset(asset, selected_index)
-    for key in ("id", "asset_code", "tracking_code", "tracking_name"):
-        asset.setdefault(key, normalized_asset.get(key))
-    position = asset.setdefault("position", {})
-    strategy = asset.setdefault("strategy", {})
-
-    changes: list[str] = []
-
-    def update_number(container, key, new_value, label, integer=False):
-        old_value = container.get(key)
-        value = (
-            _coerce_int(new_value, label)
-            if integer
-            else _coerce_float(new_value, label)
-        )
-        if old_value != value:
-            container[key] = value
-            changes.append(f"{label}: {old_value} → {value}")
-
-    asset_payload = payload.get("asset", {})
-    strategy_payload = payload.get("strategy", {})
-
-    for key, label in [
-        ("name", "资产名称"),
-        ("asset_code", "持有基金代码"),
-        ("tracking_code", "盘中跟踪代码"),
-        ("tracking_name", "盘中跟踪名称"),
-    ]:
-        if key in asset_payload:
-            new_value = str(asset_payload[key]).strip()
-            if not new_value:
-                raise ValueError(f"{label}不能为空")
-            old_value = asset.get(key)
-            if old_value != new_value:
-                asset[key] = new_value
-                changes.append(f"{label}: {old_value} → {new_value}")
-    asset["symbol"] = str(asset.get("tracking_code") or asset.get("symbol") or "").strip()
-
-    if "enabled" in asset_payload:
-        enabled = bool(asset_payload["enabled"])
-        if asset.get("enabled", True) != enabled:
-            changes.append(f"启用资产: {asset.get('enabled', True)} → {enabled}")
-            asset["enabled"] = enabled
-
-
-    strategy_fields = {
-        "drop_from_last_buy_trigger_pct": ("回撤触发阈值", False),
-        "stable_days_required": ("横盘确认天数", True),
-        "stable_range_pct": ("横盘波动范围", False),
-        "consecutive_down_warning_days": ("连续下跌警告天数", True),
-        "normal_add_amount": ("普通加仓额度", False),
-        "enhanced_add_amount": ("增强加仓额度", False),
-        "reversal_confirmation_days": ("反转确认天数", True),
-        "minimum_rebound_pct": ("最小反弹幅度", False),
-        "first_take_profit_pct": ("第一止盈阈值", False),
-        "first_sell_position_pct": ("第一卖出比例", False),
-        "second_take_profit_pct": ("第二止盈阈值", False),
-        "second_sell_position_pct": ("第二卖出比例", False),
-        "minimum_core_position_pct": ("最小核心仓位比例", False),
-    }
-    for key, (label, integer) in strategy_fields.items():
-        if key in strategy_payload:
-            update_number(
-                strategy,
-                key,
-                strategy_payload[key],
-                label,
-                integer=integer,
-            )
-
-    email_payload = payload.get("email", {})
-    email_cfg = email_doc.setdefault("email", {})
-    for key in [
-        "enabled",
-        "recipient",
-        "include_llm_summary",
-        "include_raw_metrics",
-    ]:
-        if key in email_payload and email_cfg.get(key) != email_payload[key]:
-            changes.append(
-                f"邮件 {key}: {email_cfg.get(key)} → {email_payload[key]}"
-            )
-            email_cfg[key] = email_payload[key]
-
-    if "force_send_email" in email_payload:
-        debug = email_cfg.setdefault("debug", {})
-        old = debug.get("force_send_email")
-        new = bool(email_payload["force_send_email"])
-        if old != new:
-            debug["force_send_email"] = new
-            changes.append(f"强制发送邮件: {old} → {new}")
-
-    if "data_error_dedup_minutes" in email_payload:
-        update_number(
-            email_cfg,
-            "data_error_dedup_minutes",
-            email_payload["data_error_dedup_minutes"],
-            "DATA_ERROR邮件去重分钟",
-            integer=True,
-        )
-
-    triggers_payload = email_payload.get("triggers", {})
-    if triggers_payload:
-        triggers = email_cfg.setdefault("triggers", {})
-        for key, new_value in triggers_payload.items():
-            if key in {
-                "WAIT",
-                "WATCH",
-                "HOLD",
-                "REVIEW_BUY",
-                "PARTIAL_SELL",
-            }:
-                new_bool = bool(new_value)
-                if triggers.get(key) != new_bool:
-                    changes.append(
-                        f"邮件触发 {key}: {triggers.get(key)} → {new_bool}"
-                    )
-                    triggers[key] = new_bool
-
-    llm_payload = payload.get("llm", {})
-    llm_cfg = llm_doc.setdefault("llm", {})
-    for key in ["enabled", "model", "keep_alive"]:
-        if key in llm_payload and llm_cfg.get(key) != llm_payload[key]:
-            changes.append(
-                f"本地模型 {key}: {llm_cfg.get(key)} → {llm_payload[key]}"
-            )
-            llm_cfg[key] = llm_payload[key]
-    for key, label, integer in [
-        ("timeout_seconds", "模型超时", True),
-        ("max_summary_chars", "摘要最大长度", True),
-        ("num_ctx", "上下文长度", True),
-        ("num_predict", "最大生成Token", True),
-    ]:
-        if key in llm_payload:
-            update_number(
-                llm_cfg,
-                key,
-                llm_payload[key],
-                label,
-                integer=integer,
-            )
-
-    data_payload = payload.get("data", {})
-    data_cfg = data_doc.setdefault("data", {})
-    if "history_days" in data_payload:
-        update_number(
-            data_cfg,
-            "history_days",
-            data_payload["history_days"],
-            "历史交易日数量",
-            integer=True,
-        )
-    retry = data_cfg.setdefault("retry", {})
-    if "retry_max_attempts" in data_payload:
-        update_number(
-            retry,
-            "max_attempts",
-            data_payload["retry_max_attempts"],
-            "数据重试次数",
-            integer=True,
-        )
-
-    report_payload = payload.get("report", {})
-    report_cfg = report_doc.setdefault("report", {})
-    for key, label in [
-        ("retention_days", "报告保留天数"),
-        ("max_history_files", "历史报告最大数量"),
-    ]:
-        if key in report_payload:
-            update_number(
-                report_cfg,
-                key,
-                report_payload[key],
-                label,
-                integer=True,
-            )
-
-    schedule_payload = payload.get("schedule", {})
-    schedule_cfg = schedule_doc.setdefault("schedule", {})
-    for key in ["intraday_slots", "close_slot"]:
-        if key in schedule_payload and schedule_cfg.get(key) != schedule_payload[key]:
-            changes.append(
-                f"调度 {key}: {schedule_cfg.get(key)} → {schedule_payload[key]}"
-            )
-            schedule_cfg[key] = schedule_payload[key]
-
-    if not changes:
-        return {
-            "success": True,
-            "message": "没有检测到需要保存的修改。",
-            "changes": [],
-        }
-
-    for path in [
-        assets_path,
-        email_path,
-        llm_path,
-        data_path,
-        report_path,
-        schedule_path,
-    ]:
-        _backup_file(path)
-
-    _atomic_write_json(assets_path, assets_doc)
-    _atomic_write_json(email_path, email_doc)
-    _atomic_write_json(llm_path, llm_doc)
-    _atomic_write_json(data_path, data_doc)
-    _atomic_write_json(report_path, report_doc)
-    _atomic_write_json(schedule_path, schedule_doc)
-
-    return {
-        "success": True,
-        "message": "配置已保存，并已备份原文件。",
-        "changes": changes,
-    }
 
 
 def _transaction_context(asset_id: str | None = None) -> tuple[str, str, Path]:
@@ -1787,9 +1509,9 @@ def _save_settings(payload: dict[str, Any], asset_id: str | None = None) -> dict
     return {"success": True, "message": "资产与策略已保存。", "changes": changes, "asset": saved}
 
 
-def _environment_status() -> dict[str, Any]:
+def _environment_status(asset_id: str | None = None) -> dict[str, Any]:
     assets = _all_assets()
-    selected = assets[0] if assets else None
+    selected = _find_asset(asset_id) if assets else None
     token_path = ROOT / "config" / "private" / "msal_token_cache.json"
     report_exists = bool(selected and asset_report_path(ROOT, _asset_identity(selected)).exists())
     packages = {}
@@ -1808,9 +1530,9 @@ def _environment_status() -> dict[str, Any]:
         "python": {"ok": True, "message": sys.version.split()[0]},
         "packages": {"ok": all(packages.values()), "message": ", ".join(f"{n}:{'正常' if ok else '缺失'}" for n, ok in packages.items())},
         "market": _market_status(), "network": _network_check(),
-        "eastmoney": _eastmoney_check() if selected else empty,
-        "cache": _cache_status() if selected else empty,
-        "latest": _latest_status() if selected else empty,
+        "eastmoney": _eastmoney_check(selected) if selected else empty,
+        "cache": _cache_status(selected) if selected else empty,
+        "latest": _latest_status(selected) if selected else empty,
         "keep_awake": keep_awake_status(ROOT), "ollama": _check_ollama(),
         "configuration": {"ok": not missing_config, "message": "配置文件正常" if not missing_config else "缺少：" + ", ".join(missing_config)},
         "directories": {"ok": directory_ok, "message": "运行目录可写" if directory_ok else "运行目录不存在或不可写"},
@@ -1948,7 +1670,7 @@ def api_keep_awake_disable():
         }), 400
 @app.get("/api/environment")
 def api_environment():
-    return jsonify(_environment_status())
+    return jsonify(_environment_status(request.args.get("asset_id")))
 
 
 
