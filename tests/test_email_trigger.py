@@ -37,6 +37,13 @@ def test_trigger_map_controls_status():
     assert not should_send_email(result("UNKNOWN"), config)
 
 
+def test_legacy_observe_statuses_use_the_new_observe_trigger():
+    config = {"enabled": True, "send_mode": "trigger", "triggers": {"OBSERVE": True}, "debug": {}}
+    assert should_send_email(result("WAIT"), config)
+    assert should_send_email(result("WATCH"), config)
+    assert should_send_email(result("HOLD"), config)
+
+
 def test_always_mode():
     config = {
         "enabled": True,

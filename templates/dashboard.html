@@ -93,6 +93,7 @@
           <ul>
             {% for reason in result.decision.reasons %}<li>{{ reason }}</li>{% endfor %}
           </ul>
+          <p class="muted"><strong>原因代码：</strong>{{ result.decision.reason_code or 'NO_ACTION' }}</p>
         </section>
 
         <section class="panel position-panel">
@@ -102,6 +103,29 @@
           <div class="position-line"><span>平均成本</span><strong>{{ "%.4f"|format(result.position_metrics.average_cost) }} 元</strong></div>
         </section>
       </div>
+
+      {% set cycle = result.indicators.cycle_analysis|default({}) or {} %}
+      <section class="panel cycle-panel">
+        <div class="panel-title-row"><div><h3>确认式市场周期</h3><p class="muted">高低点仅在价格后续反向移动达到 {{ cycle.get('confirmation_pct', 8) }}% 后确认；确认日与发生日会分别保留。</p></div></div>
+        <div class="analysis-grid cycle-metric-grid">
+          <div class="metric-list">
+            <div><span>当前周期</span><strong>{{ cycle.get('current_cycle_id') or '尚未确认' }}</strong></div>
+            <div><span>确认高点</span><strong>{% if cycle.get('last_confirmed_high') %}{{ cycle.get('last_confirmed_high').get('date') }} · {{ '%.4f'|format(cycle.get('last_confirmed_high').get('price')) }}（确认 {{ cycle.get('last_confirmed_high').get('confirmed_date') }}）{% else %}无{% endif %}</strong></div>
+            <div><span>确认低点</span><strong>{% if cycle.get('last_confirmed_low') %}{{ cycle.get('last_confirmed_low').get('date') }} · {{ '%.4f'|format(cycle.get('last_confirmed_low').get('price')) }}（确认 {{ cycle.get('last_confirmed_low').get('confirmed_date') }}）{% else %}无{% endif %}</strong></div>
+            <div><span>当前阶段高/低点</span><strong>{% if cycle.get('active_high') %}{{ '%.4f'|format(cycle.get('active_high').get('price')) }} / {{ '%.4f'|format(cycle.get('active_low').get('price')) }}{% else %}不适用{% endif %}</strong></div>
+            <div><span>反弹修复</span><strong>{% if cycle.get('recovery_pct') is not none %}{{ '%.2f'|format(cycle.get('recovery_pct')) }}%{% else %}不适用{% endif %}</strong></div>
+          </div>
+          <div class="metric-list">
+            <div><span>回撤样本 / 上涨样本</span><strong>{{ cycle.get('drawdown_sample_size', 0) }} / {{ cycle.get('rise_sample_size', 0) }}</strong></div>
+            <div><span>当前回撤 / 历史分位</span><strong>{% if cycle.get('current_drawdown_pct') is not none %}{{ '%.2f'|format(cycle.get('current_drawdown_pct')) }}% / {{ cycle.get('current_drawdown_percentile') }}%{% else %}不适用{% endif %}</strong></div>
+            <div><span>当前上涨 / 历史分位</span><strong>{% if cycle.get('current_rise_pct') is not none %}{{ '%.2f'|format(cycle.get('current_rise_pct')) }}% / {{ cycle.get('current_rise_percentile') }}%{% else %}不适用{% endif %}</strong></div>
+            <div><span>资金流状态</span><strong>{{ result.indicators.fund_flow_status }} · {{ result.indicators.fund_flow_impact }}</strong></div>
+          </div>
+        </div>
+        {% if result.sell_reminder %}
+        <p class="muted"><strong>减仓提醒：</strong>{{ result.sell_reminder.reason }}{% if result.sell_reminder.state %} · 参考/当前份额 {{ result.sell_reminder.state.reference_shares or '不适用' }} / {{ result.sell_reminder.state.current_shares or result.position_metrics.shares }} · 已减仓 {{ result.sell_reminder.state.reduced_pct or 0 }}%，剩余 {{ result.sell_reminder.state.remaining_pct or 0 }}% · 第一/二档已提醒 {{ (result.sell_reminder.state.first or {}).get('dates', [])|length }} / {{ (result.sell_reminder.state.second or {}).get('dates', [])|length }} 次 · 残余仓位 {{ '是' if (result.sell_reminder.state.remaining_pct or 100) <= (result.asset.strategy.sell_residual_position_pct or 10) else '否' }}{% endif %}</p>
+        {% endif %}
+      </section>
 
       {% if result.llm_summary %}<div class="summary-box"><strong>模型摘要</strong><p>{{ result.llm_summary }}</p></div>{% endif %}
 

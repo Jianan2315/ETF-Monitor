@@ -56,6 +56,7 @@ def test_graph_payload_supports_multiple_recipients():
     assert payload["saveToSentItems"] is True
     assert payload["message"]["body"]["contentType"] == "HTML"
     assert payload["message"]["subject"].find("[TEST]") >= 0
+    assert "OBSERVE" in payload["message"]["body"]["content"]
     assert [
         item["emailAddress"]["address"]
         for item in payload["message"]["toRecipients"]

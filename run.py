@@ -36,6 +36,8 @@ from src.notification_guard import (
 from src.position import calculate_position
 from src.storage import save_run_result
 from src.strategy import evaluate_strategy
+from src.status import normalize_status
+from src.sell_reminders import evaluate_sell_reminder, record_sell_reminder_sent
 from src.transactions import (
     load_transactions,
     reconcile_pending_transactions,
@@ -45,9 +47,7 @@ from src.transactions import (
 ROOT = Path(__file__).resolve().parent
 
 STATUS_LABELS = {
-    "WAIT": "下跌未止，继续等待",
-    "HOLD": "维持持仓，暂无操作",
-    "WATCH": "观察反转确认",
+    "OBSERVE": "暂无明确操作信号，继续观察",
     "REVIEW_BUY": "建议人工复核是否加仓",
     "PARTIAL_SELL": "建议人工复核是否部分卖出",
 }
@@ -501,6 +501,7 @@ def main(argv: list[str] | None = None) -> int:
                 asset,
                 indicators,
             )
+            decision.status = normalize_status(decision.status)
             steps.append(
                 _step(
                     "strategy",
@@ -570,6 +571,14 @@ def main(argv: list[str] | None = None) -> int:
             "_asset_runtime_config": asset_config,
         }
 
+        sell_reminder = evaluate_sell_reminder(
+            ROOT,
+            asset_key,
+            result,
+            market_now(config),
+        )
+        result["sell_reminder"] = sell_reminder
+
         try:
             save_run_result(
                 result,
@@ -599,6 +608,9 @@ def main(argv: list[str] | None = None) -> int:
             result,
             config["email"],
         )
+        if delivery.should_send and not sell_reminder.get("allowed", True):
+            from src.email_sender import EmailDecision
+            delivery = EmailDecision(False, sell_reminder.get("reason", "sell reminder blocked"), delivery.status)
         if delivery.should_send:
             if (
                 config["email"].get(
@@ -656,6 +668,15 @@ def main(argv: list[str] | None = None) -> int:
                     if delivery.forced
                     else "SENT"
                 )
+                if result["decision"]["status"] == "PARTIAL_SELL":
+                    record_sell_reminder_sent(
+                        ROOT,
+                        asset_key,
+                        sell_reminder["state"],
+                        int(sell_reminder.get("tier", 1)),
+                        market_now(config),
+                        float(sell_reminder.get("residual_position_pct", 10.0)),
+                    )
                 steps.append(
                     _step(
                         "email",

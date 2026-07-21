@@ -63,6 +63,9 @@ class IndicatorResult:
     is_new_10d_low: bool
     stable_days: int
     latest_price: float
+    cycle_analysis: dict[str, Any] | None = None
+    fund_flow_status: str = "UNAVAILABLE"
+    fund_flow_impact: str = "中性：资金流数据不可用，不阻断价格信号"
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -75,6 +78,8 @@ class StrategyDecision:
     suggested_amount: float
     reasons: list[str]
     action_type: str = "NONE"
+    reason_code: str = "NO_ACTION"
+    metadata: dict[str, Any] | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)

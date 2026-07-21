@@ -4,6 +4,7 @@ import math
 import pandas as pd
 
 from src.models import IndicatorResult, MarketSnapshot
+from src.market_cycles import analyze_market_cycles
 
 
 def calculate_indicators(asset: dict, history: pd.DataFrame, latest: MarketSnapshot) -> IndicatorResult:
@@ -31,6 +32,21 @@ def calculate_indicators(asset: dict, history: pd.DataFrame, latest: MarketSnaps
     three_m = drawdown_from_window_high(data, 63)
     six_m = drawdown_from_window_high(data, 126)
 
+    cycle_analysis = analyze_market_cycles(
+        data,
+        float(latest.price),
+        float(strategy.get("cycle_confirmation_pct", 8.0)),
+    )
+    if latest.main_fund_flow is None:
+        fund_flow_status = "UNAVAILABLE"
+        fund_flow_impact = "中性：资金流数据不可用，不阻断价格信号"
+    elif latest.main_fund_flow < 0:
+        fund_flow_status = "WEAK"
+        fund_flow_impact = "轻度降置信：当日资金流偏弱"
+    else:
+        fund_flow_status = "IMPROVING"
+        fund_flow_impact = "轻度增置信：当日资金流偏强"
+
     return IndicatorResult(
         daily_change_pct=float(latest.daily_change_pct),
         five_day_change_pct=period_return(close, 5),
@@ -52,6 +68,9 @@ def calculate_indicators(asset: dict, history: pd.DataFrame, latest: MarketSnaps
         is_new_10d_low=is_new_low(close, max(int(strategy.get("new_low_window_days", 10)), 1)),
         stable_days=count_stable_days(close, float(strategy.get("stable_range_pct", 3.0))),
         latest_price=float(latest.price),
+        cycle_analysis=cycle_analysis,
+        fund_flow_status=fund_flow_status,
+        fund_flow_impact=fund_flow_impact,
     )
 
 

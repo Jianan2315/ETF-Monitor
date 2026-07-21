@@ -13,6 +13,7 @@ from src.microsoft_graph_auth import (
     acquire_graph_access_token,
     validate_graph_environment,
 )
+from src.status import migrate_email_triggers, normalize_status
 
 
 class MicrosoftGraphEmailError(RuntimeError):
@@ -29,7 +30,7 @@ class EmailDecision:
 
 def evaluate_email_delivery(result: dict, email_config: dict) -> EmailDecision:
     """Return both the decision and a human-readable reason for logging."""
-    status = str(result.get("decision", {}).get("status", "UNKNOWN"))
+    status = normalize_status(result.get("decision", {}).get("status", "OBSERVE"))
     debug = email_config.get("debug", {}) or {}
 
     if not email_config.get("enabled", False):
@@ -54,7 +55,7 @@ def evaluate_email_delivery(result: dict, email_config: dict) -> EmailDecision:
             status,
         )
 
-    trigger_map = email_config.get("triggers", {}) or {}
+    trigger_map = migrate_email_triggers(email_config.get("triggers", {}))
     trigger_enabled = bool(trigger_map.get(status, False))
     if trigger_enabled:
         return EmailDecision(
@@ -77,9 +78,7 @@ def should_send_email(result: dict, email_config: dict) -> bool:
 
 def _status_icon(status: str) -> str:
     return {
-        "WAIT": "🟢",
-        "WATCH": "🟡",
-        "HOLD": "🔵",
+        "OBSERVE": "🔵",
         "REVIEW_BUY": "🟠",
         "PARTIAL_SELL": "🔴",
     }.get(status, "⚪")
@@ -87,7 +86,7 @@ def _status_icon(status: str) -> str:
 
 def _subject(result: dict, email_config: dict, forced: bool = False) -> str:
     prefix = email_config.get("subject_prefix", "ETF Monitor")
-    status = result["decision"]["status"]
+    status = normalize_status(result["decision"]["status"])
     test_tag = "[TEST]" if forced else ""
     run_tag = ""
     if result.get("run_slot"):
@@ -110,8 +109,12 @@ def _subject(result: dict, email_config: dict, forced: bool = False) -> str:
 def _plain_body(result: dict, include_raw: bool = True, forced: bool = False) -> str:
     indicators = result["indicators"]
     decision = result["decision"]
+    display_status = normalize_status(decision.get("status"))
     position = result["position_metrics"]
     asset = result["asset"]
+    cycle = indicators.get("cycle_analysis", {}) or {}
+    sell_reminder = result.get("sell_reminder", {}) or {}
+    reminder_state = sell_reminder.get("state", {}) or {}
 
     parts: list[str] = []
 
@@ -149,19 +152,37 @@ def _plain_body(result: dict, include_raw: bool = True, forced: bool = False) ->
 
     parts.append(
         f"基金：{asset['name']}（{asset['symbol']}）\n"
-        f"状态：{decision['status']}（{result.get('status_label', decision['status'])}）\n"
+        f"状态：{display_status}（{result.get('status_label', display_status)}）\n"
         f"数据阶段：{result.get('data_phase_label', result.get('data_phase', 'UNKNOWN'))}（{result.get('data_phase', 'UNKNOWN')}）\n"
         f"行情时间：{result.get('market_timestamp', '未知')}\n"
         f"运行时点：{result.get('run_slot') or result.get('run_mode', 'manual')}\n"
         f"策略：{asset['strategy'].get('name', '')} "
         f"v{asset['strategy'].get('version', '')}\n"
         f"建议人工复核金额：{decision['suggested_amount']:.0f} 元\n\n"
+        f"内部原因码：{decision.get('reason_code', 'NO_ACTION')}\n"
+        f"当前周期：{cycle.get('current_cycle_id') or '尚未确认'}\n"
+        f"确认高点：{(cycle.get('last_confirmed_high') or {}).get('date', '无')}（确认 {(cycle.get('last_confirmed_high') or {}).get('confirmed_date', '无')}）\n"
+        f"确认低点：{(cycle.get('last_confirmed_low') or {}).get('date', '无')}（确认 {(cycle.get('last_confirmed_low') or {}).get('confirmed_date', '无')}）\n"
+        f"历史样本：回撤 {cycle.get('drawdown_sample_size', 0)} / 上涨 {cycle.get('rise_sample_size', 0)}\n"
+        f"当前回撤/上涨：{cycle.get('current_drawdown_pct', '不适用')}% / {cycle.get('current_rise_pct', '不适用')}%\n"
+        f"历史分位：回撤 {cycle.get('current_drawdown_percentile', '不适用')}% / 上涨 {cycle.get('current_rise_percentile', '不适用')}%\n"
+        f"反弹修复：{cycle.get('recovery_pct') if cycle.get('recovery_pct') is not None else '不适用'}%\n"
+        f"资金流：{indicators.get('fund_flow_status', 'UNAVAILABLE')}｜{indicators.get('fund_flow_impact', '中性')}\n\n"
         "判断原因：\n"
         + "\n".join(
             f"{index + 1}. {reason}"
             for index, reason in enumerate(decision["reasons"])
         )
     )
+
+    if decision.get("status") == "PARTIAL_SELL":
+        parts.append(
+            "减仓提醒进度：\n"
+            f"是否可发送：{sell_reminder.get('allowed', True)}；原因：{sell_reminder.get('reason', '无')}\n"
+            f"参考份额：{reminder_state.get('reference_shares', '不适用')}；当前份额：{reminder_state.get('current_shares', position.get('shares', 0))}\n"
+            f"已减仓：{reminder_state.get('reduced_pct', 0)}%；剩余：{reminder_state.get('remaining_pct', 0)}%；"
+            f"第一/二档已提醒：{len((reminder_state.get('first') or {}).get('dates', []))}/{len((reminder_state.get('second') or {}).get('dates', []))} 次"
+        )
 
     if include_raw:
         parts.append(
@@ -184,8 +205,12 @@ def _plain_body(result: dict, include_raw: bool = True, forced: bool = False) ->
 def _html_body(result: dict, include_raw: bool = True, forced: bool = False) -> str:
     indicators = result["indicators"]
     decision = result["decision"]
+    display_status = normalize_status(decision.get("status"))
     position = result["position_metrics"]
     asset = result["asset"]
+    cycle = indicators.get("cycle_analysis", {}) or {}
+    sell_reminder = result.get("sell_reminder", {}) or {}
+    reminder_state = sell_reminder.get("state", {}) or {}
 
     reasons = "".join(
         f"<li>{html.escape(str(reason))}</li>"
@@ -284,12 +309,18 @@ def _html_body(result: dict, include_raw: bool = True, forced: bool = False) -> 
       v{html.escape(str(asset['strategy'].get('version', '')))}
     </p>
     <div style="display:inline-block;padding:8px 12px;background:#fff0cf;border-radius:999px;font-weight:700">
-      {html.escape(decision['status'])}
+      {html.escape(display_status)}
     </div>
-    <p><b>状态说明：</b>{html.escape(str(result.get('status_label', decision['status'])))}</p>
+    <p><b>状态说明：</b>{html.escape(str(result.get('status_label', display_status)))}</p>
     <p><b>建议人工复核金额：</b>{decision['suggested_amount']:.0f} 元</p>
+    <p><b>内部原因码：</b>{html.escape(str(decision.get('reason_code', 'NO_ACTION')))}</p>
+    <p><b>当前周期：</b>{html.escape(str(cycle.get('current_cycle_id') or '尚未确认'))}｜<b>历史样本：</b>回撤 {cycle.get('drawdown_sample_size', 0)} / 上涨 {cycle.get('rise_sample_size', 0)}</p>
+    <p><b>确认高/低点：</b>{html.escape(str((cycle.get('last_confirmed_high') or {}).get('date', '无')))} / {html.escape(str((cycle.get('last_confirmed_low') or {}).get('date', '无')))}（确认日：{html.escape(str((cycle.get('last_confirmed_high') or {}).get('confirmed_date', '无')))} / {html.escape(str((cycle.get('last_confirmed_low') or {}).get('confirmed_date', '无')))}）</p>
+    <p><b>回撤/上涨及分位：</b>{cycle.get('current_drawdown_pct', '不适用')}% / {cycle.get('current_rise_pct', '不适用')}%；{cycle.get('current_drawdown_percentile', '不适用')}% / {cycle.get('current_rise_percentile', '不适用')}%</p>
+    <p><b>反弹修复：</b>{cycle.get('recovery_pct') if cycle.get('recovery_pct') is not None else '不适用'}%｜<b>资金流：</b>{html.escape(str(indicators.get('fund_flow_status', 'UNAVAILABLE')))}（{html.escape(str(indicators.get('fund_flow_impact', '中性')))}）</p>
     <h3>判断原因</h3>
     <ol>{reasons}</ol>
+    {('<p><b>减仓提醒进度：</b>' + html.escape(str(sell_reminder.get('reason', '无'))) + '；参考/当前份额 ' + html.escape(str(reminder_state.get('reference_shares', '不适用'))) + ' / ' + html.escape(str(reminder_state.get('current_shares', position.get('shares', 0)))) + '；已减仓 ' + html.escape(str(reminder_state.get('reduced_pct', 0))) + '%</p>') if decision.get('status') == 'PARTIAL_SELL' else ''}
     {raw}
     <p style="margin-top:20px;color:#64748b;font-size:12px">
       仅用于人工复核，不构成投资建议。

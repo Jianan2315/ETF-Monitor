@@ -63,9 +63,7 @@ def test_system_settings_explains_each_email_trigger_before_its_checkboxes():
     assert 'class="trigger-explainer"' in body
     assert body.index('class="trigger-explainer"') < body.index('class="checkbox-grid"')
     for status in (
-        "WAIT（等待）",
-        "WATCH（观察）",
-        "HOLD（持有）",
+        "OBSERVE（观察）",
         "REVIEW_BUY（人工复核加仓）",
         "PARTIAL_SELL（部分卖出）",
     ):
@@ -85,7 +83,7 @@ def test_system_settings_save_is_global_and_has_no_default_report_time_fields(mo
 
     assert response.status_code == 200
     assert body["success"] is True
-    assert json.loads((tmp_path / "config" / "global" / "email.json").read_text(encoding="utf-8"))["email"]["triggers"]["WAIT"] is True
+    assert json.loads((tmp_path / "config" / "global" / "email.json").read_text(encoding="utf-8"))["email"]["triggers"]["OBSERVE"] is True
     assert "trigger-conditions" in page
     assert "intraday_slots" not in page
     assert "close_slot" not in page
@@ -99,8 +97,8 @@ def test_trigger_conditions_page_edits_asset_specific_strategy_settings():
 
     assert response.status_code == 200
     assert 'name="consecutive_down_warning_days"' in body
-    assert 'name="reversal_confirmation_days"' in body
-    assert 'name="first_take_profit_pct"' in body
+    assert 'name="rebound_recovery_threshold_pct"' in body
+    assert 'name="sell_first_percentile"' in body
     assert 'fetch(api("/api/settings/save")' in script
 
 

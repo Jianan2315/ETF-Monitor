@@ -13,8 +13,7 @@ BASE_GRAPH = {
 
 
 def test_valid_graph_email_config():
-    validate_email_config(
-        {
+    config = {
             "enabled": True,
             "provider": "microsoft_graph",
             "send_mode": "trigger",
@@ -26,7 +25,8 @@ def test_valid_graph_email_config():
             },
             "graph": BASE_GRAPH,
         }
-    )
+    validate_email_config(config)
+    assert config["triggers"] == {"OBSERVE": True, "REVIEW_BUY": False, "PARTIAL_SELL": False}
 
 
 def test_invalid_provider():

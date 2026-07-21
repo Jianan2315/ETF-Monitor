@@ -49,6 +49,8 @@ from src.power_management import (
     keep_awake_status,
 )
 from src.html_report import generate_history_index
+from src.status import migrate_email_triggers
+from src.sell_reminders import stop_sell_reminders
 
 
 ROOT = Path(__file__).resolve().parent
@@ -1453,8 +1455,10 @@ def _asset_summary(item: dict[str, Any]) -> dict[str, Any]:
 
 def _load_system_settings() -> dict[str, Any]:
     """Return only configuration that is global to every asset."""
+    email = _global_config("email", {"email": {}}).get("email", {})
+    email = {**email, "triggers": migrate_email_triggers(email.get("triggers", {}))}
     return {
-        "email": _global_config("email", {"email": {}}).get("email", {}),
+        "email": email,
         "llm": _global_config("llm", {"llm": {}}).get("llm", {}),
         "data": _global_config("data", {"data": {}}).get("data", {}),
         "report": _global_config("report", {"report": {}}).get("report", {}),
@@ -1499,6 +1503,10 @@ def _save_system_settings(payload: dict[str, Any]) -> dict[str, Any]:
         update_integer("llm", llm, key, payload.get("llm", {}).get(key), label)
 
     email = docs["email"].setdefault("email", {})
+    migrated_triggers = migrate_email_triggers(email.get("triggers", {}))
+    if email.get("triggers") != migrated_triggers:
+        email["triggers"] = migrated_triggers
+        changed_docs.add("email")
     for key, label in {
         "enabled": "启用邮件",
         "recipient": "收件人",
@@ -1513,8 +1521,9 @@ def _save_system_settings(payload: dict[str, Any]) -> dict[str, Any]:
     update_integer("email", email, "data_error_dedup_minutes", payload.get("email", {}).get("data_error_dedup_minutes"), "DATA_ERROR 去重分钟")
     triggers = payload.get("email", {}).get("triggers")
     if isinstance(triggers, dict):
+        triggers = migrate_email_triggers(triggers)
         configured_triggers = email.setdefault("triggers", {})
-        for status in {"WAIT", "WATCH", "HOLD", "REVIEW_BUY", "PARTIAL_SELL"}:
+        for status in {"OBSERVE", "REVIEW_BUY", "PARTIAL_SELL"}:
             if status in triggers:
                 update_value("email", configured_triggers, status, bool(triggers[status]), f"邮件触发 {status}")
 
@@ -1588,13 +1597,25 @@ def _save_settings(payload: dict[str, Any], asset_id: str | None = None) -> dict
         "stable_days_required",
         "consecutive_down_warning_days",
         "new_low_window_days",
-        "reversal_watch_days",
-        "reversal_confirmation_days",
+        "sell_first_max_reminder_days",
+        "sell_residual_max_reminder_days",
+    }
+    allowed_strategy_fields = {
+        "strategy_type", "cycle_confirmation_pct", "consecutive_down_warning_days",
+        "new_low_window_days", "stable_days_required", "stable_range_pct",
+        "normal_add_amount", "enhanced_add_amount", "rebound_recovery_threshold_pct",
+        "deep_drawdown_percentile", "sell_first_percentile", "sell_second_percentile",
+        "sell_early_alert_points", "sell_first_max_reminder_days",
+        "sell_first_stop_reduction_pct", "sell_residual_position_pct",
+        "sell_residual_max_reminder_days",
     }
     for key, value in strategy_payload.items():
-        if value in (None, ""):
+        if key not in allowed_strategy_fields or value in (None, ""):
             continue
-        strategy[key] = _coerce_int(value, key) if key in integer_fields else _coerce_float(value, key)
+        if key == "strategy_type":
+            strategy[key] = str(value).upper() if str(value).upper() in {"TREND", "CYCLICAL"} else "CYCLICAL"
+        else:
+            strategy[key] = _coerce_int(value, key) if key in integer_fields else _coerce_float(value, key)
     updated["strategy"] = strategy
     saved = save_asset(ROOT, updated, old_id=old_id)
     return {"success": True, "message": "资产与策略已保存。", "changes": changes, "asset": saved}
@@ -2105,6 +2126,17 @@ def api_settings_save():
                 "message": str(exc),
             }
         ), 400
+
+
+@app.post("/api/sell-reminders/stop")
+def api_sell_reminders_stop():
+    payload = request.get_json(silent=True) or {}
+    try:
+        asset = _find_asset(payload.get("asset_id") or request.args.get("asset_id"))
+        state = stop_sell_reminders(ROOT, _asset_identity(asset), str(payload.get("reason") or ""))
+        return jsonify({"success": True, "message": "已停止当前市场周期的减仓提醒。进入下一轮上涨周期后会自动恢复。", "state": state})
+    except ValueError as exc:
+        return jsonify({"success": False, "message": str(exc)}), 400
 
 
 @app.get("/api/transactions")

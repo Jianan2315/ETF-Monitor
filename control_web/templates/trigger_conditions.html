@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>编辑触发条件</title>
+  <link rel="stylesheet" href="/control-static/control.css">
+</head>
+<body>
+  <main class="shell">
+    <header class="hero compact">
+      <div>
+        <p class="eyebrow">ASSET STRATEGY</p>
+        <h1>编辑触发条件</h1>
+        <p>条件按资产分别保存；修改只会影响当前选择的资产及其后续报告判断。</p>
+      </div>
+      <a class="secondary-button" href="/system-settings">返回系统设置</a>
+    </header>
+
+    <section class="card">
+      <h2>选择资产</h2>
+      <div class="form-grid">
+        <label>当前资产<select id="asset-selector"></select></label>
+      </div>
+    </section>
+
+    <form id="trigger-form">
+      <section class="card">
+        <h2>下跌、低位与横盘条件</h2>
+        <p class="muted">这些参数决定 OBSERVE 的原因说明，以及止跌横盘后的 REVIEW_BUY 判断。</p>
+        <div class="form-grid">
+          <label>策略类型<select name="strategy_type"><option value="TREND">趋势型</option><option value="CYCLICAL">周期型</option></select></label>
+          <label>高低点确认幅度（%）<input name="cycle_confirmation_pct" type="number" min="0.1" step="0.1"></label>
+          <label>连续下跌警告天数<input name="consecutive_down_warning_days" type="number" min="1" step="1"></label>
+          <label>近低判断窗口（天）<input name="new_low_window_days" type="number" min="1" step="1"></label>
+          <label>横盘确认天数<input name="stable_days_required" type="number" min="1" step="1"></label>
+          <label>横盘波动范围（%）<input name="stable_range_pct" type="number" min="0" step="0.1"></label>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>反转与加仓条件</h2>
+        <p class="muted">反弹修复达到阈值后进入 REVIEW_BUY，并显示建议的人工复核金额。</p>
+        <div class="form-grid">
+          <label>观察反弹天数上限<input name="reversal_watch_days" type="number" min="1" step="1"></label>
+          <label>反弹修复确认比例（%）<input name="rebound_recovery_threshold_pct" type="number" min="0" step="0.1"></label>
+          <label>深度回撤参考分位（%）<input name="deep_drawdown_percentile" type="number" min="0" max="100" step="0.1"></label>
+          <label>反转确认建议金额<input name="normal_add_amount" type="number" min="0" step="0.01"></label>
+          <label>止跌横盘建议金额<input name="enhanced_add_amount" type="number" min="0" step="0.01"></label>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>止盈与部分卖出参数</h2>
+        <p class="muted">这些参数会保存在当前资产的策略文件中，并直接用于 PARTIAL_SELL 的两档复核及邮件提醒控制。</p>
+        <div class="form-grid">
+          <label>第一减仓参考分位（%）<input name="sell_first_percentile" type="number" min="0" max="100" step="0.1"></label>
+          <label>第二减仓参考分位（%）<input name="sell_second_percentile" type="number" min="0" max="100" step="0.1"></label>
+          <label>减仓提前提醒（百分点）<input name="sell_early_alert_points" type="number" min="0" step="0.1"></label>
+          <label>第一档最多提醒交易日<input name="sell_first_max_reminder_days" type="number" min="1" step="1"></label>
+          <label>第一档停止提醒减仓比例（%）<input name="sell_first_stop_reduction_pct" type="number" min="0" max="100" step="0.1"></label>
+          <label>残余仓位比例（%）<input name="sell_residual_position_pct" type="number" min="0" max="100" step="0.1"></label>
+          <label>残余仓位最多提醒交易日<input name="sell_residual_max_reminder_days" type="number" min="1" step="1"></label>
+        </div>
+      </section>
+
+      <section class="card save-card">
+        <div class="button-row"><button type="button" id="save-trigger-conditions">保存当前资产的触发条件</button></div>
+        <div class="form-grid"><label>停止提醒原因（可选）<input id="stop-reminder-reason" placeholder="例如：保留剩余仓位"></label></div>
+        <div class="button-row"><button type="button" id="stop-sell-reminders" class="secondary-button">停止本轮减仓提醒</button></div>
+        <div id="result" class="result-box" hidden></div>
+      </section>
+    </form>
+  </main>
+  <script src="/control-static/trigger_conditions.js"></script>
+</body>
+</html>

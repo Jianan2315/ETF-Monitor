@@ -3,6 +3,7 @@ import json
 from pathlib import Path
 from dotenv import load_dotenv
 from src.asset_store import ensure_layout, load_assets
+from src.status import migrate_email_triggers
 
 REQUIRED_SECTIONS = ['assets','data','llm','email','storage','report']
 
@@ -56,6 +57,7 @@ def validate_email_config(email: dict) -> None:
     triggers = email.get("triggers", {})
     if not isinstance(triggers, dict):
         raise ValueError("email.triggers 必须是对象")
+    email["triggers"] = migrate_email_triggers(triggers)
 
     debug = email.get("debug", {})
     if not isinstance(debug, dict):

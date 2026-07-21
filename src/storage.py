@@ -2,6 +2,7 @@ import json
 from pathlib import Path
 
 import pandas as pd
+from src.status import normalize_status
 
 
 def append_xlsx(path, row, sheet):
@@ -47,6 +48,13 @@ def save_run_result(result, config, root: Path):
             "rebound_pct": i["rebound_pct"],
             "is_new_10d_low": i["is_new_10d_low"],
             "stable_days": i["stable_days"],
+            "cycle_sample_size": (i.get("cycle_analysis") or {}).get("sample_size", 0),
+            "current_drawdown_pct": (i.get("cycle_analysis") or {}).get("current_drawdown_pct"),
+            "current_drawdown_percentile": (i.get("cycle_analysis") or {}).get("current_drawdown_percentile"),
+            "current_rise_pct": (i.get("cycle_analysis") or {}).get("current_rise_pct"),
+            "current_rise_percentile": (i.get("cycle_analysis") or {}).get("current_rise_percentile"),
+            "recovery_pct": (i.get("cycle_analysis") or {}).get("recovery_pct"),
+            "fund_flow_status": i.get("fund_flow_status", "UNAVAILABLE"),
             "invested_amount": result["position_metrics"]["invested_amount"],
             "average_cost": result["position_metrics"]["average_cost"],
             "profit_pct": result["position_metrics"]["profit_pct"],
@@ -63,8 +71,9 @@ def save_run_result(result, config, root: Path):
             "symbol": a.get("asset_code", a["symbol"]),
             "tracking_code": a.get("tracking_code", a["symbol"]),
             "name": a["name"],
-            "status": d["status"],
+            "status": normalize_status(d["status"]),
             "action_type": d.get("action_type", "NONE"),
+            "reason_code": d.get("reason_code", "NO_ACTION"),
             "suggested_amount": d["suggested_amount"],
             "reasons": "；".join(d["reasons"]),
             "should_notify": d["should_notify"],

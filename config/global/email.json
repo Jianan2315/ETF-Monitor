@@ -7,9 +7,7 @@
     "subject_prefix": "ETF Monitor",
     "send_mode": "trigger",
     "triggers": {
-      "WAIT": false,
-      "WATCH": true,
-      "HOLD": false,
+      "OBSERVE": true,
       "REVIEW_BUY": true,
       "PARTIAL_SELL": true
     },
