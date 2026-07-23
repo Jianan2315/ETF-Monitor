@@ -108,3 +108,4 @@ body.modal-open{overflow:hidden}
 .report-header-actions .secondary-button:hover,
 .control-return-link:hover{background:#d7e1e7;color:#172033}
 @media(max-width:800px){.page-header{flex-direction:column}.report-header-actions{justify-content:flex-start}}
+.data-source-block{margin:0 0 8px}.data-source-items{display:grid;gap:3px;padding-left:0}.data-source-items>div{line-height:1.55}.data-source-prefix{display:inline-block;width:5.25em;font-weight:700}.data-cache-line{margin:0 0 8px}

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from src.email_sender import build_graph_message_payload
+from src.email_sender import _compact_error_for_email, build_graph_message_payload
 from src.microsoft_graph_auth import (
     MicrosoftGraphAuthError,
     validate_graph_environment,
@@ -51,16 +51,32 @@ def graph_config() -> dict:
 
 
 def test_graph_payload_supports_multiple_recipients():
-    payload = build_graph_message_payload(sample_result(), graph_config(), forced=True)
+    result = sample_result()
+    result["llm_summary"] = "测试摘要"
+    result["data_status"] = {"history": {}, "realtime": {}, "intraday": {}}
+    payload = build_graph_message_payload(result, graph_config(), forced=True)
+    body = payload["message"]["body"]["content"]
 
     assert payload["saveToSentItems"] is True
     assert payload["message"]["body"]["contentType"] == "HTML"
     assert payload["message"]["subject"].find("[TEST]") >= 0
-    assert "OBSERVE" in payload["message"]["body"]["content"]
+    assert "OBSERVE" in body
+    assert body.index("电网设备ETF") < body.index("模型摘要") < body.index("判断原因")
+    assert body.index("判断原因") < body.index("数据源") < body.index("数据状态")
     assert [
         item["emailAddress"]["address"]
         for item in payload["message"]["toRecipients"]
     ] == ["one@example.com", "two@example.com"]
+
+
+def test_data_error_email_keeps_error_head_and_tail_but_removes_bulky_middle():
+    error = "INVALID_RESPONSE: " + "1234567890" * 80 + " final dtype=float64"
+    compact = _compact_error_for_email(error)
+
+    assert compact.startswith("INVALID_RESPONSE:")
+    assert compact.endswith("final dtype=float64")
+    assert "中间已省略" in compact
+    assert len(compact) < len(error)
 
 
 def test_graph_environment_reads_client_id(monkeypatch):

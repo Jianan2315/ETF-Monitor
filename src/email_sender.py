@@ -298,11 +298,9 @@ def _html_body(result: dict, include_raw: bool = True, forced: bool = False) -> 
 <html>
 <body style="font-family:Arial,Microsoft YaHei,sans-serif;color:#172033;background:#f4f6f8;padding:24px">
   <div style="max-width:680px;margin:auto;background:white;border-radius:16px;padding:24px">
-    {metadata}
-    {data_status_html}
     {test_banner}
-    {summary}
     <h2 style="margin:0 0 4px">{html.escape(asset['name'])}</h2>
+    {summary}
     <p style="color:#64748b">
       {html.escape(asset['symbol'])} ·
       {html.escape(asset['strategy'].get('name', ''))}
@@ -320,6 +318,8 @@ def _html_body(result: dict, include_raw: bool = True, forced: bool = False) -> 
     <p><b>反弹修复：</b>{cycle.get('recovery_pct') if cycle.get('recovery_pct') is not None else '不适用'}%｜<b>资金流：</b>{html.escape(str(indicators.get('fund_flow_status', 'UNAVAILABLE')))}（{html.escape(str(indicators.get('fund_flow_impact', '中性')))}）</p>
     <h3>判断原因</h3>
     <ol>{reasons}</ol>
+    {metadata}
+    {data_status_html}
     {('<p><b>减仓提醒进度：</b>' + html.escape(str(sell_reminder.get('reason', '无'))) + '；参考/当前份额 ' + html.escape(str(reminder_state.get('reference_shares', '不适用'))) + ' / ' + html.escape(str(reminder_state.get('current_shares', position.get('shares', 0)))) + '；已减仓 ' + html.escape(str(reminder_state.get('reduced_pct', 0))) + '%</p>') if decision.get('status') == 'PARTIAL_SELL' else ''}
     {raw}
     <p style="margin-top:20px;color:#64748b;font-size:12px">
@@ -497,6 +497,25 @@ def _safe_graph_error(response: requests.Response) -> str:
     return str(payload)[:1000]
 
 
+def _compact_error_for_email(error: object, *, max_chars: int = 260) -> str:
+    """Keep the diagnostic beginning and ending while removing bulky middles.
+
+    Data-provider exceptions sometimes embed an entire DataFrame or response
+    body.  The original exception remains in logs and run status; email only
+    needs a phone-readable diagnostic with both the error type and final clue.
+    """
+    text = " ".join(str(error).split())
+    if len(text) <= max_chars:
+        return text
+    head_chars = 150
+    tail_chars = 80
+    omitted = len(text) - head_chars - tail_chars
+    return (
+        f"{text[:head_chars]} … [中间已省略 {omitted} 个字符，完整记录已写入本地日志] … "
+        f"{text[-tail_chars:]}"
+    )
+
+
 def send_data_error_email(
     *,
     asset: dict,
@@ -513,7 +532,11 @@ def send_data_error_email(
     settings = validate_graph_environment(email_config)
     token = acquire_graph_access_token(settings, project_root, email_logger)
     recipients = _parse_recipients(email_config.get("recipient"))
-    escaped_errors = "".join(f"<li>{html.escape(item)}</li>" for item in errors)
+    escaped_errors = "".join(
+        '<li style="margin-bottom:8px;word-break:break-word">'
+        f"{html.escape(_compact_error_for_email(item))}</li>"
+        for item in errors
+    )
     subject = f"🔴 [{email_config.get('subject_prefix','ETF Monitor')}][DATA_ERROR][{run_label}] {asset.get('name', asset.get('symbol',''))}"
     content = f"""<html><body style="font-family:Arial,Microsoft YaHei,sans-serif">
     <h2>行情数据获取失败</h2>

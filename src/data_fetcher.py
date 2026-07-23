@@ -2265,7 +2265,9 @@ def _ak(
     return MarketBundle(
         history=history,
         latest=latest,
-        data_source=" + ".join(data_sources),
+        # A provider can serve multiple streams.  Keep one concise source line
+        # here; the data-status cards retain per-stream interface details.
+        data_source=" + ".join(dict.fromkeys(data_sources)),
         generated_at=now,
         intraday=intraday,
         previous_intraday=previous_intraday,
