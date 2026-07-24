@@ -17,6 +17,56 @@ function setAssetButton(enabled) {
   button.title = enabled ? "" : disabledHint;
 }
 
+function escapeHtml(value) {
+  return String(value ?? "").replace(/[&<>"]/g, char => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[char]));
+}
+
+function money(value) {
+  return `¥${Number(value || 0).toLocaleString("zh-CN", {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+}
+
+function signedPercent(value) {
+  const number = Number(value || 0);
+  return `${number >= 0 ? "+" : ""}${number.toFixed(2)}%`;
+}
+
+async function renderSelectedAsset(selected) {
+  const cards = document.getElementById("asset-summary");
+  if (!selected) {
+    cards.innerHTML = `<article class="empty-state"><h3>暂无资产</h3><p>添加资产后即可开始监控。</p></article>`;
+    return;
+  }
+  let data;
+  try {
+    const response = await fetch(`/api/assets/summary?asset_id=${encodeURIComponent(selected.id)}`, {cache: "no-store"});
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    data = await response.json();
+  } catch (error) {
+    cards.innerHTML = `<article class="status-item asset-card selected-asset-card bad"><strong>${escapeHtml(selected.name)}</strong><p>资产摘要暂时无法读取；运行状态仍可正常查看。</p><div class="button-row"><a class="secondary-button" href="/asset/manage?asset_id=${encodeURIComponent(selected.id)}">编辑</a><a class="secondary-button" href="/report?asset_id=${encodeURIComponent(selected.id)}">查看报告</a></div></article>`;
+    return;
+  }
+  const position = data.position || {};
+  const profit = Number(position.profit_amount || 0);
+  const profitClass = profit >= 0 ? "positive" : "negative";
+  const pendingDates = (data.pending_buy_dates || []).join("、");
+  const pending = Number(data.pending_buy_count || 0) > 0
+    ? `<p class="today-buy-note">待确认买入 ${money(data.pending_buy_amount)}（${escapeHtml(pendingDates || "日期待确认")}），尚未纳入已投入成本和收益计算。${escapeHtml(data.settlement?.message || "")}</p>`
+    : "";
+  cards.innerHTML = `<article class="status-item asset-card selected-asset-card ${selected.enabled ? "ok" : "bad"}">
+    <strong>${escapeHtml(selected.name)}</strong>
+    <p>持有代码：${escapeHtml(selected.asset_code)} · 跟踪代码：${escapeHtml(selected.tracking_code)}</p>
+    <div class="asset-performance-grid">
+      <div><span>当前已投入成本</span><b>${money(position.invested_amount)}</b></div>
+      <div class="${profitClass}"><span>当前收益率</span><b>${signedPercent(position.profit_pct)}</b></div>
+      <div class="${profitClass}"><span>当前收益金额</span><b>${money(profit)}</b></div>
+    </div>
+    <p class="earnings-as-of">${escapeHtml(data.message || "收益数据暂不可用")}</p>
+    <p class="muted valuation-basis">${escapeHtml(data.valuation_basis_label || "收益按跟踪标的价格估算")}</p>
+    ${pending}
+    <div class="button-row"><a class="secondary-button" href="/asset/manage?asset_id=${encodeURIComponent(selected.id)}">编辑</a><a class="secondary-button" href="/report?asset_id=${encodeURIComponent(selected.id)}">查看报告</a></div>
+  </article>`;
+}
+
 async function loadAssets() {
   const data = await fetch("/api/assets", {cache: "no-store"}).then(r => r.json());
   const assets = data.assets || [];
@@ -28,11 +78,7 @@ async function loadAssets() {
   selector.title = assets.length ? "" : "请先创建一个资产。";
 
   const selected = assets.find(a => a.id === selectedAssetId);
-  const cards = document.getElementById("asset-summary");
-  cards.classList.toggle("asset-list", !!assets.length);
-  cards.innerHTML = assets.length
-    ? assets.map(a => `<article class="status-item asset-card ${a.enabled ? "ok" : "bad"} ${a.id === selectedAssetId ? "selected" : ""}" data-select="${a.id}"><strong>${a.name}</strong><p>持有代码：${a.asset_code}</p><p>跟踪名称：${a.tracking_name || "-"}</p><p>跟踪代码：${a.tracking_code}</p><div class="button-row"><a class="secondary-button" href="/asset/manage?asset_id=${encodeURIComponent(a.id)}">编辑</a><a class="secondary-button" href="/report?asset_id=${encodeURIComponent(a.id)}">查看报告</a></div></article>`).join("")
-    : `<article class="empty-state"><h3>暂无资产</h3><p>添加资产后即可开始监控。</p></article>`;
+  await renderSelectedAsset(selected);
 
   const id = encodeURIComponent(selectedAssetId);
   setLink("schedule-link", `/schedules?asset_id=${id}`, !!selected);
@@ -40,14 +86,6 @@ async function loadAssets() {
 
   selector.onchange = async () => {
     selectedAssetId = selector.value;
-    localStorage.setItem("portfolio.selectedAssetId", selectedAssetId);
-    await loadAssets();
-    await loadRunningStatus();
-  };
-  cards.onclick = async event => {
-    const card = event.target.closest("[data-select]");
-    if (!card || event.target.closest("a")) return;
-    selectedAssetId = card.dataset.select;
     localStorage.setItem("portfolio.selectedAssetId", selectedAssetId);
     await loadAssets();
     await loadRunningStatus();

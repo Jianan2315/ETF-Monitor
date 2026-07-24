@@ -2,6 +2,7 @@ import pandas as pd
 
 from src.transactions import (
     delete_transaction,
+    delete_transactions,
     load_transactions,
     reconcile_pending_transactions,
     save_transaction,
@@ -112,3 +113,19 @@ def test_transaction_update_and_delete(tmp_path):
         original["id"],
     ) is True
     assert load_transactions(path, "561380") == []
+
+
+def test_batch_transaction_delete_writes_remaining_records_once(tmp_path):
+    path = tmp_path / "transactions.json"
+    records = [
+        save_transaction(path, "561380", {
+            "type": "BUY", "date": f"2026-07-{day:02d}",
+            "pricing_mode": "PENDING", "amount": day * 100,
+        })
+        for day in (1, 2, 3)
+    ]
+
+    deleted = delete_transactions(path, "561380", [records[0]["id"], records[2]["id"]])
+
+    assert deleted == 2
+    assert [item["id"] for item in load_transactions(path, "561380")] == [records[1]["id"]]

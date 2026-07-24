@@ -671,6 +671,15 @@ def refresh_history_cache_now(
         errors.extend(direct_errors)
 
     if history is None:
+        history, sina_errors = _retry_call(
+            lambda: _fetch_history_sina(ak, asset, config, logger),
+            retry_cfg,
+            "manual-history-refresh-sina",
+            logger,
+        )
+        errors.extend(sina_errors)
+
+    if history is None:
         if _looks_like_antibot(errors):
             _open_history_circuit(
                 project_root,

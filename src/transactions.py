@@ -238,6 +238,28 @@ def delete_transaction(
     return True
 
 
+def delete_transactions(
+    path: Path,
+    symbol: str,
+    transaction_ids: list[str] | set[str] | tuple[str, ...],
+) -> int:
+    """Delete selected transactions together, with one atomic file write."""
+    ids = {str(transaction_id) for transaction_id in transaction_ids if str(transaction_id)}
+    if not ids:
+        return 0
+
+    doc = _read_json(path, {})
+    records = doc.get(str(symbol), [])
+    remaining = [item for item in records if str(item.get("id")) not in ids]
+    deleted_count = len(records) - len(remaining)
+    if not deleted_count:
+        return 0
+
+    doc[str(symbol)] = remaining
+    _atomic_write_json(path, doc)
+    return deleted_count
+
+
 def _close_for_date(
     history: pd.DataFrame,
     date_text: str,

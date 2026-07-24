@@ -1,9 +1,112 @@
 <!doctype html>
-<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>资产</title><link rel="stylesheet" href="/control-static/control.css"></head>
-<body><main class="shell">
-<header class="hero compact"><div><p class="eyebrow">ASSET WORKSPACE</p><h1 id="page-title">资产</h1><p>资产信息、交易、策略、报告、历史与计划均属于当前资产。</p></div><div class="button-row"><a class="secondary-button" href="/">返回控制台</a><a id="asset-report-link" class="secondary-button" href="#">最新资产报告</a><a id="asset-history-link" class="secondary-button" href="#">过往报告记录</a><a id="asset-schedule-link" class="secondary-button" href="#">定时运行计划</a></div></header>
-<section class="card"><div class="section-title-row"><div><h2>当前资产</h2><p>切换资产会立即重新加载该资产的数据。</p></div><button id="delete-asset" class="danger-button">删除资产</button></div><div class="form-grid"><label>选择资产<select id="asset-selector"></select></label></div></section>
-<form id="asset-form"><section class="card"><h2>资产信息</h2><div class="asset-identity-grid"><label>资产名称<input name="asset_name" required></label><label>持有代码<input name="asset_code" required></label><label>跟踪名称<input name="tracking_name" required></label><label>跟踪代码<input name="tracking_code" required></label></div><div class="asset-enabled-row"><label class="checkbox-row"><input name="asset_enabled" type="checkbox">启用资产</label></div><div class="form-actions"><button type="button" id="save-asset">保存资产信息</button></div></section>
-<section class="card"><h2>策略概览</h2><p class="muted">高低点确认、回撤分位、减仓分位与提醒规则均按当前资产独立保存。</p><div class="form-grid"><label>策略类型<select name="strategy_type"><option value="TREND">趋势型</option><option value="CYCLICAL">周期型</option></select></label><label>反弹复核建议金额<input name="normal_add_amount" type="number" min="0" step="0.01"></label><label>深度回撤复核建议金额<input name="enhanced_add_amount" type="number" min="0" step="0.01"></label></div><div class="form-actions"><button type="button" id="save-strategy" class="secondary-button">保存策略概览</button><a id="asset-trigger-link" class="secondary-button" href="#">编辑完整触发条件</a></div><div id="asset-result" class="result-box" hidden></div></section></form>
-<section class="card"><h2>交易记录</h2><div class="form-grid"><label>类型<select id="tx-type"><option value="BUY">买入</option><option value="SELL">卖出</option></select></label><label>日期<input id="tx-date" type="date"></label><label>价格处理<select id="tx-pricing-mode"><option value="CLOSE_ESTIMATE">按交易日收盘价估算</option><option value="PENDING">等待数据</option></select></label><label>交易金额<input id="tx-amount" type="number" step="0.01" min="0"></label><label class="wide">备注<input id="tx-note"></label></div><div class="form-actions"><button id="save-transaction">保存交易</button><button id="refresh-transactions" class="secondary-button">刷新</button></div><div id="tx-result" class="result-box" hidden></div><div id="transaction-list" class="transaction-list"></div></section>
-</main><script src="/control-static/asset_manage.js"></script></body></html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>资产</title>
+  <link rel="stylesheet" href="/control-static/control.css">
+</head>
+<body>
+<main class="shell">
+  <header class="hero compact">
+    <div>
+      <p class="eyebrow">ASSET WORKSPACE</p>
+      <h1 id="page-title">资产</h1>
+      <p>资产信息、交易、策略、报告、历史与计划均属于当前资产。</p>
+    </div>
+    <div class="button-row">
+      <a class="secondary-button" href="/">返回控制台</a>
+      <a id="asset-report-link" class="secondary-button" href="#">最新资产报告</a>
+      <a id="asset-history-link" class="secondary-button" href="#">过往报告记录</a>
+      <a id="asset-schedule-link" class="secondary-button" href="#">定时运行计划</a>
+    </div>
+  </header>
+
+  <section class="card">
+    <div class="section-title-row">
+      <div>
+        <h2>当前资产</h2>
+        <p>切换资产会立即重新加载该资产的数据。</p>
+      </div>
+      <button id="delete-asset" class="danger-button">删除资产</button>
+    </div>
+    <div class="form-grid"><label>选择资产<select id="asset-selector"></select></label></div>
+  </section>
+
+  <form id="asset-form">
+    <section class="card">
+      <h2>资产信息</h2>
+      <div class="asset-identity-grid">
+        <label>资产名称<input name="asset_name" required></label>
+        <label>持有代码<input name="asset_code" required></label>
+        <label>跟踪名称<input name="tracking_name" required></label>
+        <label>跟踪代码<input name="tracking_code" required></label>
+      </div>
+      <div class="asset-enabled-row"><label class="checkbox-row"><input name="asset_enabled" type="checkbox">启用资产</label></div>
+      <div class="form-actions"><button type="button" id="save-asset">保存资产信息</button></div>
+    </section>
+    <section class="card">
+      <h2>策略概览</h2>
+      <p class="muted">高低点确认、回撤分位、减仓分位与提醒规则均按当前资产独立保存。</p>
+      <div class="form-grid">
+        <label>策略类型<select name="strategy_type"><option value="TREND">趋势型</option><option value="CYCLICAL">周期型</option></select></label>
+        <label>反弹复核建议金额<input name="normal_add_amount" type="number" min="0" step="0.01"></label>
+        <label>深度回撤复核建议金额<input name="enhanced_add_amount" type="number" min="0" step="0.01"></label>
+      </div>
+      <div class="form-actions">
+        <button type="button" id="save-strategy" class="secondary-button">保存策略概览</button>
+        <a id="asset-trigger-link" class="secondary-button" href="#">编辑完整触发条件</a>
+      </div>
+      <div id="asset-result" class="result-box" hidden></div>
+    </section>
+  </form>
+
+  <section class="card">
+    <h2>交易记录</h2>
+    <div class="form-grid">
+      <label>类型<select id="tx-type"><option value="BUY">买入</option><option value="SELL">卖出</option></select></label>
+      <label>日期<input id="tx-date" type="date"></label>
+      <label>价格处理<select id="tx-pricing-mode"><option value="CLOSE_ESTIMATE">按交易日收盘价估算</option><option value="PENDING">等待数据</option></select></label>
+      <label>交易金额<input id="tx-amount" type="number" step="0.01" min="0"></label>
+      <label class="wide">备注<input id="tx-note"></label>
+    </div>
+    <div class="form-actions"><button id="save-transaction">保存交易</button><button id="refresh-transactions" class="secondary-button">刷新</button></div>
+    <div id="tx-result" class="result-box" hidden></div>
+
+    <section class="transaction-chart-section" aria-labelledby="transaction-chart-title">
+      <div class="section-title-row compact-title-row">
+        <div>
+          <h3 id="transaction-chart-title">交易与价格走势</h3>
+          <p class="muted">基于跟踪代码的日线缓存绘制；买入标为红点，卖出标为蓝点。</p>
+        </div>
+        <div class="chart-legend" aria-label="图例"><span class="chart-marker buy"></span>买入 <span class="chart-marker sell"></span>卖出</div>
+      </div>
+      <div class="transaction-chart-wrap">
+        <div class="chart-range-controls" role="group" aria-label="走势图时间范围">
+          <button type="button" class="chart-range-button active" data-chart-range="ALL">全部</button>
+          <button type="button" class="chart-range-button" data-chart-range="3Y">近三年</button>
+          <button type="button" class="chart-range-button" data-chart-range="1Y">近一年</button>
+          <button type="button" class="chart-range-button" data-chart-range="6M">近半年</button>
+          <button type="button" class="chart-range-button" data-chart-range="3M">近三个月</button>
+          <button type="button" class="chart-range-button" data-chart-range="1M">近一个月</button>
+          <button type="button" class="chart-range-button" data-chart-range="15D">近半月</button>
+          <button type="button" class="chart-range-button" data-chart-range="7D">近一周</button>
+        </div>
+        <canvas id="transaction-chart" aria-label="交易与价格走势图"></canvas>
+        <p id="transaction-chart-empty" class="empty-state" hidden>暂无可绘制的价格数据。</p>
+      </div>
+    </section>
+
+    <details id="transaction-history" class="transaction-history">
+      <summary>查看历史交易记录 <span id="transaction-count" class="transaction-count"></span></summary>
+      <div class="transaction-history-actions">
+        <label class="checkbox-row"><input id="select-all-transactions" type="checkbox">全选</label>
+        <button id="delete-selected-transactions" class="danger-button" disabled>删除已选记录</button>
+      </div>
+      <div id="transaction-list" class="transaction-list"></div>
+    </details>
+  </section>
+</main>
+<script src="/control-static/asset_manage.js"></script>
+</body>
+</html>

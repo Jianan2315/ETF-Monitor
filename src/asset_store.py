@@ -7,15 +7,6 @@ from pathlib import Path
 from typing import Any
 
 
-LEGACY_STRATEGY_FIELDS = {
-    "type", "drop_from_last_buy_trigger_pct", "reversal_watch_days",
-    "reversal_confirmation_days", "minimum_rebound_pct",
-    "first_take_profit_pct", "first_sell_position_pct",
-    "second_take_profit_pct", "second_sell_position_pct",
-    "minimum_core_position_pct",
-}
-
-
 def _read_json(path: Path, default: Any) -> Any:
     try:
         return json.loads(path.read_text(encoding='utf-8'))
@@ -79,8 +70,6 @@ def load_assets(root: Path) -> list[dict[str, Any]]:
         strategy_path = asset_config_dir(root) / f'{path.stem}.strategy.json'
         strategy_doc = _read_json(strategy_path, {})
         strategy = dict(strategy_doc.get('strategy', item.get('strategy', {})))
-        # Old asset files used a generic `type` field.  Preserve the file as
-        # written, but expose a stable, editable per-asset strategy type.
         strategy.setdefault('strategy_type', 'CYCLICAL')
         strategy.setdefault('cycle_confirmation_pct', 8.0)
         strategy.setdefault('rebound_recovery_threshold_pct', 80.0)
@@ -104,10 +93,7 @@ def save_asset(root: Path, asset: dict[str, Any], *, old_id: str | None = None) 
     item['asset_code'] = str(item.get('asset_code') or asset_id).strip()
     item['tracking_code'] = str(item.get('tracking_code') or item.get('symbol') or '').strip()
     item['symbol'] = item['tracking_code']
-    strategy = {
-        key: value for key, value in dict(item.pop('strategy', {})).items()
-        if key not in LEGACY_STRATEGY_FIELDS
-    }
+    strategy = dict(item.pop('strategy', {}))
     strategy.setdefault('strategy_type', 'CYCLICAL')
     path = asset_config_dir(root) / f'{asset_id}.json'
     _atomic_write(path, {'asset': item})

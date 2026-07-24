@@ -135,10 +135,119 @@ def test_homepage_keeps_asset_actions_only_inside_asset_cards():
     assert "编辑当前资产" not in body
     assert "latest-report-link" not in body
     assert "edit-asset-link" not in body
-    assert '>编辑</a><a class="secondary-button" href="/report?asset_id=${encodeURIComponent(a.id)}">查看报告</a>' in script
+    assert '>编辑</a><a class="secondary-button" href="/report?asset_id=${encodeURIComponent(selected.id)}">查看报告</a>' in script
     assert ">报告</a>" not in script
-    assert script.count('href="/asset/manage?asset_id=${encodeURIComponent(a.id)}"') == 1
-    assert script.count('href="/report?asset_id=${encodeURIComponent(a.id)}"') == 1
+    # Normal and graceful-degradation cards expose the same scoped actions.
+    assert script.count('href="/asset/manage?asset_id=${encodeURIComponent(selected.id)}"') == 2
+    assert script.count('href="/report?asset_id=${encodeURIComponent(selected.id)}"') == 2
+    assert 'fetch(`/api/assets/summary?asset_id=${encodeURIComponent(selected.id)}`' in script
+    assert 'if (!response.ok) throw new Error(`HTTP ${response.status}`);' in script
+    assert "资产摘要暂时无法读取；运行状态仍可正常查看。" in script
+
+
+def test_homepage_summary_uses_previous_close_and_marks_today_pending_buy(monkeypatch, tmp_path: Path):
+    monkeypatch.setattr(control_server, "ROOT", tmp_path)
+    monkeypatch.setattr(control_server, "market_now", lambda _config=None: datetime(2026, 7, 23, 14, 0))
+    asset = save_asset(tmp_path, {
+        "id": "123456", "name": "Demo", "asset_code": "123456",
+        "tracking_code": "399001", "tracking_name": "Demo index",
+    })
+    transactions_path = tmp_path / "data" / "assets" / "123456" / "transactions.json"
+    transactions_path.write_text(json.dumps({"123456": [
+        {"date": "2026-07-22", "type": "BUY", "amount": 100, "shares": 10, "price": 10, "status": "CONFIRMED"},
+        {"date": "2026-07-23", "type": "BUY", "amount": 50, "shares": 0, "price": 0, "status": "PENDING_CLOSE"},
+    ]}), encoding="utf-8")
+    cache_path = asset_cache_dir(tmp_path, "123456") / "399001_daily.json"
+    cache_path.write_text(json.dumps({"rows": [{"date": "2026-07-22", "close": 12}]}), encoding="utf-8")
+
+    response = control_server.app.test_client().get("/api/assets/summary?asset_id=123456")
+    body = response.get_json()
+
+    assert response.status_code == 200
+    assert asset["id"] == "123456"
+    assert body["position"]["invested_amount"] == 100
+    assert body["position"]["profit_amount"] == 20
+    assert body["uses_previous_close"] is True
+    assert body["today_buy_pending"] is True
+    assert body["today_buy_amount"] == 50
+
+
+def test_homepage_reconciles_prior_day_pending_buy_from_asset_cache(monkeypatch, tmp_path: Path):
+    monkeypatch.setattr(control_server, "ROOT", tmp_path)
+    monkeypatch.setattr(control_server, "market_now", lambda _config=None: datetime(2026, 7, 24, 10, 0))
+    save_asset(tmp_path, {
+        "id": "123456", "name": "Demo", "asset_code": "123456",
+        "tracking_code": "399001", "tracking_name": "Demo index",
+    })
+    transactions_path = tmp_path / "data" / "assets" / "123456" / "transactions.json"
+    transactions_path.write_text(json.dumps({"123456": [{
+        "id": "pending-buy", "date": "2026-07-23", "type": "BUY",
+        "amount": 1000, "shares": 0, "price": 0,
+        "pricing_mode": "CLOSE_ESTIMATE", "status": "PENDING_CLOSE",
+    }]}), encoding="utf-8")
+    cache_path = asset_cache_dir(tmp_path, "123456") / "399001_daily.json"
+    cache_path.write_text(json.dumps({"rows": [
+        {"date": "2026-07-23", "close": 20},
+    ]}), encoding="utf-8")
+
+    body = control_server.app.test_client().get("/api/assets/summary?asset_id=123456").get_json()
+
+    assert body["position"]["invested_amount"] == 1000
+    assert body["position"]["shares"] == 50
+    assert body["pending_buy_count"] == 0
+    stored = json.loads(transactions_path.read_text(encoding="utf-8"))["123456"][0]
+    assert stored["status"] == "ESTIMATED"
+    assert stored["price"] == 20
+
+
+def test_homepage_refreshes_the_asset_scoped_cache_for_an_eligible_pending_buy(monkeypatch, tmp_path: Path):
+    monkeypatch.setattr(control_server, "ROOT", tmp_path)
+    monkeypatch.setattr(control_server, "market_now", lambda _config=None: datetime(2026, 7, 24, 10, 0))
+    asset = save_asset(tmp_path, {
+        "id": "987654", "name": "Demo", "asset_code": "987654",
+        "tracking_code": "399001", "tracking_name": "Demo index",
+    })
+    transactions_path = tmp_path / "data" / "assets" / "987654" / "transactions.json"
+    transactions_path.write_text(json.dumps({"987654": [{
+        "id": "pending-buy", "date": "2026-07-23", "type": "BUY",
+        "amount": 1000, "pricing_mode": "CLOSE_ESTIMATE", "status": "PENDING_CLOSE",
+    }]}), encoding="utf-8")
+    cache_path = asset_cache_dir(tmp_path, "987654") / "399001_daily.json"
+    cache_path.write_text(json.dumps({"rows": [{"date": "2026-07-22", "close": 19}]}), encoding="utf-8")
+    captured = {}
+
+    def fake_refresh(received_asset, config, root, logger, now):
+        captured["asset"] = received_asset
+        captured["cache_directory"] = config["data"]["cache_directory"]
+        refreshed_path = root / config["data"]["cache_directory"] / "399001_daily.json"
+        refreshed_path.write_text(json.dumps({"rows": [{"date": "2026-07-23", "close": 20}]}), encoding="utf-8")
+        return {"success": True, "message": "refreshed"}
+
+    monkeypatch.setattr(control_server, "refresh_history_cache_now", fake_refresh)
+    body = control_server.app.test_client().get("/api/assets/summary?asset_id=987654").get_json()
+
+    assert captured["asset"]["id"] == asset["id"]
+    assert captured["cache_directory"] == "data/assets/987654/cache"
+    assert body["settlement"]["refreshed"] is True
+    assert body["position"]["invested_amount"] == 1000
+
+
+def test_asset_strategy_files_contain_only_current_rule_parameters():
+    allowed = {
+        "new_low_window_days", "stable_days_required", "stable_range_pct",
+        "consecutive_down_warning_days", "normal_add_amount", "enhanced_add_amount",
+        "strategy_type", "cycle_confirmation_pct", "rebound_recovery_threshold_pct",
+        "deep_drawdown_percentile", "sell_first_percentile", "sell_second_percentile",
+        "sell_early_alert_points", "sell_first_max_reminder_days",
+        "sell_first_stop_reduction_pct", "sell_residual_position_pct",
+        "sell_residual_max_reminder_days",
+    }
+    strategy_files = list((control_server.ROOT / "config" / "assets").glob("*.strategy.json"))
+
+    assert strategy_files
+    for path in strategy_files:
+        strategy = json.loads(path.read_text(encoding="utf-8")).get("strategy", {})
+        assert set(strategy).issubset(allowed)
 
 
 def test_asset_forms_expose_only_the_four_identity_fields():
@@ -154,6 +263,51 @@ def test_asset_forms_expose_only_the_four_identity_fields():
     assert "持有代码" in new_asset
     assert "跟踪名称" in new_asset
     assert "跟踪代码" in new_asset
+
+
+def test_transaction_history_is_collapsed_and_supports_batch_delete_and_chart():
+    client = control_server.app.test_client()
+    body = client.get("/asset/manage").get_data(as_text=True)
+    script = (control_server.ROOT / "control_web" / "static" / "asset_manage.js").read_text(encoding="utf-8")
+
+    assert '<details id="transaction-history"' in body
+    assert 'id="delete-selected-transactions"' in body
+    assert 'id="transaction-chart"' in body
+    assert 'data-chart-range="3M"' in body
+    assert 'data-chart-range="15D"' in body
+    assert "/api/transactions/delete-batch" in script
+    assert "/api/transactions/chart" in script
+    assert "chartRangeStart" in script
+    assert "此操作不可恢复" in script
+
+
+def test_transaction_chart_and_batch_delete_are_scoped_to_the_selected_asset(monkeypatch, tmp_path: Path):
+    monkeypatch.setattr(control_server, "ROOT", tmp_path)
+    save_asset(tmp_path, {
+        "id": "123456", "name": "Demo", "asset_code": "123456",
+        "tracking_code": "399001", "tracking_name": "Demo index",
+    })
+    transactions_path = tmp_path / "data" / "assets" / "123456" / "transactions.json"
+    transactions_path.write_text(json.dumps({"123456": [
+        {"id": "buy", "date": "2026-07-21", "type": "BUY", "amount": 100, "status": "ESTIMATED"},
+        {"id": "sell", "date": "2026-07-22", "type": "SELL", "amount": 80, "status": "ESTIMATED"},
+    ]}), encoding="utf-8")
+    cache_path = asset_cache_dir(tmp_path, "123456") / "399001_daily.json"
+    cache_path.write_text(json.dumps({"rows": [
+        {"date": "2026-07-21", "close": 10.5},
+        {"date": "2026-07-22", "close": 10.8},
+    ]}), encoding="utf-8")
+    client = control_server.app.test_client()
+
+    chart = client.get("/api/transactions/chart?asset_id=123456").get_json()
+    deleted = client.post("/api/transactions/delete-batch", json={"asset_id": "123456", "ids": ["buy", "sell"]}).get_json()
+
+    assert chart["tracking_code"] == "399001"
+    assert chart["history"] == [{"date": "2026-07-21", "price": 10.5}, {"date": "2026-07-22", "price": 10.8}]
+    assert {record["id"] for record in chart["transactions"]} == {"buy", "sell"}
+    assert deleted["success"] is True
+    assert deleted["deleted_count"] == 2
+    assert client.get("/api/transactions?asset_id=123456").get_json()["transactions"] == []
 
 
 def test_asset_identity_forms_use_the_shared_two_column_layout_and_action_spacing():

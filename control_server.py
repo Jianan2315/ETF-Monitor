@@ -34,13 +34,15 @@ from src.browser_inspector import inspect_browser_requests
 from src.logger import configure_logging
 from src.transactions import (
     delete_transaction,
+    delete_transactions,
     load_transactions,
     reconcile_pending_transactions,
     save_transaction,
 )
+from src.position import calculate_position
 from src.asset_store import (
     ensure_layout, load_assets, save_asset, delete_asset,
-    asset_transactions_path, asset_cache_dir, asset_latest_path,
+    asset_transactions_path, asset_cache_dir, asset_data_dir, asset_latest_path,
     asset_report_path, asset_history_dir, asset_history_index_path,
 )
 from src.power_management import (
@@ -66,6 +68,8 @@ app = Flask(
 )
 
 _RUN_LOCK = threading.Lock()
+_PENDING_SETTLEMENT_LOCK = threading.Lock()
+_PENDING_REFRESH_ATTEMPTS: dict[str, datetime] = {}
 
 
 def _read_json(path: Path, default: Any) -> Any:
@@ -543,18 +547,156 @@ def _transaction_context(asset_id: str | None = None) -> tuple[str, str, Path]:
     return transaction_key, tracking_code, asset_transactions_path(ROOT, asset_key)
 
 
+def _asset_runtime_data_config(asset: dict[str, Any]) -> dict[str, Any]:
+    """Build the same per-asset cache configuration used by ``run.py``."""
+    asset_key = _asset_identity(asset)
+    data_dir = asset_data_dir(ROOT, asset_key)
+    return {
+        "data": {
+            **_global_config("data", {"data": {}}).get("data", {}),
+            "cache_directory": str(asset_cache_dir(ROOT, asset_key).relative_to(ROOT)).replace("\\", "/"),
+            "provider_state_file": str((data_dir / "provider_state.json").relative_to(ROOT)).replace("\\", "/"),
+        },
+        "storage": _global_config("storage", {"storage": {}}).get("storage", {}),
+    }
+
+
+def _history_frame_from_asset_cache(asset: dict[str, Any]) -> pd.DataFrame:
+    asset_key = _asset_identity(asset)
+    tracking_code = _asset_tracking_code(asset)
+    cache_path = asset_cache_dir(ROOT, asset_key) / f"{tracking_code}_daily.json"
+    cache_doc = _read_json(cache_path, {})
+    rows = cache_doc.get("rows", []) if isinstance(cache_doc, dict) else []
+    if not rows:
+        return pd.DataFrame()
+    history = pd.DataFrame(rows)
+    if "date" not in history or "close" not in history:
+        return pd.DataFrame()
+    history["date"] = pd.to_datetime(history["date"], errors="coerce")
+    history["close"] = pd.to_numeric(history["close"], errors="coerce")
+    return history.dropna(subset=["date", "close"]).sort_values("date").reset_index(drop=True)
+
+
+def _settle_pending_transactions(asset: dict[str, Any]) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    """Reconcile pending trades, refreshing this asset's daily cache when needed.
+
+    A page refresh should not leave a prior-day trade pending merely because a
+    report has not been run yet.  Refreshing is throttled per asset so repeated
+    browser reloads cannot hammer the market-data providers after a failure.
+    """
+    asset_key = _asset_identity(asset)
+    symbol = str(asset.get("asset_code") or asset_key)
+    transaction_path = asset_transactions_path(ROOT, asset_key)
+    now = market_now(_schedule_config())
+    context = build_market_context(now)
+    required_date = expected_history_date(now, context).strftime("%Y-%m-%d")
+
+    history = _history_frame_from_asset_cache(asset)
+    records = reconcile_pending_transactions(transaction_path, symbol, history)
+    pending = [
+        item for item in records
+        if str(item.get("status", "")).upper() in {"PENDING", "PENDING_CLOSE"}
+    ]
+    eligible_pending = [
+        item for item in pending
+        if str(item.get("date") or "") <= required_date
+    ]
+    latest_cache_date = (
+        history["date"].max().strftime("%Y-%m-%d")
+        if not history.empty else ""
+    )
+    settlement = {
+        "attempted_refresh": False,
+        "refreshed": False,
+        "required_date": required_date,
+        "latest_cache_date": latest_cache_date,
+        "message": "",
+    }
+
+    if eligible_pending and latest_cache_date < required_date:
+        should_refresh = False
+        with _PENDING_SETTLEMENT_LOCK:
+            last_attempt = _PENDING_REFRESH_ATTEMPTS.get(asset_key)
+            if last_attempt is None or now - last_attempt >= timedelta(minutes=5):
+                _PENDING_REFRESH_ATTEMPTS[asset_key] = now
+                should_refresh = True
+
+        if should_refresh:
+            settlement["attempted_refresh"] = True
+            logger = configure_logging(
+                ROOT / "logs" / "global" / "application.log",
+                ROOT / "logs" / "global" / "mail.log",
+            )
+            refresh = refresh_history_cache_now(
+                asset,
+                _asset_runtime_data_config(asset),
+                ROOT,
+                logger,
+                now,
+            )
+            settlement["refreshed"] = bool(refresh.get("success"))
+            settlement["message"] = str(refresh.get("message") or "")
+            if refresh.get("success"):
+                history = _history_frame_from_asset_cache(asset)
+                records = reconcile_pending_transactions(transaction_path, symbol, history)
+                settlement["latest_cache_date"] = (
+                    history["date"].max().strftime("%Y-%m-%d")
+                    if not history.empty else ""
+                )
+        else:
+            settlement["message"] = "已在最近五分钟内尝试刷新收盘数据。"
+
+    return records, settlement
+
+
 def _list_transactions(asset_id: str | None = None) -> dict[str, Any]:
     try:
         symbol, tracking_code, transaction_path = _transaction_context(asset_id)
+        asset = _find_asset(asset_id)
     except ValueError:
         return {"success": True, "symbol": "", "tracking_code": "", "transactions": [], "records": []}
-    transactions = list(reversed(load_transactions(transaction_path, symbol)))
+    records, settlement = _settle_pending_transactions(asset)
+    transactions = list(reversed(records))
     return {
         "success": True,
         "symbol": symbol,
         "tracking_code": tracking_code,
         "transactions": transactions,
         "records": transactions,
+        "settlement": settlement,
+    }
+
+
+def _transaction_chart_data(asset_id: str | None = None) -> dict[str, Any]:
+    """Return an asset's tracking-code price history and recorded trades."""
+    try:
+        symbol, tracking_code, transaction_path = _transaction_context(asset_id)
+        asset = _find_asset(asset_id)
+    except ValueError:
+        return {"success": True, "history": [], "transactions": []}
+
+    transactions, settlement = _settle_pending_transactions(asset)
+    cache_path = asset_cache_dir(ROOT, _asset_identity(asset)) / f"{tracking_code}_daily.json"
+    cache_doc = _read_json(cache_path, {})
+    history: list[dict[str, Any]] = []
+    for row in cache_doc.get("rows", []):
+        if not isinstance(row, dict):
+            continue
+        try:
+            price = float(row.get("close"))
+        except (TypeError, ValueError):
+            continue
+        date_text = str(row.get("date") or "")[:10]
+        if date_text and price > 0:
+            history.append({"date": date_text, "price": price})
+
+    return {
+        "success": True,
+        "symbol": symbol,
+        "tracking_code": tracking_code,
+        "history": history,
+        "transactions": list(reversed(transactions)),
+        "settlement": settlement,
     }
 
 
@@ -629,6 +771,23 @@ def _delete_transaction_record(transaction_id: str, asset_id: str | None = None)
     return {
         "success": True,
         "message": "交易记录已删除。",
+    }
+
+
+def _delete_transaction_records(transaction_ids: list[str], asset_id: str | None = None) -> dict[str, Any]:
+    ids = [str(transaction_id) for transaction_id in transaction_ids if str(transaction_id)]
+    if not ids:
+        raise ValueError("Please select transaction records to delete.")
+
+    symbol, _tracking_code, transaction_path = _transaction_context(asset_id)
+    _backup_file(transaction_path)
+    deleted_count = delete_transactions(transaction_path, symbol, ids)
+    if not deleted_count:
+        raise ValueError("Selected transaction records were not found.")
+    return {
+        "success": True,
+        "message": f"Deleted {deleted_count} transaction record(s).",
+        "deleted_count": deleted_count,
     }
 
 
@@ -1453,6 +1612,81 @@ def _asset_summary(item: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _homepage_asset_position_summary(asset: dict[str, Any]) -> dict[str, Any]:
+    """Return one asset's settled position for the homepage card.
+
+    During a trading day this intentionally values the position with the most
+    recent daily close, rather than an intraday quote.  A same-day pending buy
+    is called out separately and is not included until its closing price can
+    be confirmed.
+    """
+    asset_key = _asset_identity(asset)
+    tracking_code = _asset_tracking_code(asset)
+    now = market_now(_schedule_config())
+    today = now.strftime("%Y-%m-%d")
+    transactions, settlement = _settle_pending_transactions(asset)
+    pending_buys = [
+        item for item in transactions
+        if item.get("type") == "BUY"
+        if str(item.get("status", "")).upper() in {"PENDING", "PENDING_CLOSE"}
+    ]
+    pending_today_buys = [item for item in pending_buys if item.get("date") == today]
+    pending_buy_amount = round(sum(float(item.get("amount", 0) or 0) for item in pending_buys), 2)
+
+    cache = _read_json(
+        asset_cache_dir(ROOT, asset_key) / f"{tracking_code}_daily.json",
+        {},
+    )
+    rows = cache.get("rows", []) if isinstance(cache, dict) else []
+    latest_row = rows[-1] if rows and isinstance(rows[-1], dict) else {}
+    close_price = latest_row.get("close")
+    close_date = str(latest_row.get("date") or "")
+    try:
+        close_price = float(close_price)
+    except (TypeError, ValueError):
+        close_price = 0.0
+
+    if close_price > 0:
+        position = calculate_position(transactions, close_price)
+        return {
+            "success": True,
+            "asset": _asset_summary(asset),
+            "position": position,
+            "earnings_as_of": close_date,
+            "uses_previous_close": close_date < today,
+            "today_buy_amount": round(sum(float(item.get("amount", 0) or 0) for item in pending_today_buys), 2),
+            "today_buy_pending": bool(pending_today_buys),
+            "pending_buy_amount": pending_buy_amount,
+            "pending_buy_count": len(pending_buys),
+            "pending_buy_dates": sorted({str(item.get("date") or "") for item in pending_buys if item.get("date")}),
+            "settlement": settlement,
+            "valuation_basis": "tracking_close",
+            "valuation_basis_label": f"\u6309\u8ddf\u8e2a\u4ee3\u7801 {tracking_code} \u7684\u65e5\u7ebf\u6536\u76d8\u4ef7\u4f30\u7b97\uff0c\u4e0d\u7b49\u540c\u4e8e\u6301\u6709\u57fa\u91d1\u51c0\u503c",
+            "message": (
+                f"收益按最近可用收盘价（{close_date}）计算"
+                if close_date < today else f"收益按收盘价（{close_date}）计算"
+            ),
+        }
+
+    latest_doc = _read_json(asset_latest_path(ROOT, asset_key), {})
+    latest_result = latest_doc.get(asset_key, {}) if isinstance(latest_doc, dict) else {}
+    position = latest_result.get("position_metrics", {}) if isinstance(latest_result, dict) else {}
+    return {
+        "success": bool(position),
+        "asset": _asset_summary(asset),
+        "position": position,
+        "earnings_as_of": "",
+        "uses_previous_close": True,
+        "today_buy_amount": round(sum(float(item.get("amount", 0) or 0) for item in pending_today_buys), 2),
+        "today_buy_pending": bool(pending_today_buys),
+        "pending_buy_amount": pending_buy_amount,
+        "pending_buy_count": len(pending_buys),
+        "pending_buy_dates": sorted({str(item.get("date") or "") for item in pending_buys if item.get("date")}),
+        "settlement": settlement,
+        "message": "暂无可用收盘价，收益沿用最近一次已生成结果",
+    }
+
+
 def _load_system_settings() -> dict[str, Any]:
     """Return only configuration that is global to every asset."""
     email = _global_config("email", {"email": {}}).get("email", {})
@@ -1801,19 +2035,11 @@ def api_refresh_history_cache():
         ROOT / "logs" / "global" / "mail.log",
     )
     try:
-        full_config = {
-            "data": _read_json(
-                ROOT / "config" / "global" / "data.json",
-                {},
-            ).get("data", {}),
-            "storage": _read_json(
-                ROOT / "config" / "global" / "storage.json",
-                {},
-            ).get("storage", {}),
-        }
+        payload = request.get_json(silent=True) or {}
+        asset = _find_asset(request.args.get("asset_id") or payload.get("asset_id"))
         result = refresh_history_cache_now(
-            _primary_asset(),
-            full_config,
+            asset,
+            _asset_runtime_data_config(asset),
             ROOT,
             logger,
             market_now(_schedule_config()),
@@ -2043,6 +2269,14 @@ def api_assets_get():
     return jsonify({"success": True, "assets": [_asset_summary(item) for item in _all_assets()]})
 
 
+@app.get("/api/assets/summary")
+def api_asset_summary_get():
+    try:
+        return jsonify(_homepage_asset_position_summary(_find_asset(request.args.get("asset_id"))))
+    except ValueError as exc:
+        return jsonify({"success": False, "message": str(exc)}), 404
+
+
 @app.post("/api/assets/create")
 def api_assets_create():
     payload = request.get_json(silent=True) or {}
@@ -2162,6 +2396,17 @@ def api_transactions_save():
         }), 400
 
 
+@app.get("/api/transactions/chart")
+def api_transactions_chart():
+    try:
+        return jsonify(_transaction_chart_data(request.args.get("asset_id")))
+    except ValueError as exc:
+        return jsonify({
+            "success": False,
+            "message": str(exc),
+        }), 400
+
+
 @app.post("/api/transactions/delete")
 def api_transactions_delete():
     payload = request.get_json(silent=True) or {}
@@ -2169,6 +2414,29 @@ def api_transactions_delete():
         return jsonify(
             _delete_transaction_record(
                 str(payload.get("id", "")),
+                request.args.get("asset_id") or payload.get("asset_id"),
+            )
+        )
+    except ValueError as exc:
+        return jsonify({
+            "success": False,
+            "message": str(exc),
+        }), 400
+
+
+@app.post("/api/transactions/delete-batch")
+def api_transactions_delete_batch():
+    payload = request.get_json(silent=True) or {}
+    transaction_ids = payload.get("ids", [])
+    if not isinstance(transaction_ids, list):
+        return jsonify({
+            "success": False,
+            "message": "ids must be a list.",
+        }), 400
+    try:
+        return jsonify(
+            _delete_transaction_records(
+                transaction_ids,
                 request.args.get("asset_id") or payload.get("asset_id"),
             )
         )

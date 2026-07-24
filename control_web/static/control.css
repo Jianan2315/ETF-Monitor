@@ -99,7 +99,7 @@ button:disabled,
 .status-item.bad strong { color: #b42318; }
 .status-item p { margin: 0; color: #64748b; font-size: 14px; }
 .result-box {
-  margin-top: 14px;
+  margin: 14px 0;
   padding: 14px;
   border-radius: 12px;
   background: #f7fafc;
@@ -114,6 +114,16 @@ button:disabled,
 }
 .homepage-card .asset-card .button-row { margin-top: 16px; }
 .homepage-card .empty-state p { margin: 8px 0 18px; }
+.selected-asset-card { max-width: 720px; }
+.asset-performance-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px; margin-top:16px; }
+.asset-performance-grid > div { padding:12px; border-radius:10px; background:#f7fafc; }
+.asset-performance-grid span { display:block; margin-bottom:5px; color:#64748b; font-size:13px; }
+.asset-performance-grid b { font-size:17px; }
+.asset-performance-grid .positive b { color:#18794e; }
+.asset-performance-grid .negative b { color:#b42318; }
+.earnings-as-of { margin:14px 0 0 !important; color:#64748b !important; }
+.valuation-basis { margin:5px 0 0 !important; font-size:12px; }
+.today-buy-note { margin:10px 0 0 !important; padding:10px 12px; border-radius:9px; background:#fff4dd; color:#6d4b0b !important; font-weight:700; }
 .system-tools-page .status-grid,
 .system-tools-page .result-box { margin-top: 24px; }
 .system-tools-page .result-box + .button-row { margin-top: 24px; }
@@ -143,7 +153,7 @@ button:disabled,
   flex-wrap: wrap;
   align-items: center;
   gap: 12px;
-  margin-top: 22px;
+  margin: 22px 0;
 }
 .form-grid label.wide { grid-column: span 2; }
 input, select {
@@ -408,6 +418,112 @@ dialog::backdrop { background: rgba(15,23,42,.62); }
   display: grid;
   gap: 12px;
 }
+.transaction-chart-section {
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid #e5eaee;
+}
+.compact-title-row {
+  align-items: flex-start;
+}
+.compact-title-row h3 {
+  margin: 0;
+}
+.compact-title-row p {
+  margin: 6px 0 0;
+}
+.chart-legend {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: #475569;
+  font-size: 13px;
+  white-space: nowrap;
+}
+.chart-marker {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  display: inline-block;
+  margin-left: 7px;
+}
+.chart-marker.buy { background: #d92d20; }
+.chart-marker.sell { background: #1769aa; }
+.transaction-chart-wrap {
+  position: relative;
+  min-height: 120px;
+  margin-top: 12px;
+  border: 1px solid #e1e8ee;
+  border-radius: 12px;
+  padding: 8px;
+  background: #fff;
+}
+.chart-range-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 4px 4px 12px;
+}
+.chart-range-button {
+  min-height: 30px;
+  padding: 4px 10px;
+  border: 1px solid #d5e0e8;
+  border-radius: 999px;
+  background: #f8fafc;
+  color: #475569;
+  font-size: 13px;
+}
+.chart-range-button:hover {
+  border-color: #137a9b;
+  color: #0f6683;
+}
+.chart-range-button.active {
+  border-color: #137a9b;
+  background: #137a9b;
+  color: #fff;
+}
+#transaction-chart {
+  display: block;
+  width: 100%;
+}
+.transaction-chart-wrap .empty-state {
+  margin: 32px 0;
+  text-align: center;
+}
+.transaction-history {
+  margin-top: 22px;
+  border-top: 1px solid #e5eaee;
+  padding-top: 16px;
+}
+.transaction-history summary {
+  cursor: pointer;
+  color: #12345a;
+  font-size: 17px;
+  font-weight: 750;
+}
+.transaction-history summary::marker {
+  color: #137a9b;
+}
+.transaction-count {
+  color: #64748b;
+  font-size: 14px;
+  font-weight: 500;
+}
+.transaction-history-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin: 18px 0 14px;
+}
+.transaction-select {
+  display: flex;
+  align-items: center;
+  padding: 4px 3px;
+}
+.transaction-item-content {
+  flex: 1;
+}
 .transaction-item {
   border: 1px solid #dfe6eb;
   border-radius: 12px;
@@ -449,6 +565,13 @@ dialog::backdrop { background: rgba(15,23,42,.62); }
   .transaction-item-main {
     flex-direction: column;
     align-items: stretch;
+  }
+  .transaction-history-actions {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .chart-legend {
+    margin-top: 10px;
   }
 }
 

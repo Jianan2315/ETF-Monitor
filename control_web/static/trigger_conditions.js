@@ -4,7 +4,7 @@ const result = document.getElementById("result");
 const strategyKeys = [
   "strategy_type", "cycle_confirmation_pct",
   "consecutive_down_warning_days", "new_low_window_days",
-  "stable_days_required", "stable_range_pct", "reversal_watch_days",
+  "stable_days_required", "stable_range_pct",
   "normal_add_amount", "enhanced_add_amount",
   "rebound_recovery_threshold_pct", "deep_drawdown_percentile", "sell_first_percentile",
   "sell_second_percentile", "sell_early_alert_points", "sell_first_max_reminder_days",
