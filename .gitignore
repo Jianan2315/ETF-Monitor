@@ -33,9 +33,15 @@ config/private/*
 /data/global/schedule_plans.json
 /data/global/scheduled_tasks/*
 !/data/global/scheduled_tasks/.gitkeep
+!/data/intraday/.gitkeep
+!/data/backups/.gitkeep
+!/data/migrations/.gitkeep
+!/data/notifications/.gitkeep
+!/data/schedule_status/.gitkeep
 
 # Generated reports and local logs.
 /output/assets/*
 !/output/assets/.gitkeep
 /logs/*
 !/logs/.gitkeep
+!/logs/global/.gitkeep
