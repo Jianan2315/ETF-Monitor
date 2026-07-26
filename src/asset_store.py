@@ -36,14 +36,9 @@ def ensure_layout(root: Path) -> None:
         root / 'config' / 'private',
         root / 'data' / 'assets',
         root / 'data' / 'global' / 'run_status',
-        root / 'data' / 'global' / 'notifications',
         root / 'data' / 'global' / 'scheduled_tasks',
-        root / 'data' / 'global' / 'schedule_status',
-        root / 'output' / 'portfolio' / 'latest',
-        root / 'output' / 'portfolio' / 'history',
         root / 'output' / 'assets',
         root / 'logs' / 'global',
-        root / 'logs' / 'assets',
     ]:
         path.mkdir(parents=True, exist_ok=True)
 
@@ -117,10 +112,6 @@ def save_asset(root: Path, asset: dict[str, Any], *, old_id: str | None = None) 
         new_output = root / 'output' / 'assets' / asset_id
         if old_output.exists() and not new_output.exists():
             old_output.rename(new_output)
-        old_logs = root / 'logs' / 'assets' / safe_asset_id(old_id)
-        new_logs = root / 'logs' / 'assets' / asset_id
-        if old_logs.exists() and not new_logs.exists():
-            old_logs.rename(new_logs)
     ensure_asset_runtime(root, asset_id)
     return {**item, 'strategy': strategy}
 
@@ -132,19 +123,15 @@ def delete_asset(root: Path, asset_id: str, *, purge_runtime: bool = True) -> No
     if purge_runtime:
         shutil.rmtree(root / 'data' / 'assets' / key, ignore_errors=True)
         shutil.rmtree(root / 'output' / 'assets' / key, ignore_errors=True)
-        shutil.rmtree(root / 'logs' / 'assets' / key, ignore_errors=True)
 
 
 def ensure_asset_runtime(root: Path, asset_id: str) -> None:
     key = safe_asset_id(asset_id)
     for path in [
         root / 'data' / 'assets' / key / 'cache',
-        root / 'data' / 'assets' / key / 'diagnostics',
         root / 'data' / 'assets' / key / 'notifications',
-        root / 'data' / 'assets' / key / 'run_status',
         root / 'output' / 'assets' / key / 'latest',
         root / 'output' / 'assets' / key / 'history',
-        root / 'logs' / 'assets' / key,
     ]:
         path.mkdir(parents=True, exist_ok=True)
     tx = root / 'data' / 'assets' / key / 'transactions.json'
