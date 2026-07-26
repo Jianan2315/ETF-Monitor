@@ -20,13 +20,13 @@ config/private/*
 # records, diagnostics, backups, and local scheduler state.
 /data/assets/*
 !/data/assets/.gitkeep
-/data/backups/
+/data/backups/*
 /data/diagnostics/
-/data/intraday/
+/data/intraday/*
 /data/keep_awake_status.json
-/data/migrations/
-/data/notifications/
-/data/schedule_status/
+/data/migrations/*
+/data/notifications/*
+/data/schedule_status/*
 /data/global/provider_state.json
 /data/global/run_status/*
 !/data/global/run_status/.gitkeep
@@ -44,4 +44,5 @@ config/private/*
 !/output/assets/.gitkeep
 /logs/*
 !/logs/.gitkeep
+/logs/global/*
 !/logs/global/.gitkeep
