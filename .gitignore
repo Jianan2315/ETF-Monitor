@@ -15,3 +15,27 @@ config/private/*
 !config/private/.gitkeep
 .env
 *.token
+
+# Runtime data: market caches, transactions, generated spreadsheets, status
+# records, diagnostics, backups, and local scheduler state.
+/data/assets/*
+!/data/assets/.gitkeep
+/data/backups/
+/data/diagnostics/
+/data/intraday/
+/data/keep_awake_status.json
+/data/migrations/
+/data/notifications/
+/data/schedule_status/
+/data/global/provider_state.json
+/data/global/run_status/*
+!/data/global/run_status/.gitkeep
+/data/global/schedule_plans.json
+/data/global/scheduled_tasks/*
+!/data/global/scheduled_tasks/.gitkeep
+
+# Generated reports and local logs.
+/output/assets/*
+!/output/assets/.gitkeep
+/logs/*
+!/logs/.gitkeep
