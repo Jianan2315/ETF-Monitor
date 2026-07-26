@@ -7,6 +7,9 @@ from pathlib import Path
 from typing import Any
 
 
+STRATEGY_CONFIG_SUFFIX = "_strategy.json"
+
+
 def _read_json(path: Path, default: Any) -> Any:
     try:
         return json.loads(path.read_text(encoding='utf-8'))
@@ -51,7 +54,7 @@ def asset_config_dir(root: Path) -> Path:
 def load_assets(root: Path) -> list[dict[str, Any]]:
     assets: list[dict[str, Any]] = []
     for path in sorted(asset_config_dir(root).glob('*.json')):
-        if path.name.endswith('.strategy.json'):
+        if path.name.endswith(STRATEGY_CONFIG_SUFFIX):
             continue
         doc = _read_json(path, {})
         asset = doc.get('asset', doc)
@@ -62,7 +65,7 @@ def load_assets(root: Path) -> list[dict[str, Any]]:
         item.setdefault('asset_code', item.get('id', path.stem))
         item.setdefault('tracking_code', item.get('symbol', ''))
         item['symbol'] = str(item.get('tracking_code') or item.get('symbol') or '')
-        strategy_path = asset_config_dir(root) / f'{path.stem}.strategy.json'
+        strategy_path = asset_config_dir(root) / f'{path.stem}{STRATEGY_CONFIG_SUFFIX}'
         strategy_doc = _read_json(strategy_path, {})
         strategy = dict(strategy_doc.get('strategy', item.get('strategy', {})))
         strategy.setdefault('strategy_type', 'CYCLICAL')
@@ -93,15 +96,15 @@ def save_asset(root: Path, asset: dict[str, Any], *, old_id: str | None = None) 
     path = asset_config_dir(root) / f'{asset_id}.json'
     _atomic_write(path, {'asset': item})
     if strategy:
-        _atomic_write(asset_config_dir(root) / f'{asset_id}.strategy.json', {
+        _atomic_write(asset_config_dir(root) / f'{asset_id}{STRATEGY_CONFIG_SUFFIX}', {
             'asset_id': asset_id,
             'strategy': strategy,
         })
     if old_id and safe_asset_id(old_id) != asset_id:
         old_path = asset_config_dir(root) / f'{safe_asset_id(old_id)}.json'
         old_path.unlink(missing_ok=True)
-        old_strategy_path = asset_config_dir(root) / f'{safe_asset_id(old_id)}.strategy.json'
-        new_strategy_path = asset_config_dir(root) / f'{asset_id}.strategy.json'
+        old_strategy_path = asset_config_dir(root) / f'{safe_asset_id(old_id)}{STRATEGY_CONFIG_SUFFIX}'
+        new_strategy_path = asset_config_dir(root) / f'{asset_id}{STRATEGY_CONFIG_SUFFIX}'
         if old_strategy_path.exists() and not new_strategy_path.exists():
             old_strategy_path.rename(new_strategy_path)
         old_data = root / 'data' / 'assets' / safe_asset_id(old_id)
@@ -119,7 +122,7 @@ def save_asset(root: Path, asset: dict[str, Any], *, old_id: str | None = None) 
 def delete_asset(root: Path, asset_id: str, *, purge_runtime: bool = True) -> None:
     key = safe_asset_id(asset_id)
     (asset_config_dir(root) / f'{key}.json').unlink(missing_ok=True)
-    (asset_config_dir(root) / f'{key}.strategy.json').unlink(missing_ok=True)
+    (asset_config_dir(root) / f'{key}{STRATEGY_CONFIG_SUFFIX}').unlink(missing_ok=True)
     if purge_runtime:
         shutil.rmtree(root / 'data' / 'assets' / key, ignore_errors=True)
         shutil.rmtree(root / 'output' / 'assets' / key, ignore_errors=True)

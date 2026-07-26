@@ -242,7 +242,7 @@ def test_asset_strategy_files_contain_only_current_rule_parameters():
         "sell_first_stop_reduction_pct", "sell_residual_position_pct",
         "sell_residual_max_reminder_days",
     }
-    strategy_files = list((control_server.ROOT / "config" / "assets").glob("*.strategy.json"))
+    strategy_files = list((control_server.ROOT / "config" / "assets").glob("*_strategy.json"))
 
     assert strategy_files
     for path in strategy_files:
@@ -571,7 +571,7 @@ def test_asset_basic_configuration_and_strategy_are_stored_separately(tmp_path: 
     })
     assert saved["strategy"]["planned_capital"] == 100000
     assert (tmp_path / "config" / "assets" / "grid-fund.json").exists()
-    assert (tmp_path / "config" / "assets" / "grid-fund.strategy.json").exists()
+    assert (tmp_path / "config" / "assets" / "grid-fund_strategy.json").exists()
     loaded = load_assets(tmp_path)[0]
     assert loaded["tracking_code"] == "159326"
     assert loaded["strategy"]["planned_capital"] == 100000
