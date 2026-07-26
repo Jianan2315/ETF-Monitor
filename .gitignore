@@ -44,5 +44,6 @@ config/private/*
 !/output/assets/.gitkeep
 /logs/*
 !/logs/.gitkeep
+!/logs/global/
 /logs/global/*
 !/logs/global/.gitkeep
