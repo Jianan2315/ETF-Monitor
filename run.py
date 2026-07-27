@@ -34,6 +34,7 @@ from src.notification_guard import (
     record_data_error_email_sent,
 )
 from src.position import calculate_position
+from src.research_data import collect_research_snapshot
 from src.storage import save_run_result
 from src.strategy import evaluate_strategy
 from src.status import normalize_status
@@ -511,6 +512,22 @@ def main(argv: list[str] | None = None) -> int:
                     decision.to_dict(),
                 )
             )
+            research = collect_research_snapshot(
+                asset,
+                ROOT,
+                now=started_at,
+                research_config=config.get("research", {}),
+            )
+            research_step_status = "WARNING" if research.get("research_data_state") != "DATA_OK" else "SUCCESS"
+            steps.append(
+                _step(
+                    "research",
+                    "更新行业研究数据",
+                    research_step_status,
+                    f"研究数据状态：{research.get('research_data_state')}；长期逻辑需人工复核。",
+                    research,
+                )
+            )
         except Exception as exc:
             run_errors.append(f"Calculation: {type(exc).__name__}: {exc}")
             steps.append(
@@ -541,6 +558,7 @@ def main(argv: list[str] | None = None) -> int:
             ),
             "data_warnings": bundle.data_warnings or [],
             "data_status": bundle.data_status or {},
+            "research": research,
             "market_timestamp": format_market_time(
                 bundle.market_timestamp,
                 bundle.data_phase,

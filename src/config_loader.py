@@ -21,7 +21,7 @@ def load_config(path: Path) -> dict:
 
     config_dir = root / 'config' / 'global'
     merged: dict = {}
-    files = ['app.json','email.json','llm.json','storage.json','data.json','report.json','schedule.json','power.json']
+    files = ['app.json','email.json','llm.json','storage.json','data.json','report.json','schedule.json','power.json','research.json']
     for name in files:
         file_path = config_dir / name
         if not file_path.exists():

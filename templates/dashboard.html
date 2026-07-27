@@ -130,6 +130,35 @@
 
       {% if result.llm_summary %}<div class="summary-box"><strong>模型摘要</strong><p>{{ result.llm_summary }}</p></div>{% endif %}
 
+      {% if result.research %}
+      <section class="panel research-panel">
+        <div class="panel-title-row">
+          <div>
+            <h3>行业研究与人工复核</h3>
+            <p class="muted">研究数据只提供事实和异常提示；不参与自动交易，也不会单独改变本页规则状态。</p>
+          </div>
+          <span class="research-state">{{ result.research.research_data_state }}</span>
+        </div>
+        {% if result.research.observations %}
+        <div class="metric-list research-observations">
+          {% for item in result.research.observations %}
+          <div>
+            <span>{{ item.metric_name }} <small>{{ item.as_of_date or '日期不可用' }} · {{ item.status }}</small></span>
+            <strong>{% if item.value is not none %}{{ item.value }}{% else %}不可用{% endif %}</strong>
+            <small>来源：{{ item.source }}；{{ item.definition }}{% if item.note %} {{ item.note }}{% endif %}</small>
+          </div>
+          {% endfor %}
+        </div>
+        {% else %}<p class="muted">当前资产尚无可自动采集的行业模板。</p>{% endif %}
+        {% if result.research.manual_review_items %}
+        <div class="data-warning-list research-manual-list">
+          <strong>待人工复核</strong>
+          <ul>{% for item in result.research.manual_review_items %}<li>{{ item }}</li>{% endfor %}</ul>
+        </div>
+        {% endif %}
+      </section>
+      {% endif %}
+
       <div class="analysis-grid">
         <section class="panel metric-group">
           <h3>阶段涨跌</h3>

@@ -198,6 +198,17 @@ def _plain_body(result: dict, include_raw: bool = True, forced: bool = False) ->
             f"持有份额：{position.get('shares', 0):.4f}"
         )
 
+    research = result.get("research") or {}
+    if research:
+        manual_items = research.get("manual_review_items", [])[:3]
+        research_lines = [
+            f"研究数据状态：{research.get('research_data_state', 'UNKNOWN')}",
+            "长期逻辑：仅供人工复核，不自动改变交易状态。",
+        ]
+        if manual_items:
+            research_lines.append("待人工复核：" + "；".join(str(item) for item in manual_items))
+        parts.append("行业研究提示：\n" + "\n".join(research_lines))
+
     parts.append("仅用于人工复核，不构成投资建议。")
     return "\n\n".join(parts)
 
@@ -284,6 +295,22 @@ def _html_body(result: dict, include_raw: bool = True, forced: bool = False) -> 
         '</div>'
     )
 
+    research = result.get("research") or {}
+    research_html = ""
+    if research:
+        manual_items = research.get("manual_review_items", [])[:3]
+        manual_html = "".join(
+            f"<li>{html.escape(str(item))}</li>" for item in manual_items
+        )
+        research_html = (
+            '<div style="padding:14px 16px;background:#f8fbfd;border:1px solid #d8e9f3;'
+            'border-radius:10px;margin-bottom:16px">'
+            f'<b>行业研究提示：{html.escape(str(research.get("research_data_state", "UNKNOWN")))}</b>'
+            '<p style="margin:8px 0;color:#475569">长期逻辑仅供人工复核，不自动改变交易状态。</p>'
+            + (f'<ul style="margin:8px 0 0;padding-left:20px">{manual_html}</ul>' if manual_html else "")
+            + '</div>'
+        )
+
     metadata = f"""
     <div style="padding:14px 16px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;margin-bottom:16px;line-height:1.8">
       <div><b>数据源：</b>{html.escape(str(result.get('data_source', '未知')))}</div>
@@ -320,6 +347,7 @@ def _html_body(result: dict, include_raw: bool = True, forced: bool = False) -> 
     <ol>{reasons}</ol>
     {metadata}
     {data_status_html}
+    {research_html}
     {('<p><b>减仓提醒进度：</b>' + html.escape(str(sell_reminder.get('reason', '无'))) + '；参考/当前份额 ' + html.escape(str(reminder_state.get('reference_shares', '不适用'))) + ' / ' + html.escape(str(reminder_state.get('current_shares', position.get('shares', 0)))) + '；已减仓 ' + html.escape(str(reminder_state.get('reduced_pct', 0))) + '%</p>') if decision.get('status') == 'PARTIAL_SELL' else ''}
     {raw}
     <p style="margin-top:20px;color:#64748b;font-size:12px">
