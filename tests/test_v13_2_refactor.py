@@ -65,6 +65,7 @@ def test_system_settings_explains_each_email_trigger_before_its_checkboxes():
     for status in (
         "OBSERVE（观察）",
         "REVIEW_BUY（人工复核加仓）",
+        "REVIEW_SELL（人工复核下行风险）",
         "PARTIAL_SELL（部分卖出）",
     ):
         assert status in body
@@ -96,8 +97,10 @@ def test_trigger_conditions_page_edits_asset_specific_strategy_settings():
     script = (control_server.ROOT / "control_web" / "static" / "trigger_conditions.js").read_text(encoding="utf-8")
 
     assert response.status_code == 200
-    assert 'name="consecutive_down_warning_days"' in body
+    assert 'name="consecutive_down_warning_days"' not in body
     assert 'name="rebound_recovery_threshold_pct"' in body
+    assert 'name="downtrend_watch_percentile"' in body
+    assert 'name="downtrend_risk_percentile"' in body
     assert 'name="sell_first_percentile"' in body
     assert 'fetch(api("/api/settings/save")' in script
 
@@ -235,7 +238,8 @@ def test_homepage_refreshes_the_asset_scoped_cache_for_an_eligible_pending_buy(m
 def test_asset_strategy_files_contain_only_current_rule_parameters():
     allowed = {
         "new_low_window_days", "stable_days_required", "stable_range_pct",
-        "consecutive_down_warning_days", "normal_add_amount", "enhanced_add_amount",
+        "downtrend_watch_percentile", "downtrend_risk_percentile",
+        "normal_add_amount", "enhanced_add_amount",
         "strategy_type", "cycle_confirmation_pct", "rebound_recovery_threshold_pct",
         "deep_drawdown_percentile", "sell_first_percentile", "sell_second_percentile",
         "sell_early_alert_points", "sell_first_max_reminder_days",

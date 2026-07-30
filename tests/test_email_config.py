@@ -26,7 +26,7 @@ def test_valid_graph_email_config():
             "graph": BASE_GRAPH,
         }
     validate_email_config(config)
-    assert config["triggers"] == {"OBSERVE": True, "REVIEW_BUY": False, "PARTIAL_SELL": False}
+    assert config["triggers"] == {"OBSERVE": True, "REVIEW_BUY": False, "REVIEW_SELL": False, "PARTIAL_SELL": False}
 
 
 def test_invalid_provider():

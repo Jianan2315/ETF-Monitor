@@ -50,6 +50,7 @@ ROOT = Path(__file__).resolve().parent
 STATUS_LABELS = {
     "OBSERVE": "暂无明确操作信号，继续观察",
     "REVIEW_BUY": "建议人工复核是否加仓",
+    "REVIEW_SELL": "下行风险：建议人工复核等待、减仓或继续持有",
     "PARTIAL_SELL": "建议人工复核是否部分卖出",
 }
 

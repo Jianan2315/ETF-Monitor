@@ -50,6 +50,36 @@ def test_deep_drawdown_needs_stabilization_before_review_buy():
     assert decision.reason_code == "DEEP_DRAWDOWN_REVERSAL"
 
 
+def test_confirmed_downtrend_uses_watch_then_manual_exit_review():
+    cycle = {
+        "sample_size": 4,
+        "drawdown_sample_size": 4,
+        "active_phase": "DOWN",
+        "current_drawdown_percentile": 40,
+    }
+    decision = evaluate_strategy(asset(), ind(cycle_analysis=cycle, stable_days=5))
+    assert decision.status == "OBSERVE"
+    assert decision.reason_code == "DOWNTREND_WATCH"
+
+    cycle["current_drawdown_percentile"] = 70
+    decision = evaluate_strategy(asset(), ind(cycle_analysis=cycle, stable_days=5))
+    assert decision.status == "REVIEW_SELL"
+    assert decision.reason_code == "DOWNTREND_RISK_REVIEW"
+    assert decision.suggested_amount == 0
+
+
+def test_buy_review_can_leave_amount_to_manual_decision():
+    manual_asset = asset()
+    manual_asset["strategy"].pop("normal_add_amount")
+    decision = evaluate_strategy(manual_asset, ind(cycle_analysis={
+        "last_confirmed_low": {"date": "2026-07-01"}, "recovery_pct": 82,
+        "sample_size": 3,
+    }))
+    assert decision.status == "REVIEW_BUY"
+    assert decision.suggested_amount == 0
+    assert any("由人工决定" in reason for reason in decision.reasons)
+
+
 def test_sell_tiers_use_rise_distribution_not_personal_profit():
     cycle = {"sample_size": 4, "current_rise_pct": 21, "rises": [10, 15, 20, 30]}
     decision = evaluate_strategy(asset(), ind(cycle_analysis=cycle))

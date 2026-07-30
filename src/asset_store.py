@@ -72,6 +72,8 @@ def load_assets(root: Path) -> list[dict[str, Any]]:
         strategy.setdefault('cycle_confirmation_pct', 8.0)
         strategy.setdefault('rebound_recovery_threshold_pct', 80.0)
         strategy.setdefault('deep_drawdown_percentile', 85.0)
+        strategy.setdefault('downtrend_watch_percentile', 38.0)
+        strategy.setdefault('downtrend_risk_percentile', 62.0)
         strategy.setdefault('sell_first_percentile', 50.0)
         strategy.setdefault('sell_second_percentile', 90.0)
         strategy.setdefault('sell_early_alert_points', 3.0)

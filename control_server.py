@@ -1757,7 +1757,7 @@ def _save_system_settings(payload: dict[str, Any]) -> dict[str, Any]:
     if isinstance(triggers, dict):
         triggers = migrate_email_triggers(triggers)
         configured_triggers = email.setdefault("triggers", {})
-        for status in {"OBSERVE", "REVIEW_BUY", "PARTIAL_SELL"}:
+        for status in {"OBSERVE", "REVIEW_BUY", "REVIEW_SELL", "PARTIAL_SELL"}:
             if status in triggers:
                 update_value("email", configured_triggers, status, bool(triggers[status]), f"邮件触发 {status}")
 
@@ -1829,14 +1829,14 @@ def _save_settings(payload: dict[str, Any], asset_id: str | None = None) -> dict
     strategy = dict(updated.get("strategy", {}))
     integer_fields = {
         "stable_days_required",
-        "consecutive_down_warning_days",
         "new_low_window_days",
         "sell_first_max_reminder_days",
         "sell_residual_max_reminder_days",
     }
     allowed_strategy_fields = {
-        "strategy_type", "cycle_confirmation_pct", "consecutive_down_warning_days",
+        "strategy_type", "cycle_confirmation_pct",
         "new_low_window_days", "stable_days_required", "stable_range_pct",
+        "downtrend_watch_percentile", "downtrend_risk_percentile",
         "normal_add_amount", "enhanced_add_amount", "rebound_recovery_threshold_pct",
         "deep_drawdown_percentile", "sell_first_percentile", "sell_second_percentile",
         "sell_early_alert_points", "sell_first_max_reminder_days",
@@ -1844,7 +1844,11 @@ def _save_settings(payload: dict[str, Any], asset_id: str | None = None) -> dict
         "sell_residual_max_reminder_days",
     }
     for key, value in strategy_payload.items():
-        if key not in allowed_strategy_fields or value in (None, ""):
+        if key not in allowed_strategy_fields:
+            continue
+        if value in (None, ""):
+            if key in {"normal_add_amount", "enhanced_add_amount"}:
+                strategy.pop(key, None)
             continue
         if key == "strategy_type":
             strategy[key] = str(value).upper() if str(value).upper() in {"TREND", "CYCLICAL"} else "CYCLICAL"

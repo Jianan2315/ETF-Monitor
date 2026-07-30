@@ -9,6 +9,7 @@
     "triggers": {
       "OBSERVE": true,
       "REVIEW_BUY": true,
+      "REVIEW_SELL": false,
       "PARTIAL_SELL": true
     },
     "include_llm_summary": true,

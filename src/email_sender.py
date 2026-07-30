@@ -80,8 +80,18 @@ def _status_icon(status: str) -> str:
     return {
         "OBSERVE": "🔵",
         "REVIEW_BUY": "🟠",
+        "REVIEW_SELL": "🟣",
         "PARTIAL_SELL": "🔴",
     }.get(status, "⚪")
+
+
+def _suggested_amount_text(decision: dict[str, Any]) -> str:
+    amount = float(decision.get("suggested_amount") or 0)
+    return (
+        f"建议人工复核金额：{amount:.0f} 元"
+        if amount > 0
+        else "加仓或减仓金额：由人工决定"
+    )
 
 
 def _subject(result: dict, email_config: dict, forced: bool = False) -> str:
@@ -158,7 +168,7 @@ def _plain_body(result: dict, include_raw: bool = True, forced: bool = False) ->
         f"运行时点：{result.get('run_slot') or result.get('run_mode', 'manual')}\n"
         f"策略：{asset['strategy'].get('name', '')} "
         f"v{asset['strategy'].get('version', '')}\n"
-        f"建议人工复核金额：{decision['suggested_amount']:.0f} 元\n\n"
+        f"{_suggested_amount_text(decision)}\n\n"
         f"内部原因码：{decision.get('reason_code', 'NO_ACTION')}\n"
         f"当前周期：{cycle.get('current_cycle_id') or '尚未确认'}\n"
         f"确认高点：{(cycle.get('last_confirmed_high') or {}).get('date', '无')}（确认 {(cycle.get('last_confirmed_high') or {}).get('confirmed_date', '无')}）\n"
@@ -337,7 +347,7 @@ def _html_body(result: dict, include_raw: bool = True, forced: bool = False) -> 
       {html.escape(display_status)}
     </div>
     <p><b>状态说明：</b>{html.escape(str(result.get('status_label', display_status)))}</p>
-    <p><b>建议人工复核金额：</b>{decision['suggested_amount']:.0f} 元</p>
+    <p><b>{html.escape(_suggested_amount_text(decision))}</b></p>
     <p><b>内部原因码：</b>{html.escape(str(decision.get('reason_code', 'NO_ACTION')))}</p>
     <p><b>当前周期：</b>{html.escape(str(cycle.get('current_cycle_id') or '尚未确认'))}｜<b>历史样本：</b>回撤 {cycle.get('drawdown_sample_size', 0)} / 上涨 {cycle.get('rise_sample_size', 0)}</p>
     <p><b>确认高/低点：</b>{html.escape(str((cycle.get('last_confirmed_high') or {}).get('date', '无')))} / {html.escape(str((cycle.get('last_confirmed_low') or {}).get('date', '无')))}（确认日：{html.escape(str((cycle.get('last_confirmed_high') or {}).get('confirmed_date', '无')))} / {html.escape(str((cycle.get('last_confirmed_low') or {}).get('confirmed_date', '无')))}）</p>

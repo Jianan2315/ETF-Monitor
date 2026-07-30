@@ -50,8 +50,8 @@
       <p class="muted">高低点确认、回撤分位、减仓分位与提醒规则均按当前资产独立保存。</p>
       <div class="form-grid">
         <label>策略类型<select name="strategy_type"><option value="TREND">趋势型</option><option value="CYCLICAL">周期型</option></select></label>
-        <label>反弹复核建议金额<input name="normal_add_amount" type="number" min="0" step="0.01"></label>
-        <label>深度回撤复核建议金额<input name="enhanced_add_amount" type="number" min="0" step="0.01"></label>
+        <label>反弹修复触发时的建议加仓金额（仅供人工复核）<input name="normal_add_amount" type="number" min="0" step="0.01"></label>
+        <label>深度回撤触发时的建议加仓金额（仅供人工复核）<input name="enhanced_add_amount" type="number" min="0" step="0.01"></label>
       </div>
       <div class="form-actions">
         <button type="button" id="save-strategy" class="secondary-button">保存策略概览</button>

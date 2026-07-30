@@ -4,8 +4,7 @@
     "new_low_window_days": 10,
     "stable_days_required": 5,
     "stable_range_pct": 3.0,
-    "consecutive_down_warning_days": 3,
-    "normal_add_amount": 10000,
-    "enhanced_add_amount": 15000
+    "downtrend_watch_percentile": 38.0,
+    "downtrend_risk_percentile": 62.0
   }
 }

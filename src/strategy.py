@@ -3,7 +3,7 @@ from __future__ import annotations
 from src.models import IndicatorResult, StrategyDecision
 
 
-VALID_STATUSES = {"OBSERVE", "REVIEW_BUY", "PARTIAL_SELL"}
+VALID_STATUSES = {"OBSERVE", "REVIEW_BUY", "REVIEW_SELL", "PARTIAL_SELL"}
 
 
 def _observe(code: str, reasons: list[str], indicators: IndicatorResult) -> StrategyDecision:
@@ -32,13 +32,17 @@ def evaluate_strategy(asset: dict, indicators: IndicatorResult) -> StrategyDecis
     sell_first_percentile = float(strategy.get("sell_first_percentile", 50.0))
     sell_second_percentile = float(strategy.get("sell_second_percentile", 90.0))
     early_points = float(strategy.get("sell_early_alert_points", 3.0))
-    normal_add = float(strategy.get("normal_add_amount", 10000))
-    enhanced_add = float(strategy.get("enhanced_add_amount", 15000))
+    normal_add = float(strategy.get("normal_add_amount") or 0)
+    enhanced_add = float(strategy.get("enhanced_add_amount") or 0)
+    downtrend_watch_percentile = float(strategy.get("downtrend_watch_percentile", 38.0))
+    downtrend_risk_percentile = float(strategy.get("downtrend_risk_percentile", 62.0))
     sample_size = int(cycle.get("sample_size", 0) or 0)
     recovery = cycle.get("recovery_pct")
     drawdown_rank = cycle.get("current_drawdown_percentile")
     rise = cycle.get("current_rise_pct")
     rises = cycle.get("rises", []) or []
+    downtrend_active = cycle.get("active_phase") == "DOWN"
+    downtrend_samples = int(cycle.get("drawdown_sample_size") or sample_size or 0)
 
     # Selling is based on the move from the confirmed low and historical rise
     # distribution, never on a personal cost basis or account return.
@@ -75,6 +79,30 @@ def evaluate_strategy(asset: dict, indicators: IndicatorResult) -> StrategyDecis
                 {"cycle": cycle, "tier": 1, "trigger_line_pct": first_line - early_points, "strategy_type": strategy_type},
             )
 
+    # A confirmed downward phase is not an automatic sell. It first blocks
+    # premature buy suggestions and only escalates to manual exit review.
+    if downtrend_active and downtrend_samples and drawdown_rank is not None:
+        common_reasons = [
+            f"当前仍处于确认后的下行阶段，回撤位于历史下跌幅度的 {drawdown_rank:.2f}% 分位",
+            f"重点观察阈值为 {downtrend_watch_percentile:.2f}% 分位；下行风险阈值为 {downtrend_risk_percentile:.2f}% 分位",
+            "尚未出现从阶段低点反弹达到拐点确认幅度的止跌确认，应由人工结合基本面判断等待、减仓或继续持有。",
+            indicators.fund_flow_impact,
+        ]
+        if shares > 0 and drawdown_rank >= downtrend_risk_percentile:
+            return StrategyDecision(
+                "REVIEW_SELL", True, 0.0,
+                common_reasons + ["当前下行风险已达到人工复核级别；不自动卖出。"],
+                "SELL", "DOWNTREND_RISK_REVIEW",
+                {
+                    "cycle": cycle,
+                    "watch_percentile": downtrend_watch_percentile,
+                    "risk_percentile": downtrend_risk_percentile,
+                    "strategy_type": strategy_type,
+                },
+            )
+        if drawdown_rank >= downtrend_watch_percentile:
+            return _observe("DOWNTREND_WATCH", common_reasons, indicators)
+
     # A large one-day rebound can qualify: recovery, not consecutive up days,
     # is the confirmation condition.
     if cycle.get("last_confirmed_low") and recovery is not None and recovery >= recovery_required:
@@ -83,7 +111,7 @@ def evaluate_strategy(asset: dict, indicators: IndicatorResult) -> StrategyDecis
             [
                 f"本轮反弹已修复此前下跌的 {recovery:.2f}%",
                 f"达到反弹修复确认阈值 {recovery_required:.2f}%",
-                "当前处于可能适合加仓的位置，需要人工复核。",
+                (f"建议人工复核加仓金额：{normal_add:.0f} 元。" if normal_add > 0 else "加仓金额由人工决定。"),
                 indicators.fund_flow_impact,
             ],
             "BUY", "REVERSAL_RECOVERY",
@@ -99,7 +127,7 @@ def evaluate_strategy(asset: dict, indicators: IndicatorResult) -> StrategyDecis
             [
                 f"当前回撤位于历史回撤的 {drawdown_rank:.2f}% 分位",
                 f"达到深度回撤参考阈值 {deep_percentile:.2f}% 分位，且已出现止跌或反弹确认",
-                "当前处于可能适合加仓的位置，需要人工复核。",
+                (f"建议人工复核加仓金额：{enhanced_add:.0f} 元。" if enhanced_add > 0 else "加仓金额由人工决定。"),
                 indicators.fund_flow_impact,
             ],
             "BUY", "DEEP_DRAWDOWN_REVERSAL",

@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 LEGACY_OBSERVE_STATUSES = {"WAIT", "WATCH", "HOLD"}
-VALID_STATUSES = {"OBSERVE", "REVIEW_BUY", "PARTIAL_SELL"}
+VALID_STATUSES = {"OBSERVE", "REVIEW_BUY", "REVIEW_SELL", "PARTIAL_SELL"}
 
 
 def normalize_status(value: object) -> str:
@@ -20,5 +20,6 @@ def migrate_email_triggers(triggers: object) -> dict[str, bool]:
     return {
         "OBSERVE": bool(observe),
         "REVIEW_BUY": bool(raw.get("REVIEW_BUY", False)),
+        "REVIEW_SELL": bool(raw.get("REVIEW_SELL", False)),
         "PARTIAL_SELL": bool(raw.get("PARTIAL_SELL", False)),
     }
