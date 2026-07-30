@@ -6,12 +6,14 @@ const strategyKeys = [
   "new_low_window_days",
   "stable_days_required", "stable_range_pct",
   "downtrend_watch_percentile", "downtrend_risk_percentile",
+  "same_price_band_pct", "same_price_band_max_buys", "planned_investment_reference",
+  "relative_strength_benchmark_code", "relative_strength_benchmark_name",
   "normal_add_amount", "enhanced_add_amount",
   "rebound_recovery_threshold_pct", "deep_drawdown_percentile", "sell_first_percentile",
   "sell_second_percentile", "sell_early_alert_points", "sell_first_max_reminder_days",
   "sell_first_stop_reduction_pct", "sell_residual_position_pct", "sell_residual_max_reminder_days",
 ];
-const defaults = {strategy_type:"CYCLICAL", cycle_confirmation_pct:8, rebound_recovery_threshold_pct:80, deep_drawdown_percentile:85, downtrend_watch_percentile:38, downtrend_risk_percentile:62, sell_first_percentile:50, sell_second_percentile:90, sell_early_alert_points:3, sell_first_max_reminder_days:3, sell_first_stop_reduction_pct:25, sell_residual_position_pct:10, sell_residual_max_reminder_days:5};
+const defaults = {strategy_type:"CYCLICAL", cycle_confirmation_pct:8, rebound_recovery_threshold_pct:80, deep_drawdown_percentile:85, downtrend_watch_percentile:38, downtrend_risk_percentile:62, same_price_band_pct:3, same_price_band_max_buys:5, sell_first_percentile:50, sell_second_percentile:90, sell_early_alert_points:3, sell_first_max_reminder_days:3, sell_first_stop_reduction_pct:25, sell_residual_position_pct:10, sell_residual_max_reminder_days:5};
 
 function setValue(name, value) {
   const field = form.elements[name];

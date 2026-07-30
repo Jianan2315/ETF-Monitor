@@ -101,6 +101,10 @@ def test_trigger_conditions_page_edits_asset_specific_strategy_settings():
     assert 'name="rebound_recovery_threshold_pct"' in body
     assert 'name="downtrend_watch_percentile"' in body
     assert 'name="downtrend_risk_percentile"' in body
+    assert 'name="same_price_band_pct"' in body
+    assert 'name="same_price_band_max_buys"' in body
+    assert 'name="planned_investment_reference"' in body
+    assert 'name="relative_strength_benchmark_code"' in body
     assert 'name="sell_first_percentile"' in body
     assert 'fetch(api("/api/settings/save")' in script
 
@@ -239,6 +243,8 @@ def test_asset_strategy_files_contain_only_current_rule_parameters():
     allowed = {
         "new_low_window_days", "stable_days_required", "stable_range_pct",
         "downtrend_watch_percentile", "downtrend_risk_percentile",
+        "same_price_band_pct", "same_price_band_max_buys", "planned_investment_reference",
+        "relative_strength_benchmark_code", "relative_strength_benchmark_name",
         "normal_add_amount", "enhanced_add_amount",
         "strategy_type", "cycle_confirmation_pct", "rebound_recovery_threshold_pct",
         "deep_drawdown_percentile", "sell_first_percentile", "sell_second_percentile",
@@ -562,6 +568,35 @@ def test_schedule_page_keeps_the_asset_id_when_returning_to_asset_management():
     body = client.get("/schedules?asset_id=demo").get_data(as_text=True)
     assert 'href="/asset/manage?asset_id=demo"' in body
     assert "返回资产管理页面" in body
+
+
+def test_manual_review_page_and_api_save_asset_scoped_records(monkeypatch, tmp_path: Path):
+    monkeypatch.setattr(control_server, "ROOT", tmp_path)
+    save_asset(tmp_path, {
+        "id": "review-fund", "name": "Review Fund", "asset_code": "review-fund",
+        "tracking_code": "561380", "tracking_name": "Benchmark", "enabled": True,
+        "strategy": {},
+    })
+    asset_latest_path(tmp_path, "review-fund").write_text(json.dumps({"review-fund": {
+        "generated_at": "2026-07-30 10:00:00",
+        "status_label": "人工复核",
+        "decision": {"status": "REVIEW_BUY", "reason_code": "TEST"},
+        "research": {"manual_review_items": ["检查行业信息"]},
+    }}), encoding="utf-8")
+    client = control_server.app.test_client()
+
+    assert client.get("/reviews").status_code == 200
+    context = client.get("/api/reviews?asset_id=review-fund").get_json()
+    assert context["latest"]["status"] == "REVIEW_BUY"
+    assert any(item["id"] == "research_0" for item in context["checklist"])
+    saved = client.post("/api/reviews/save", json={
+        "asset_id": "review-fund",
+        "checks": {item["id"]: True for item in context["checklist"]},
+        "conclusion": "WAIT",
+        "notes": "等待更多确认",
+    }).get_json()
+    assert saved["success"] is True
+    assert client.get("/api/reviews?asset_id=review-fund").get_json()["reviews"][0]["conclusion"] == "WAIT"
 
 
 def test_asset_basic_configuration_and_strategy_are_stored_separately(tmp_path: Path):

@@ -5,6 +5,8 @@
     "stable_days_required": 5,
     "stable_range_pct": 3.0,
     "downtrend_watch_percentile": 38.0,
-    "downtrend_risk_percentile": 62.0
+    "downtrend_risk_percentile": 62.0,
+    "same_price_band_pct": 3.0,
+    "same_price_band_max_buys": 5
   }
 }

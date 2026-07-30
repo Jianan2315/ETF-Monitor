@@ -91,6 +91,7 @@
               <span class="amount-pill">复核 {{ "%.0f"|format(result.decision.suggested_amount) }} 元</span>
             {% endif %}
           </div>
+          <p><a class="secondary-button" href="/reviews?asset_id={{ result.asset.id or result.asset.asset_code or result.asset.symbol }}">填写人工复核单</a></p>
           <ul>
             {% for reason in result.decision.reasons %}<li>{{ reason }}</li>{% endfor %}
           </ul>
@@ -125,6 +126,50 @@
         </div>
         {% if result.sell_reminder %}
         <p class="muted"><strong>减仓提醒：</strong>{{ result.sell_reminder.reason }}{% if result.sell_reminder.state %} · 参考/当前份额 {{ result.sell_reminder.state.reference_shares or '不适用' }} / {{ result.sell_reminder.state.current_shares or result.position_metrics.shares }} · 已减仓 {{ result.sell_reminder.state.reduced_pct or 0 }}%，剩余 {{ result.sell_reminder.state.remaining_pct or 0 }}% · 第一/二档已提醒 {{ (result.sell_reminder.state.first or {}).get('dates', [])|length }} / {{ (result.sell_reminder.state.second or {}).get('dates', [])|length }} 次 · 残余仓位 {{ '是' if (result.sell_reminder.state.remaining_pct or 100) <= (result.asset.strategy.sell_residual_position_pct or 10) else '否' }}{% endif %}</p>
+        {% endif %}
+      </section>
+
+      {% set technical = result.indicators.moving_averages|default({}) or {} %}
+      <section class="panel">
+        <h3>技术辅助信息</h3>
+        <p class="muted">均线、成交量和相对强弱只用于人工复核，不会单独改变策略状态。</p>
+        {% if technical.get('available') %}
+        <div class="metric-list">
+          {% for period in ['5', '10', '20', '60', '120'] %}
+          {% set ma = (technical.get('periods', {}) or {}).get(period, {}) %}
+          <div><span>{{ period }}日均线{% if ma.get('available') %} <small>价格{{ {'ABOVE':'在均线上方','BELOW':'在均线下方','AT':'等于均线'}.get(ma.get('price_relation'), '不适用') }} · 均线{{ {'UP':'向上','DOWN':'向下','FLAT':'走平'}.get(ma.get('slope'), '不适用') }}{% if ma.get('price_cross') != 'NONE' %} · {{ {'CROSSED_ABOVE':'价格上穿','CROSSED_BELOW':'价格跌破'}.get(ma.get('price_cross')) }}{% endif %}</small>{% endif %}</span><strong>{% if ma.get('available') %}{{ '%.4f'|format(ma.get('value')) }}{% else %}样本不足{% endif %}</strong></div>
+          {% endfor %}
+          <div><span>均线排列</span><strong>{{ {'BULLISH':'多头排列（短期均线高于长期均线）','BEARISH':'空头排列（短期均线低于长期均线）','MIXED':'均线关系混合'}.get(technical.get('alignment'), '样本不足') }}</strong></div>
+        </div>
+        {% endif %}
+        {% set volume = result.indicators.volume_analysis|default({}) or {} %}
+        {% if volume.get('available') %}<p class="muted"><strong>成交量：</strong>当日 {{ '%.0f'|format(volume.get('latest_volume', 0)) }}；{% for period, item in (volume.get('ratios', {}) or {}).items() %}相对前{{ period }}日均量 {{ '%.2f'|format(item.get('ratio', 0)) }} 倍{% if not loop.last %} · {% endif %}{% endfor %}</p>{% else %}<p class="muted">成交量数据不可用，需人工核验。</p>{% endif %}
+      </section>
+
+      {% set relative = result.relative_strength|default({}) or {} %}
+      {% if relative.get('enabled') %}
+      <section class="panel">
+        <h3>相对行业强弱</h3>
+        {% if relative.get('state') == 'AVAILABLE' %}
+        <p class="muted">比较基准：{{ relative.get('benchmark_name') or relative.get('benchmark_code') }}（{{ relative.get('benchmark_code') }}）。正数表示当前跟踪对象强于基准。</p>
+        <div class="metric-list">{% for period in ['5', '10', '20', '60', '120'] %}{% set item = (relative.get('periods', {}) or {}).get(period) %}{% if item %}<div><span>{{ period }}日收益差 <small>当前 {{ '%.2f'|format(item.get('asset_return_pct')) }}% · 基准 {{ '%.2f'|format(item.get('benchmark_return_pct')) }}%</small></span><strong>{{ '%+.2f'|format(item.get('excess_return_pct')) }}% · {{ {'STRONGER':'较强','WEAKER':'较弱','EQUAL':'持平'}.get(item.get('relation')) }}</strong></div>{% endif %}{% endfor %}</div>
+        {% else %}<p class="muted">{{ relative.get('message') or '行业基准数据不足，需人工核验相对强弱。' }}</p>{% endif %}
+      </section>
+      {% endif %}
+
+      {% set discipline = result.buy_discipline|default({}) or {} %}
+      <section class="panel">
+        <h3>买入纪律参考</h3>
+        {% if discipline.get('reference_buy_price') is not none %}
+        <div class="metric-list">
+          <div><span>最近一次已有价格的买入</span><strong>{{ '%.4f'|format(discipline.get('reference_buy_price')) }}{% if discipline.get('reference_buy_date') %} · {{ discipline.get('reference_buy_date') }}{% endif %}</strong></div>
+          <div><span>确认周期内同价区买入</span><strong>{{ discipline.get('same_price_band_buy_count', 0) }} / {{ discipline.get('same_price_band_max_buys', 5) }} 次（±{{ discipline.get('same_price_band_pct', 3) }}%）</strong></div>
+          {% if discipline.get('same_price_band_attention') %}<div><span>同价区提示</span><strong>已达到参考次数，需加强人工复核</strong></div>{% endif %}
+          {% if discipline.get('unpriced_pending_buy_count') %}<div><span>待确认买入</span><strong>{{ discipline.get('unpriced_pending_buy_count') }} 笔 · {{ '%.2f'|format(discipline.get('pending_buy_amount', 0)) }} 元（未计入同价区）</strong></div>{% endif %}
+          {% if discipline.get('planned_investment_reference') is not none %}<div><span>计划投入参考（累计买入含待确认）</span><strong>{{ '%.2f'|format(discipline.get('planned_reference_used_amount', 0)) }} / {{ '%.2f'|format(discipline.get('planned_investment_reference')) }} 元{% if discipline.get('planned_reference_remaining_amount', 0) >= 0 %} · 参考余量 {{ '%.2f'|format(discipline.get('planned_reference_remaining_amount')) }} 元{% else %} · 超出 {{ '%.2f'|format(-discipline.get('planned_reference_remaining_amount')) }} 元{% endif %}</strong></div>{% endif %}
+        </div>
+        {% else %}
+        <p class="muted">尚无已有价格的买入记录；同价区将从首笔可确认价格的买入开始统计。</p>
         {% endif %}
       </section>
 

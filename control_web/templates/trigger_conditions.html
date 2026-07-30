@@ -58,6 +58,25 @@
       </section>
 
       <section class="card">
+        <h2>买入纪律参考</h2>
+        <p class="muted">这些值只提供人工复核信息，不会阻断策略信号，也不会自动交易。计划投入可留空；卖出资金不会自动恢复为计划余量。</p>
+        <div class="form-grid">
+          <label>同价区范围（相对最近一次已有价格的买入，%）<input name="same_price_band_pct" type="number" min="0" step="0.1"></label>
+          <label>同价区参考买入次数<input name="same_price_band_max_buys" type="number" min="1" step="1"></label>
+          <label>计划投入参考金额（可留空）<input name="planned_investment_reference" type="number" min="0" step="0.01" placeholder="留空则不计算计划余量"></label>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>相对强弱（可选）</h2>
+        <p class="muted">留空即跳过。填写后，报告会把当前跟踪对象与该行业基准的 5/10/20/60/120 日收益进行比较；请勿填写与当前跟踪代码相同的代码。</p>
+        <div class="form-grid">
+          <label>行业比较基准名称（可选）<input name="relative_strength_benchmark_name" placeholder="例如：电力设备行业指数"></label>
+          <label>行业比较基准代码（可选）<input name="relative_strength_benchmark_code" placeholder="填写后才启用比较"></label>
+        </div>
+      </section>
+
+      <section class="card">
         <h2>止盈与部分卖出参数</h2>
         <p class="muted">这些参数会保存在当前资产的策略文件中，并直接用于 PARTIAL_SELL 的两档复核及邮件提醒控制。</p>
         <div class="form-grid">

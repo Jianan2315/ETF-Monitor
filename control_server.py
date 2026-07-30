@@ -1830,6 +1830,7 @@ def _save_settings(payload: dict[str, Any], asset_id: str | None = None) -> dict
     integer_fields = {
         "stable_days_required",
         "new_low_window_days",
+        "same_price_band_max_buys",
         "sell_first_max_reminder_days",
         "sell_residual_max_reminder_days",
     }
@@ -1837,6 +1838,8 @@ def _save_settings(payload: dict[str, Any], asset_id: str | None = None) -> dict
         "strategy_type", "cycle_confirmation_pct",
         "new_low_window_days", "stable_days_required", "stable_range_pct",
         "downtrend_watch_percentile", "downtrend_risk_percentile",
+        "same_price_band_pct", "same_price_band_max_buys", "planned_investment_reference",
+        "relative_strength_benchmark_code", "relative_strength_benchmark_name",
         "normal_add_amount", "enhanced_add_amount", "rebound_recovery_threshold_pct",
         "deep_drawdown_percentile", "sell_first_percentile", "sell_second_percentile",
         "sell_early_alert_points", "sell_first_max_reminder_days",
@@ -1847,7 +1850,7 @@ def _save_settings(payload: dict[str, Any], asset_id: str | None = None) -> dict
         if key not in allowed_strategy_fields:
             continue
         if value in (None, ""):
-            if key in {"normal_add_amount", "enhanced_add_amount"}:
+            if key in {"normal_add_amount", "enhanced_add_amount", "planned_investment_reference", "relative_strength_benchmark_code", "relative_strength_benchmark_name"}:
                 strategy.pop(key, None)
             continue
         if key == "strategy_type":
@@ -1909,6 +1912,73 @@ def new_asset_page():
 @app.get("/asset/manage")
 def asset_manage_page():
     return render_template("asset_manage.html")
+
+
+def _manual_reviews_path(asset_id: str) -> Path:
+    return asset_data_dir(ROOT, asset_id) / "manual_reviews.json"
+
+
+def _manual_review_context(asset_id: str | None) -> dict[str, Any]:
+    asset = _find_asset(asset_id)
+    key = _asset_identity(asset)
+    latest_doc = _read_json(asset_latest_path(ROOT, key), {})
+    latest = latest_doc.get(key, {}) if isinstance(latest_doc, dict) else {}
+    research = latest.get("research", {}) if isinstance(latest, dict) else {}
+    decision = latest.get("decision", {}) if isinstance(latest, dict) else {}
+    checklist = [
+        {"id": "technical_facts", "label": "已检查报告中的均线位置、均线方向、均线排列和成交量事实。"},
+        {"id": "relative_strength", "label": "已检查相对行业强弱；如未设置或数据不可用，已进行人工核验。"},
+        {"id": "thesis", "label": "已检查基本面、行业景气和原始持仓逻辑是否仍成立。"},
+        {"id": "risk", "label": "已评估当前下行/高位风险，并确认本次操作不由情绪驱动。"},
+    ]
+    for index, item in enumerate(research.get("manual_review_items", []) if isinstance(research, dict) else []):
+        checklist.append({"id": f"research_{index}", "label": str(item)})
+    stored = _read_json(_manual_reviews_path(key), {"reviews": []})
+    records = stored.get("reviews", []) if isinstance(stored, dict) else []
+    return {
+        "success": True,
+        "asset": {"id": key, "name": asset.get("name"), "asset_code": asset.get("asset_code")},
+        "latest": {
+            "generated_at": latest.get("generated_at", "") if isinstance(latest, dict) else "",
+            "status": decision.get("status", "OBSERVE") if isinstance(decision, dict) else "OBSERVE",
+            "status_label": latest.get("status_label", "") if isinstance(latest, dict) else "",
+            "reason_code": decision.get("reason_code", "") if isinstance(decision, dict) else "",
+        },
+        "checklist": checklist,
+        "reviews": list(reversed(records)),
+    }
+
+
+def _save_manual_review(payload: dict[str, Any], asset_id: str | None) -> dict[str, Any]:
+    asset = _find_asset(asset_id)
+    key = _asset_identity(asset)
+    context = _manual_review_context(key)
+    allowed_checks = {item["id"] for item in context["checklist"]}
+    checks = payload.get("checks", {})
+    if not isinstance(checks, dict):
+        raise ValueError("复核勾选项格式无效")
+    conclusion = str(payload.get("conclusion") or "").strip()
+    if conclusion not in {"WAIT", "ADD", "REDUCE", "SELL", "NO_ACTION"}:
+        raise ValueError("请选择人工复核结论")
+    document = _read_json(_manual_reviews_path(key), {"reviews": []})
+    records = document.setdefault("reviews", [])
+    records.append({
+        "id": str(uuid.uuid4()),
+        "created_at": datetime.now().isoformat(timespec="seconds"),
+        "report_generated_at": context["latest"].get("generated_at", ""),
+        "strategy_status": context["latest"].get("status", "OBSERVE"),
+        "reason_code": context["latest"].get("reason_code", ""),
+        "checks": {item: bool(checks.get(item, False)) for item in allowed_checks},
+        "conclusion": conclusion,
+        "notes": str(payload.get("notes") or "").strip(),
+    })
+    _atomic_write_json(_manual_reviews_path(key), document)
+    return {"success": True, "message": "人工复核记录已保存。", "review": records[-1]}
+
+
+@app.get("/reviews")
+def manual_reviews_page():
+    return render_template("manual_reviews.html")
 
 
 @app.get("/system-settings")
@@ -2336,6 +2406,23 @@ def api_assets_delete():
 @app.get("/api/settings")
 def api_settings_get():
     return jsonify(_load_settings(request.args.get("asset_id")))
+
+
+@app.get("/api/reviews")
+def api_reviews_get():
+    try:
+        return jsonify(_manual_review_context(request.args.get("asset_id")))
+    except ValueError as exc:
+        return jsonify({"success": False, "message": str(exc)}), 404
+
+
+@app.post("/api/reviews/save")
+def api_reviews_save():
+    payload = request.get_json(silent=True) or {}
+    try:
+        return jsonify(_save_manual_review(payload, request.args.get("asset_id") or payload.get("asset_id")))
+    except ValueError as exc:
+        return jsonify({"success": False, "message": str(exc)}), 400
 
 
 @app.get("/api/system-settings")

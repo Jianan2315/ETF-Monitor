@@ -193,6 +193,8 @@ input, select {
 .trigger-explainer li + li { margin-top: 5px; }
 .trigger-title-row { align-items: center; margin-top: 22px; }
 .trigger-title-row h3 { margin: 0; }
+.checklist { display: grid; gap: 10px; margin: 16px 0; }
+.checklist .checkbox-row { align-items: flex-start; line-height: 1.55; }
 .save-card {
   /*position: sticky;*/
   bottom: 12px;

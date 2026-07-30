@@ -41,6 +41,7 @@ def evaluate_strategy(asset: dict, indicators: IndicatorResult) -> StrategyDecis
     drawdown_rank = cycle.get("current_drawdown_percentile")
     rise = cycle.get("current_rise_pct")
     rises = cycle.get("rises", []) or []
+    drawdowns = cycle.get("drawdowns", []) or []
     downtrend_active = cycle.get("active_phase") == "DOWN"
     downtrend_samples = int(cycle.get("drawdown_sample_size") or sample_size or 0)
 
@@ -88,6 +89,27 @@ def evaluate_strategy(asset: dict, indicators: IndicatorResult) -> StrategyDecis
             "尚未出现从阶段低点反弹达到拐点确认幅度的止跌确认，应由人工结合基本面判断等待、减仓或继续持有。",
             indicators.fund_flow_impact,
         ]
+        current_drawdown = cycle.get("current_drawdown_pct")
+        historical_max_drawdown = max(drawdowns) if drawdowns else None
+        if (
+            shares > 0
+            and current_drawdown is not None
+            and historical_max_drawdown is not None
+            and float(current_drawdown) > float(historical_max_drawdown)
+        ):
+            return StrategyDecision(
+                "REVIEW_SELL", True, 0.0,
+                common_reasons + [
+                    f"当前回撤 {float(current_drawdown):.2f}% 已超出过往所有已确认回撤轨迹的最大回撤 {float(historical_max_drawdown):.2f}%，不适用常规深度回撤加仓判断。",
+                    "请优先检查基本面、行业景气和持仓逻辑，并人工决定等待、减仓或卖出；系统不自动交易。",
+                ],
+                "SELL", "EXTREME_DRAWDOWN_REVIEW",
+                {
+                    "cycle": cycle,
+                    "historical_max_drawdown_pct": historical_max_drawdown,
+                    "strategy_type": strategy_type,
+                },
+            )
         if shares > 0 and drawdown_rank >= downtrend_risk_percentile:
             return StrategyDecision(
                 "REVIEW_SELL", True, 0.0,

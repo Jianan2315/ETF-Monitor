@@ -68,6 +68,21 @@ def test_confirmed_downtrend_uses_watch_then_manual_exit_review():
     assert decision.suggested_amount == 0
 
 
+def test_new_historical_max_drawdown_uses_a_separate_risk_review():
+    cycle = {
+        "sample_size": 4,
+        "drawdown_sample_size": 4,
+        "active_phase": "DOWN",
+        "current_drawdown_percentile": 100,
+        "current_drawdown_pct": 31,
+        "drawdowns": [10, 16, 24],
+    }
+    decision = evaluate_strategy(asset(), ind(cycle_analysis=cycle, stable_days=5))
+    assert decision.status == "REVIEW_SELL"
+    assert decision.reason_code == "EXTREME_DRAWDOWN_REVIEW"
+    assert any("超出过往所有已确认回撤轨迹" in reason for reason in decision.reasons)
+
+
 def test_buy_review_can_leave_amount_to_manual_decision():
     manual_asset = asset()
     manual_asset["strategy"].pop("normal_add_amount")

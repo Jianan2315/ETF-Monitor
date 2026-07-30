@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>人工复核</title>
+  <link rel="stylesheet" href="/control-static/control.css">
+</head>
+<body>
+  <main class="shell">
+    <header class="hero compact">
+      <div><p class="eyebrow">MANUAL REVIEW</p><h1>人工复核单</h1><p>自动事实供参考；所有结论和交易操作均由人工决定。</p></div>
+      <a class="secondary-button" href="/">返回控制台</a>
+    </header>
+    <section class="card">
+      <label>当前资产<select id="asset-selector"></select></label>
+      <div id="latest-context" class="result-box" hidden></div>
+    </section>
+    <section class="card">
+      <h2>本次复核</h2>
+      <p class="muted">请先核对自动生成的报告事实，再完成无法可靠自动判断的项目。</p>
+      <div id="review-checklist" class="checklist"></div>
+      <div class="form-grid">
+        <label>人工结论<select id="review-conclusion"><option value="NO_ACTION">暂不操作</option><option value="WAIT">继续等待</option><option value="ADD">人工决定加仓</option><option value="REDUCE">人工决定减仓</option><option value="SELL">人工决定卖出</option></select></label>
+        <label class="wide">复核备注<input id="review-notes" placeholder="记录判断依据、需跟进事项或参考链接"></label>
+      </div>
+      <div class="button-row"><button id="save-review">保存人工复核</button></div>
+      <div id="review-result" class="result-box" hidden></div>
+    </section>
+    <section class="card">
+      <h2>历史复核记录</h2>
+      <div id="review-history"></div>
+    </section>
+  </main>
+  <script src="/control-static/manual_reviews.js"></script>
+</body>
+</html>

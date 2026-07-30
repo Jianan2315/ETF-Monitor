@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from datetime import datetime
 from typing import Any
 
@@ -66,6 +66,8 @@ class IndicatorResult:
     cycle_analysis: dict[str, Any] | None = None
     fund_flow_status: str = "UNAVAILABLE"
     fund_flow_impact: str = "中性：资金流数据不可用，不阻断价格信号"
+    moving_averages: dict[str, Any] = field(default_factory=dict)
+    volume_analysis: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)

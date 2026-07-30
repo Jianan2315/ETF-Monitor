@@ -11,7 +11,7 @@ from src.asset_store import (
     ensure_layout, asset_transactions_path, asset_cache_dir, asset_data_dir,
     asset_report_path, asset_history_dir, asset_history_index_path,
 )
-from src.data_fetcher import DataFetchError, fetch_asset_data
+from src.data_fetcher import DataFetchError, _load_history_cache, fetch_asset_data, refresh_history_cache_now
 from src.email_sender import (
     evaluate_email_delivery,
     send_data_error_email,
@@ -34,6 +34,8 @@ from src.notification_guard import (
     record_data_error_email_sent,
 )
 from src.position import calculate_position
+from src.buy_discipline import buy_discipline_reasons, summarize_buy_discipline
+from src.technical_analysis import relative_strength_facts
 from src.research_data import collect_research_snapshot
 from src.storage import save_run_result
 from src.strategy import evaluate_strategy
@@ -53,6 +55,49 @@ STATUS_LABELS = {
     "REVIEW_SELL": "下行风险：建议人工复核等待、减仓或继续持有",
     "PARTIAL_SELL": "建议人工复核是否部分卖出",
 }
+
+
+def _relative_strength_snapshot(
+    asset: dict[str, Any],
+    history,
+    asset_config: dict[str, Any],
+    root: Path,
+    logger,
+    now: datetime,
+) -> dict[str, Any]:
+    strategy = asset.get("strategy", {}) or {}
+    code = str(strategy.get("relative_strength_benchmark_code") or "").strip()
+    name = str(strategy.get("relative_strength_benchmark_name") or code).strip()
+    if not code:
+        return {"enabled": False, "state": "SKIPPED", "message": "未设置行业比较基准，已跳过相对强弱。"}
+    if code == str(asset.get("tracking_code") or asset.get("symbol") or ""):
+        return {"enabled": True, "state": "SKIPPED_SELF_REFERENCE", "benchmark_code": code, "benchmark_name": name, "message": "比较基准与当前跟踪代码相同，相对强弱没有额外信息，已跳过。"}
+    benchmark, _cached_at, cache_source = _load_history_cache(root, asset_config, code)
+    asset_last_date = history["date"].max()
+    if benchmark is None or benchmark.empty or benchmark["date"].max() < asset_last_date:
+        refresh = refresh_history_cache_now(
+            {"symbol": code, "name": name}, asset_config, root, logger, now,
+        )
+        if refresh.get("success"):
+            benchmark, _cached_at, cache_source = _load_history_cache(root, asset_config, code)
+        else:
+            return {
+                "enabled": True,
+                "state": "UNAVAILABLE",
+                "benchmark_code": code,
+                "benchmark_name": name,
+                "message": "行业基准数据暂不可用；请人工核验相对强弱。",
+                "errors": refresh.get("errors", []),
+            }
+    facts = relative_strength_facts(history, benchmark)
+    return {
+        "enabled": True,
+        "state": "AVAILABLE" if facts.get("available") else "INSUFFICIENT_OVERLAP",
+        "benchmark_code": code,
+        "benchmark_name": name,
+        "cache_source": cache_source,
+        **facts,
+    }
 
 
 def parse_args(argv: list[str] | None = None):
@@ -490,6 +535,14 @@ def main(argv: list[str] | None = None) -> int:
                 bundle.history,
                 bundle.latest,
             )
+            relative_strength = _relative_strength_snapshot(
+                asset,
+                bundle.history,
+                asset_config,
+                ROOT,
+                logger,
+                started_at,
+            )
             steps.append(
                 _step(
                     "indicators",
@@ -499,10 +552,21 @@ def main(argv: list[str] | None = None) -> int:
                 )
             )
 
+            buy_discipline = summarize_buy_discipline(
+                asset.get("strategy", {}),
+                transactions,
+                indicators.cycle_analysis,
+            )
             decision = evaluate_strategy(
                 asset,
                 indicators,
             )
+            if decision.action_type == "BUY":
+                decision.reasons.extend(buy_discipline_reasons(buy_discipline))
+            decision.metadata = {
+                **(decision.metadata or {}),
+                "buy_discipline": buy_discipline,
+            }
             decision.status = normalize_status(decision.status)
             steps.append(
                 _step(
@@ -548,6 +612,8 @@ def main(argv: list[str] | None = None) -> int:
             "indicators": indicators.to_dict(),
             "position_metrics": position_metrics,
             "decision": decision.to_dict(),
+            "buy_discipline": buy_discipline,
+            "relative_strength": relative_strength,
             "status_label": STATUS_LABELS.get(
                 decision.status,
                 decision.status,

@@ -5,6 +5,7 @@ import pandas as pd
 
 from src.models import IndicatorResult, MarketSnapshot
 from src.market_cycles import analyze_market_cycles
+from src.technical_analysis import moving_average_facts, volume_facts
 
 
 def calculate_indicators(asset: dict, history: pd.DataFrame, latest: MarketSnapshot) -> IndicatorResult:
@@ -71,6 +72,8 @@ def calculate_indicators(asset: dict, history: pd.DataFrame, latest: MarketSnaps
         cycle_analysis=cycle_analysis,
         fund_flow_status=fund_flow_status,
         fund_flow_impact=fund_flow_impact,
+        moving_averages=moving_average_facts(close),
+        volume_analysis=volume_facts(data["volume"]) if "volume" in data else {"available": False},
     )
 
 
