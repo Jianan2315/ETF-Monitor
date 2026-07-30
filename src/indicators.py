@@ -73,7 +73,14 @@ def calculate_indicators(asset: dict, history: pd.DataFrame, latest: MarketSnaps
         fund_flow_status=fund_flow_status,
         fund_flow_impact=fund_flow_impact,
         moving_averages=moving_average_facts(close),
-        volume_analysis=volume_facts(data["volume"]) if "volume" in data else {"available": False},
+        volume_analysis=(
+            volume_facts(
+                data["volume"],
+                close,
+                downtrend_active=cycle_analysis.get("active_phase") == "DOWN",
+            )
+            if "volume" in data else {"available": False}
+        ),
     )
 
 
