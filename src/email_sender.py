@@ -213,6 +213,7 @@ def _plain_body(result: dict, include_raw: bool = True, forced: bool = False) ->
         manual_items = research.get("manual_review_items", [])[:3]
         research_lines = [
             f"研究数据状态：{research.get('research_data_state', 'UNKNOWN')}",
+            f"数据源验证：{(research.get('source_reliability') or {}).get('state', 'UNVERIFIED')}",
             "长期逻辑：仅供人工复核，不自动改变交易状态。",
         ]
         if manual_items:
@@ -316,6 +317,7 @@ def _html_body(result: dict, include_raw: bool = True, forced: bool = False) -> 
             '<div style="padding:14px 16px;background:#f8fbfd;border:1px solid #d8e9f3;'
             'border-radius:10px;margin-bottom:16px">'
             f'<b>行业研究提示：{html.escape(str(research.get("research_data_state", "UNKNOWN")))}</b>'
+            f'<p style="margin:8px 0;color:#475569">数据源验证：{html.escape(str((research.get("source_reliability") or {}).get("state", "UNVERIFIED")))}</p>'
             '<p style="margin:8px 0;color:#475569">长期逻辑仅供人工复核，不自动改变交易状态。</p>'
             + (f'<ul style="margin:8px 0 0;padding-left:20px">{manual_html}</ul>' if manual_html else "")
             + '</div>'

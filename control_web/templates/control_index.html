@@ -7,4 +7,21 @@
 <section class="card homepage-card"><div class="section-title-row"><div><h2>运行状态</h2><p>简要显示市场、自动监控、防休眠与最近一次运行；详细诊断请使用系统工具。</p></div><button id="refresh-status" class="secondary-button">刷新状态</button></div><div id="running-status" class="status-grid"></div><div class="button-row"><button id="generate-report" data-run-mode="auto">生成当前资产报告</button><a id="schedule-link" class="button-link secondary disabled" href="#" aria-disabled="true">定时运行计划</a></div><div id="run-result" class="result-box" hidden></div></section>
 <section class="card homepage-card"><div><h2>系统工具</h2><p class="muted">用于环境检查、浏览器检查、数据源诊断、保持系统唤醒和日志维护。</p></div><div class="button-row"><a class="secondary-button" href="/system-tools">打开系统工具</a></div></section>
 <section class="card homepage-card"><div><h2>系统设置</h2><p class="muted">用于配置本地模型、邮件通知、数据处理、报告保留规则和默认运行时点。这些设置对所有资产生效。</p></div><div class="button-row"><a class="secondary-button" href="/system-settings">打开系统设置</a></div></section>
-</main><script src="/control-static/control.js"></script></body></html>
+</main>
+<div id="parameter-onboarding-modal" class="modal-backdrop" hidden>
+  <section class="modal-card parameter-onboarding-card" role="dialog" aria-modal="true" aria-labelledby="parameter-onboarding-title">
+    <p class="eyebrow">CONFIGURATION CHECK</p>
+    <h2 id="parameter-onboarding-title">参数检查</h2>
+    <p id="parameter-onboarding-intro" class="muted"></p>
+    <div id="parameter-onboarding-required" class="parameter-onboarding-list"></div>
+    <div id="parameter-onboarding-optional" class="parameter-onboarding-list"></div>
+    <label id="parameter-onboarding-dismiss-row" class="parameter-dismiss-option" hidden>
+      <input id="parameter-onboarding-dismiss-optionals" type="checkbox">
+      本次暂不填写的选填项下次不再提示
+    </label>
+    <div class="button-row parameter-onboarding-actions">
+      <button type="button" id="parameter-onboarding-later" class="secondary-button">本次稍后处理</button>
+    </div>
+  </section>
+</div>
+<script src="/control-static/control.js"></script></body></html>

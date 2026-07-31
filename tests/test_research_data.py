@@ -36,7 +36,7 @@ class GridAK:
         })
 
     def fund_etf_scale_sse(self, date):
-        assert date == "20260726"
+        assert date in {"20260726", "20260727"}
         return pd.DataFrame({
             "序号": [1],
             "基金代码": ["561380"],
@@ -60,6 +60,7 @@ def test_nonferrous_snapshot_records_metadata_and_keeps_pmi_partial(tmp_path):
     assert snapshot["research_data_state"] == "DATA_PARTIAL"
     assert snapshot["thesis_state"] == "MANUAL_REVIEW_REQUIRED"
     assert snapshot["trade_automation"] is False
+    assert snapshot["source_reliability"]["state"] == "AWAITING_SECOND_SUCCESS"
     assert by_name["沪铜连续合约收盘价"]["as_of_date"]
     assert by_name["LME铜库存13周变化率"]["frequency"] == "周"
     assert by_name["中国制造业PMI"]["status"] == "PARTIAL"
@@ -78,6 +79,12 @@ def test_grid_snapshot_uses_tracking_code_and_reuses_one_day_cache(tmp_path):
         now=datetime(2026, 7, 26, 12),
         ak_module=object(),
     )
+    third = collect_research_snapshot(
+        asset,
+        tmp_path,
+        now=datetime(2026, 7, 27, 10, 1),
+        ak_module=GridAK(),
+    )
 
     assert first["profile"] == "grid_equipment"
     assert first["research_data_state"] == "DATA_OK"
@@ -87,6 +94,9 @@ def test_grid_snapshot_uses_tracking_code_and_reuses_one_day_cache(tmp_path):
     assert exchange_shares["value"] == 6_410_000_000
     assert second["collector_cache"]["etf_market"]["cache"] is True
     assert second["observations"] == first["observations"]
+    assert third["collector_cache"]["etf_market"]["cache"] is False
+    assert third["source_reliability"]["state"] == "VERIFIED"
+    assert third["source_reliability"]["collectors"]["etf_market"]["consecutive_successful_fetches"] == 2
 
 
 def test_research_collector_error_is_a_warning_not_a_trade_signal(tmp_path):
@@ -109,4 +119,5 @@ def test_research_collector_error_is_a_warning_not_a_trade_signal(tmp_path):
 
     assert snapshot["research_data_state"] == "DATA_PARTIAL"
     assert snapshot["trade_automation"] is False
+    assert snapshot["source_reliability"]["state"] == "MANUAL_REVIEW_REQUIRED"
     assert {item["status"] for item in snapshot["observations"]} == {"ERROR"}

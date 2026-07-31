@@ -195,6 +195,9 @@ input, select {
 .trigger-title-row h3 { margin: 0; }
 .checklist { display: grid; gap: 10px; margin: 16px 0; }
 .checklist .checkbox-row { align-items: flex-start; line-height: 1.55; }
+.review-checks { margin: 6px 0 12px; padding-left: 20px; }
+.review-checks li { margin: 4px 0; }
+.review-checks li strong { display: inline-block; width: 18px; }
 .save-card {
   /*position: sticky;*/
   bottom: 12px;
@@ -613,4 +616,54 @@ dialog::backdrop { background: rgba(15,23,42,.62); }
   color: #f8fafc;
   border-radius: 9px;
   padding: 12px;
+}
+
+.modal-backdrop {
+  position: fixed;
+  z-index: 50;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(23, 32, 51, .48);
+}
+.modal-backdrop[hidden] { display: none; }
+.modal-card {
+  width: min(680px, 100%);
+  max-height: min(760px, calc(100vh - 40px));
+  overflow: auto;
+  padding: 26px;
+  border-radius: 18px;
+  background: #fff;
+  box-shadow: 0 24px 60px rgba(15, 23, 42, .28);
+}
+.modal-card h2 { margin: 0 0 8px; }
+.parameter-onboarding-list { display: grid; gap: 10px; margin-top: 16px; }
+.parameter-onboarding-list:empty { display: none; }
+.parameter-onboarding-item {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: center;
+  padding: 13px;
+  border: 1px solid #dbe3e8;
+  border-radius: 11px;
+  background: #f8fafc;
+}
+.parameter-onboarding-item.required { border-left: 4px solid #b42318; }
+.parameter-onboarding-item.optional { border-left: 4px solid #1f6f8b; }
+.parameter-onboarding-item strong,
+.parameter-onboarding-item span { display: block; }
+.parameter-onboarding-item span { margin-top: 4px; color: #64748b; font-size: 13px; }
+.parameter-onboarding-item .button-link { flex: 0 0 auto; }
+.parameter-dismiss-option {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-top: 16px;
+  color: #475569;
+}
+.parameter-onboarding-actions { margin-top: 20px; }
+@media (max-width: 560px) {
+  .parameter-onboarding-item { align-items: flex-start; flex-direction: column; }
 }

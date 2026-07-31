@@ -80,8 +80,8 @@
         <h2>成交量与单日涨跌辅助条件</h2>
         <p class="muted">仅生成量价辅助标签和历史描述统计，不会单独改变策略状态。成交量固定比较前 5、20、120 日均量；达到至少两个基准才判为放量或缩量。</p>
         <div class="form-grid">
-          <label>放量量比阈值<input name="volume_high_ratio" type="number" min="0" step="0.01"></label>
-          <label>缩量量比阈值<input name="volume_low_ratio" type="number" min="0" step="0.01"></label>
+          <label>放量量比阈值<input name="volume_high_ratio" type="number" min="1.01" step="0.01"></label>
+          <label>缩量量比阈值<input name="volume_low_ratio" type="number" min="0" max="0.99" step="0.01"></label>
           <label>满足量比基准数（共 3 个）<input name="volume_required_window_count" type="number" min="1" max="3" step="1"></label>
           <label>涨跌幅较大分位（%）<input name="volume_move_notice_percentile" type="number" min="0" max="100" step="0.1"></label>
           <label>涨跌幅非常大分位（%）<input name="volume_move_very_large_percentile" type="number" min="0" max="100" step="0.1"></label>

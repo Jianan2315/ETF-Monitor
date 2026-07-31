@@ -28,6 +28,7 @@ config/private/*
 /data/notifications/*
 /data/schedule_status/*
 /data/global/provider_state.json
+/data/global/parameter_prompt_state.json
 /data/global/run_status/*
 !/data/global/run_status/.gitkeep
 /data/global/schedule_plans.json

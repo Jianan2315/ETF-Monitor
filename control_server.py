@@ -60,6 +60,65 @@ HOST = "127.0.0.1"
 PORT = 8765
 CONTROL_VERSION = "13.2.0"
 
+# The homepage uses this small registry to detect configuration introduced after
+# an asset was created.  Add new entries here whenever a new asset-level
+# setting is introduced.  Required entries are checked against the effective
+# strategy (so established defaults are not falsely reported as missing);
+# optional entries are checked against the value saved for that asset.
+REQUIRED_PARAMETER_DEFINITIONS: tuple[dict[str, str], ...] = (
+    {"key": "strategy_type", "label": "策略类型", "description": "用于选择趋势型或周期型判断。"},
+    {"key": "cycle_confirmation_pct", "label": "高低点确认幅度", "description": "用于确认市场周期拐点。"},
+    {"key": "new_low_window_days", "label": "近低判断窗口", "description": "用于判断近期是否持续创新低。"},
+    {"key": "stable_days_required", "label": "横盘确认天数", "description": "用于判断止跌横盘是否成立。"},
+    {"key": "stable_range_pct", "label": "横盘波动范围", "description": "用于限定横盘阶段允许的波动。"},
+    {"key": "rebound_recovery_threshold_pct", "label": "反弹修复确认比例", "description": "用于 REVIEW_BUY 的反弹修复判断。"},
+    {"key": "deep_drawdown_percentile", "label": "深度回撤参考分位", "description": "用于识别历史上较深的回撤。"},
+    {"key": "downtrend_watch_percentile", "label": "下行重点观察分位", "description": "用于下行阶段的人工复核提示。"},
+    {"key": "downtrend_risk_percentile", "label": "下行风险复核分位", "description": "用于下行风险提示。"},
+    {"key": "same_price_band_pct", "label": "同价区范围", "description": "用于最近一次买入价附近的参考提示。"},
+    {"key": "same_price_band_max_buys", "label": "同价区参考买入次数", "description": "用于同价区买入次数的人工复核信息。"},
+    {"key": "volume_high_ratio", "label": "放量量比阈值", "description": "用于量价辅助标签。"},
+    {"key": "volume_low_ratio", "label": "缩量量比阈值", "description": "用于量价辅助标签。"},
+    {"key": "volume_required_window_count", "label": "量比基准数", "description": "用于确认放量或缩量所需满足的均量基准数。"},
+    {"key": "volume_move_notice_percentile", "label": "较大涨跌幅分位", "description": "用于提示单日较大涨跌。"},
+    {"key": "volume_move_very_large_percentile", "label": "非常大涨跌幅分位", "description": "用于提示单日非常大涨跌。"},
+    {"key": "volume_move_history_lookback_days", "label": "涨跌幅历史比较窗口", "description": "用于计算单日涨跌幅的历史分位。"},
+    {"key": "sell_first_percentile", "label": "第一减仓参考分位", "description": "用于第一档 PARTIAL_SELL 人工复核。"},
+    {"key": "sell_second_percentile", "label": "第二减仓参考分位", "description": "用于第二档 PARTIAL_SELL 人工复核。"},
+    {"key": "sell_early_alert_points", "label": "减仓提前提醒", "description": "用于减仓前的提前观察。"},
+    {"key": "sell_first_max_reminder_days", "label": "第一档最多提醒交易日", "description": "用于第一档减仓提醒时长。"},
+    {"key": "sell_first_stop_reduction_pct", "label": "第一档停止提醒减仓比例", "description": "用于判断第一档提醒是否可停止。"},
+    {"key": "sell_residual_position_pct", "label": "残余仓位比例", "description": "用于残余仓位的提醒规则。"},
+    {"key": "sell_residual_max_reminder_days", "label": "残余仓位最多提醒交易日", "description": "用于残余仓位的提醒时长。"},
+)
+
+OPTIONAL_PARAMETER_DEFINITIONS: tuple[dict[str, str], ...] = (
+    {
+        "id": "planned_investment_reference",
+        "keys": "planned_investment_reference",
+        "label": "计划投入参考金额",
+        "description": "仅用于显示计划剩余投入等人工复核信息；留空不会阻断策略。",
+    },
+    {
+        "id": "normal_add_amount",
+        "keys": "normal_add_amount",
+        "label": "反弹修复建议加仓金额",
+        "description": "可选的人工复核建议金额；留空时由人工决定。",
+    },
+    {
+        "id": "enhanced_add_amount",
+        "keys": "enhanced_add_amount",
+        "label": "深度回撤建议加仓金额",
+        "description": "可选的人工复核建议金额；留空时由人工决定。",
+    },
+    {
+        "id": "relative_strength_benchmark",
+        "keys": "relative_strength_benchmark_code",
+        "label": "行业相对强弱比较基准",
+        "description": "填写比较基准代码（可同时填写名称）后，报告会显示相对强弱；不适用时可跳过。",
+    },
+)
+
 app = Flask(
     __name__,
     template_folder=str(ROOT / "control_web" / "templates"),
@@ -393,6 +452,86 @@ def _normalize_asset(asset: dict[str, Any], index: int = 0) -> dict[str, Any]:
 def _all_assets() -> list[dict[str, Any]]:
     ensure_layout(ROOT)
     return [_normalize_asset(asset, idx) for idx, asset in enumerate(load_assets(ROOT))]
+
+
+def _asset_strategy_config_path(asset_id: str) -> Path:
+    return ROOT / "config" / "assets" / f"{asset_id}_strategy.json"
+
+
+def _raw_asset_strategy(asset_id: str) -> dict[str, Any]:
+    document = _read_json(_asset_strategy_config_path(asset_id), {})
+    strategy = document.get("strategy", {}) if isinstance(document, dict) else {}
+    return dict(strategy) if isinstance(strategy, dict) else {}
+
+
+def _parameter_prompt_state_path() -> Path:
+    return ROOT / "data" / "global" / "parameter_prompt_state.json"
+
+
+def _parameter_prompt_state() -> dict[str, Any]:
+    state = _read_json(_parameter_prompt_state_path(), {})
+    if not isinstance(state, dict):
+        state = {}
+    dismissals = state.get("optional_dismissals")
+    state["optional_dismissals"] = dismissals if isinstance(dismissals, dict) else {}
+    return state
+
+
+def _is_missing_parameter(value: Any) -> bool:
+    return value is None or (isinstance(value, str) and not value.strip())
+
+
+def _parameter_onboarding_context() -> dict[str, Any]:
+    """Return missing configuration for the homepage parameter prompt.
+
+    Required values deliberately use an asset's effective strategy: legacy
+    files that safely inherit a current default do not need a pointless form
+    visit.  Optional values use the raw asset file, which lets the UI remember
+    a deliberate choice to leave a field blank.
+    """
+    state = _parameter_prompt_state()
+    dismissals = state["optional_dismissals"]
+    required: list[dict[str, str]] = []
+    optional: list[dict[str, str]] = []
+    for asset in _all_assets():
+        asset_id = _asset_identity(asset)
+        asset_name = str(asset.get("name") or asset_id)
+        settings_url = url_for("trigger_conditions_page", asset_id=asset_id)
+        effective_strategy = asset.get("strategy", {})
+        raw_strategy = _raw_asset_strategy(asset_id)
+        for definition in REQUIRED_PARAMETER_DEFINITIONS:
+            key = definition["key"]
+            if _is_missing_parameter(effective_strategy.get(key)):
+                required.append({
+                    "asset_id": asset_id,
+                    "asset_name": asset_name,
+                    "key": key,
+                    "label": definition["label"],
+                    "description": definition["description"],
+                    "settings_url": settings_url,
+                })
+        for definition in OPTIONAL_PARAMETER_DEFINITIONS:
+            option_id = definition["id"]
+            dismissal_key = f"{asset_id}:{option_id}"
+            keys = definition["keys"].split(",")
+            completed = all(not _is_missing_parameter(raw_strategy.get(key)) for key in keys)
+            if completed or dismissal_key in dismissals:
+                continue
+            optional.append({
+                "asset_id": asset_id,
+                "asset_name": asset_name,
+                "id": option_id,
+                "label": definition["label"],
+                "description": definition["description"],
+                "settings_url": settings_url,
+            })
+    return {
+        "success": True,
+        "required": required,
+        "optional": optional,
+        "required_count": len(required),
+        "optional_count": len(optional),
+    }
 
 
 def _find_asset(asset_id: str | None = None) -> dict[str, Any]:
@@ -1861,7 +2000,13 @@ def _save_settings(payload: dict[str, Any], asset_id: str | None = None) -> dict
             strategy[key] = str(value).upper() if str(value).upper() in {"TREND", "CYCLICAL"} else "CYCLICAL"
         else:
             strategy[key] = _coerce_int(value, key) if key in integer_fields else _coerce_float(value, key)
-    if float(strategy.get("volume_high_ratio", 1.2)) <= float(strategy.get("volume_low_ratio", 0.8)):
+    volume_high_ratio = float(strategy.get("volume_high_ratio", 1.2))
+    volume_low_ratio = float(strategy.get("volume_low_ratio", 0.8))
+    if volume_high_ratio <= 1:
+        raise ValueError("放量量比阈值必须大于 1")
+    if not 0 <= volume_low_ratio < 1:
+        raise ValueError("缩量量比阈值必须在 0 到 1 之间")
+    if volume_high_ratio <= volume_low_ratio:
         raise ValueError("放量量比阈值必须大于缩量量比阈值")
     if not 1 <= int(strategy.get("volume_required_window_count", 2)) <= 3:
         raise ValueError("满足量比基准数必须在 1 到 3 之间")
@@ -2359,6 +2504,42 @@ def api_asset_summary_get():
         return jsonify(_homepage_asset_position_summary(_find_asset(request.args.get("asset_id"))))
     except ValueError as exc:
         return jsonify({"success": False, "message": str(exc)}), 404
+
+
+@app.get("/api/parameter-onboarding")
+def api_parameter_onboarding_get():
+    return jsonify(_parameter_onboarding_context())
+
+
+@app.post("/api/parameter-onboarding/dismiss-optionals")
+def api_parameter_onboarding_dismiss_optionals():
+    payload = request.get_json(silent=True) or {}
+    requested = payload.get("items", [])
+    if not isinstance(requested, list):
+        return jsonify({"success": False, "message": "选填项格式无效。"}), 400
+    valid_asset_ids = {_asset_identity(asset) for asset in _all_assets()}
+    valid_option_ids = {definition["id"] for definition in OPTIONAL_PARAMETER_DEFINITIONS}
+    state = _parameter_prompt_state()
+    dismissals = state["optional_dismissals"]
+    now = datetime.now().isoformat(timespec="seconds")
+    saved = 0
+    for item in requested:
+        if not isinstance(item, dict):
+            continue
+        asset_id = str(item.get("asset_id") or "").strip()
+        option_id = str(item.get("id") or "").strip()
+        if asset_id not in valid_asset_ids or option_id not in valid_option_ids:
+            continue
+        dismissals[f"{asset_id}:{option_id}"] = {"dismissed_at": now}
+        saved += 1
+    state["version"] = 1
+    _atomic_write_json(_parameter_prompt_state_path(), state)
+    return jsonify({
+        "success": True,
+        "message": "已记录本次选填项的暂不设置选择。",
+        "dismissed_count": saved,
+        **_parameter_onboarding_context(),
+    })
 
 
 @app.post("/api/assets/create")

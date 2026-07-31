@@ -57,6 +57,47 @@ def test_homepage_uses_consistent_disabled_asset_action_markup():
     assert "button.disabled = !enabled" in script
 
 
+def test_homepage_parameter_onboarding_marks_required_and_optional_items(monkeypatch, tmp_path: Path):
+    monkeypatch.setattr(control_server, "ROOT", tmp_path)
+    save_asset(tmp_path, {
+        "id": "demo", "name": "演示资产", "asset_code": "demo",
+        "tracking_code": "123456", "tracking_name": "演示跟踪标的",
+        "strategy": {"strategy_type": "CYCLICAL"},
+    })
+    monkeypatch.setattr(control_server, "REQUIRED_PARAMETER_DEFINITIONS", (
+        {"key": "new_required_setting", "label": "新的必填参数", "description": "测试用。"},
+    ))
+
+    client = control_server.app.test_client()
+    first = client.get("/api/parameter-onboarding").get_json()
+
+    assert first["required"] == [{
+        "asset_id": "demo", "asset_name": "演示资产", "key": "new_required_setting",
+        "label": "新的必填参数", "description": "测试用。",
+        "settings_url": "/trigger-conditions?asset_id=demo",
+    }]
+    assert {item["id"] for item in first["optional"]} == {
+        "planned_investment_reference", "normal_add_amount", "enhanced_add_amount", "relative_strength_benchmark",
+    }
+
+    response = client.post("/api/parameter-onboarding/dismiss-optionals", json={"items": first["optional"]})
+    assert response.status_code == 200
+    assert response.get_json()["dismissed_count"] == 4
+    assert client.get("/api/parameter-onboarding").get_json()["optional"] == []
+    state = json.loads((tmp_path / "data" / "global" / "parameter_prompt_state.json").read_text(encoding="utf-8"))
+    assert len(state["optional_dismissals"]) == 4
+
+
+def test_homepage_includes_parameter_onboarding_modal_and_client_check():
+    body = control_server.app.test_client().get("/").get_data(as_text=True)
+    script = (control_server.ROOT / "control_web" / "static" / "control.js").read_text(encoding="utf-8")
+
+    assert 'id="parameter-onboarding-modal"' in body
+    assert 'id="parameter-onboarding-dismiss-optionals"' in body
+    assert 'fetch("/api/parameter-onboarding"' in script
+    assert 'dismiss-optionals' in script
+
+
 def test_system_settings_explains_each_email_trigger_before_its_checkboxes():
     body = control_server.app.test_client().get("/system-settings").get_data(as_text=True)
 
@@ -600,7 +641,12 @@ def test_manual_review_page_and_api_save_asset_scoped_records(monkeypatch, tmp_p
         "notes": "等待更多确认",
     }).get_json()
     assert saved["success"] is True
-    assert client.get("/api/reviews?asset_id=review-fund").get_json()["reviews"][0]["conclusion"] == "WAIT"
+    reviews = client.get("/api/reviews?asset_id=review-fund").get_json()["reviews"]
+    assert reviews[0]["conclusion"] == "WAIT"
+    assert all(reviews[0]["checks"].values())
+    script = (Path(control_server.__file__).parent / "control_web" / "static" / "manual_reviews.js").read_text(encoding="utf-8")
+    assert "关联报告" in script
+    assert "复核项目" in script
 
 
 def test_asset_basic_configuration_and_strategy_are_stored_separately(tmp_path: Path):

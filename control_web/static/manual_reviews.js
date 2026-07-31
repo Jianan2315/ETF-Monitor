@@ -18,8 +18,15 @@ async function loadAssets() {
   selector.value = selectedAssetId;
 }
 
-function renderHistory(reviews) {
-  reviewHistory.innerHTML = reviews.length ? reviews.map(item => `<article class="transaction-item"><strong>${escapeHtml(item.created_at)} · ${escapeHtml(item.conclusion)}</strong><p>报告状态：${escapeHtml(item.strategy_status)} · 原因：${escapeHtml(item.reason_code)}</p>${item.notes ? `<p>${escapeHtml(item.notes)}</p>` : ""}</article>`).join("") : "<p class='empty-state'>尚无已保存的人工复核记录。</p>";
+function renderHistory(reviews, checklistItems) {
+  const labels = new Map((checklistItems || []).map(item => [item.id, item.label]));
+  const conclusions = {NO_ACTION:"暂不操作", WAIT:"继续等待", ADD:"人工决定加仓", REDUCE:"人工决定减仓", SELL:"人工决定卖出"};
+  reviewHistory.innerHTML = reviews.length ? reviews.map(item => {
+    const checks = item.checks || {};
+    const ids = [...new Set([...labels.keys(), ...Object.keys(checks)])];
+    const checkItems = ids.map(id => `<li><strong>${checks[id] ? "✓" : "✗"}</strong> ${escapeHtml(labels.get(id) || id)}</li>`).join("");
+    return `<article class="transaction-item"><strong>${escapeHtml(item.created_at)} · ${escapeHtml(conclusions[item.conclusion] || item.conclusion)}</strong><p>关联报告：${escapeHtml(item.report_generated_at || "未关联")}</p><p>报告状态：${escapeHtml(item.strategy_status)} · 原因：${escapeHtml(item.reason_code)}</p><p><strong>复核项目：</strong></p><ul class="review-checks">${checkItems || "<li>无已保存勾选项</li>"}</ul>${item.notes ? `<p><strong>备注：</strong>${escapeHtml(item.notes)}</p>` : ""}</article>`;
+  }).join("") : "<p class='empty-state'>尚无已保存的人工复核记录。</p>";
 }
 
 async function loadReview() {
@@ -32,7 +39,7 @@ async function loadReview() {
   latestContext.className = "result-box";
   latestContext.textContent = latest.generated_at ? `关联报告：${latest.generated_at} · ${latest.status} · ${latest.status_label || latest.reason_code}` : "尚未找到最新报告；仍可保存独立的人工复核记录。";
   checklist.innerHTML = currentChecklist.map(item => `<label class="checkbox-row"><input type="checkbox" data-check="${escapeHtml(item.id)}">${escapeHtml(item.label)}</label>`).join("");
-  renderHistory(data.reviews || []);
+  renderHistory(data.reviews || [], currentChecklist);
 }
 
 selector.addEventListener("change", async event => { selectedAssetId = event.target.value; localStorage.setItem("portfolio.selectedAssetId", selectedAssetId); window.history.replaceState(null, "", `?asset_id=${encodeURIComponent(selectedAssetId)}`); await loadReview(); });

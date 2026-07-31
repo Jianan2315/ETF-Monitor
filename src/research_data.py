@@ -127,6 +127,46 @@ def _reuse_if_fresh(
     return observations
 
 
+def _collector_reliability(
+    previous: dict[str, Any],
+    key: str,
+    *,
+    now: datetime,
+    success: bool,
+) -> dict[str, Any]:
+    """Track two independent successful fetches without extra source calls."""
+    prior = previous.get("collector_cache", {}).get(key, {}).get("reliability", {})
+    attempts = int(prior.get("actual_fetch_attempts", 0) or 0) + 1
+    if success:
+        consecutive = int(prior.get("consecutive_successful_fetches", 0) or 0) + 1
+        state = "VERIFIED" if consecutive >= 2 else "AWAITING_SECOND_SUCCESS"
+    else:
+        consecutive = 0
+        state = "MANUAL_REVIEW_REQUIRED"
+    return {
+        "state": state,
+        "verified": state == "VERIFIED",
+        "actual_fetch_attempts": attempts,
+        "consecutive_successful_fetches": consecutive,
+        "last_actual_fetch_at": now.isoformat(timespec="seconds"),
+        "last_actual_fetch_success": success,
+    }
+
+
+def _cached_reliability(previous: dict[str, Any], key: str) -> dict[str, Any]:
+    prior = previous.get("collector_cache", {}).get(key, {}).get("reliability")
+    if isinstance(prior, dict):
+        return prior
+    return {
+        "state": "AWAITING_SECOND_SUCCESS",
+        "verified": False,
+        "actual_fetch_attempts": 0,
+        "consecutive_successful_fetches": 0,
+        "last_actual_fetch_at": None,
+        "last_actual_fetch_success": None,
+    }
+
+
 def _run_collector(
     *,
     key: str,
@@ -137,10 +177,20 @@ def _run_collector(
 ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     cached = _reuse_if_fresh(previous, key, now, max_age_days)
     if cached is not None:
-        return cached, {"updated_at": previous["collector_cache"][key]["updated_at"], "observations": cached, "cache": True}
+        return cached, {
+            "updated_at": previous["collector_cache"][key]["updated_at"],
+            "observations": cached,
+            "cache": True,
+            "reliability": _cached_reliability(previous, key),
+        }
     try:
         observations = collect()
-        return observations, {"updated_at": now.isoformat(timespec="seconds"), "observations": observations, "cache": False}
+        return observations, {
+            "updated_at": now.isoformat(timespec="seconds"),
+            "observations": observations,
+            "cache": False,
+            "reliability": _collector_reliability(previous, key, now=now, success=True),
+        }
     except Exception as exc:
         error = _observation(
             name=key,
@@ -154,7 +204,12 @@ def _run_collector(
             now=now,
             note=f"{type(exc).__name__}: {exc}",
         )
-        return [error], {"updated_at": now.isoformat(timespec="seconds"), "observations": [error], "cache": False}
+        return [error], {
+            "updated_at": now.isoformat(timespec="seconds"),
+            "observations": [error],
+            "cache": False,
+            "reliability": _collector_reliability(previous, key, now=now, success=False),
+        }
 
 
 def _nonferrous_collectors(ak: Any, now: datetime) -> dict[str, Callable[[], list[dict[str, Any]]]]:
@@ -346,6 +401,7 @@ def collect_research_snapshot(
             "observations": [],
             "manual_review_items": manual_items,
             "collector_cache": {},
+            "source_reliability": {"state": "MANUAL_REVIEW_REQUIRED", "collectors": {}},
             "trade_automation": False,
         }
         _write_json(_snapshot_path(root, asset), snapshot)
@@ -377,6 +433,14 @@ def collect_research_snapshot(
     has_error = any(item["status"] == "ERROR" for item in observations)
     has_partial = any(item["status"] == "PARTIAL" for item in observations)
     data_state = "DATA_PARTIAL" if has_error or has_partial else "DATA_OK"
+    reliabilities = {key: item.get("reliability", {}) for key, item in cache.items()}
+    reliability_states = {str(item.get("state") or "AWAITING_SECOND_SUCCESS") for item in reliabilities.values()}
+    if "MANUAL_REVIEW_REQUIRED" in reliability_states:
+        reliability_state = "MANUAL_REVIEW_REQUIRED"
+    elif reliabilities and all(bool(item.get("verified")) for item in reliabilities.values()):
+        reliability_state = "VERIFIED"
+    else:
+        reliability_state = "AWAITING_SECOND_SUCCESS"
     snapshot = {
         "asset_id": asset_id,
         "profile": profile,
@@ -386,6 +450,7 @@ def collect_research_snapshot(
         "observations": observations,
         "manual_review_items": MANUAL_REVIEW_ITEMS.get(profile, []),
         "collector_cache": cache,
+        "source_reliability": {"state": reliability_state, "collectors": reliabilities},
         "trade_automation": False,
     }
     _write_json(_snapshot_path(root, asset), snapshot)

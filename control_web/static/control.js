@@ -114,6 +114,81 @@ async function loadRunningStatus() {
   grid.innerHTML = cards.join("");
 }
 
+function onboardingItem(item, kind) {
+  const title = `${escapeHtml(item.asset_name)} · ${escapeHtml(item.label)}`;
+  return `<article class="parameter-onboarding-item ${kind}">
+    <div><strong>${title}</strong><span>${escapeHtml(item.description)}</span></div>
+    <a class="button-link secondary" href="${escapeHtml(item.settings_url)}">前往设置</a>
+  </article>`;
+}
+
+async function dismissOptionalOnboardingItems(items) {
+  if (!items.length) return;
+  const response = await fetch("/api/parameter-onboarding/dismiss-optionals", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({items: items.map(item => ({asset_id: item.asset_id, id: item.id}))}),
+  });
+  if (!response.ok) throw new Error(`HTTP ${response.status}`);
+}
+
+async function loadParameterOnboarding() {
+  const modal = document.getElementById("parameter-onboarding-modal");
+  const requiredPanel = document.getElementById("parameter-onboarding-required");
+  const optionalPanel = document.getElementById("parameter-onboarding-optional");
+  const intro = document.getElementById("parameter-onboarding-intro");
+  const dismissRow = document.getElementById("parameter-onboarding-dismiss-row");
+  const dismissCheckbox = document.getElementById("parameter-onboarding-dismiss-optionals");
+  const laterButton = document.getElementById("parameter-onboarding-later");
+  let data;
+  try {
+    const response = await fetch("/api/parameter-onboarding", {cache: "no-store"});
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    data = await response.json();
+  } catch (error) {
+    console.warn("参数检查暂时不可用", error);
+    return;
+  }
+
+  const required = data.required || [];
+  const optional = data.optional || [];
+  if (!required.length && !optional.length) {
+    modal.hidden = true;
+    return;
+  }
+
+  requiredPanel.innerHTML = required.map(item => onboardingItem(item, "required")).join("");
+  optionalPanel.innerHTML = optional.map(item => onboardingItem(item, "optional")).join("");
+  dismissRow.hidden = !optional.length;
+  dismissCheckbox.checked = false;
+  if (required.length) {
+    intro.textContent = "以下必填参数尚未具备有效配置。请进入相应资产的触发条件页面填写；在完成前，每次打开主页都会继续提醒。";
+    laterButton.hidden = !optional.length;
+    laterButton.textContent = "保存选填项选择";
+  } else {
+    intro.textContent = "以下为选填参数。它们不会阻断报告或策略；你可以填写，也可以选择暂不设置。";
+    laterButton.hidden = false;
+    laterButton.textContent = "本次稍后处理";
+  }
+  modal.hidden = false;
+
+  laterButton.onclick = async () => {
+    laterButton.disabled = true;
+    try {
+      if (dismissCheckbox.checked) await dismissOptionalOnboardingItems(optional);
+      if (required.length) {
+        await loadParameterOnboarding();
+      } else {
+        modal.hidden = true;
+      }
+    } catch (error) {
+      intro.textContent = `无法保存选填项的提示偏好：${error}`;
+    } finally {
+      laterButton.disabled = false;
+    }
+  };
+}
+
 async function runReport(mode) {
   if (!selectedAssetId) return;
   const panel = document.getElementById("run-result");
@@ -136,6 +211,7 @@ document.addEventListener("click", event => {
   try {
     await loadAssets();
     await loadRunningStatus();
+    await loadParameterOnboarding();
   } catch (error) {
     document.getElementById("running-status").textContent = `状态读取失败：${error}`;
   }
