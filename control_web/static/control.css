@@ -664,6 +664,26 @@ dialog::backdrop { background: rgba(15,23,42,.62); }
   color: #475569;
 }
 .parameter-onboarding-actions { margin-top: 20px; }
+.email-authorization-code {
+  margin-top: 18px;
+  padding: 14px;
+  border: 1px solid #9cc5d5;
+  border-radius: 11px;
+  background: #eef8fc;
+  line-height: 1.65;
+  overflow-wrap: anywhere;
+}
+.email-authorization-code strong {
+  display: inline-block;
+  margin: 8px 0 0 6px;
+  padding: 4px 9px;
+  border-radius: 6px;
+  background: #172033;
+  color: #fff;
+  letter-spacing: .1em;
+  font-size: 18px;
+}
+.email-authorization-code span { color: #475569; font-size: 13px; }
 @media (max-width: 560px) {
   .parameter-onboarding-item { align-items: flex-start; flex-direction: column; }
 }

@@ -1,10 +1,15 @@
 from __future__ import annotations
 
+import logging
+import sys
+from types import SimpleNamespace
+
 import pytest
 
 from src.email_sender import _compact_error_for_email, build_graph_message_payload
 from src.microsoft_graph_auth import (
     MicrosoftGraphAuthError,
+    acquire_graph_access_token,
     validate_graph_environment,
 )
 
@@ -114,6 +119,41 @@ def test_graph_environment_requires_client_id(monkeypatch):
                 },
             }
         )
+
+
+def test_unattended_graph_auth_never_starts_device_login(monkeypatch, tmp_path):
+    class FakeCache:
+        has_state_changed = False
+
+        def deserialize(self, _value):
+            pass
+
+    class FakeApp:
+        device_flow_started = False
+
+        def get_accounts(self, **_kwargs):
+            return []
+
+        def initiate_device_flow(self, **_kwargs):
+            self.device_flow_started = True
+            return {"user_code": "should-not-be-used"}
+
+    fake_app = FakeApp()
+    monkeypatch.setitem(sys.modules, "msal", SimpleNamespace(
+        SerializableTokenCache=FakeCache,
+        PublicClientApplication=lambda *_args, **_kwargs: fake_app,
+    ))
+    settings = {
+        "client_id": "client-id", "recipient": "one@example.com", "expected_sender": None,
+        "authority": "https://login.microsoftonline.com/consumers", "scopes": ["Mail.Send"],
+        "endpoint": "https://graph.microsoft.com/v1.0/me/sendMail", "cache_file": "cache.json",
+        "timeout_seconds": 30, "save_to_sent_items": True,
+    }
+
+    with pytest.raises(MicrosoftGraphAuthError, match="visible device login"):
+        acquire_graph_access_token(settings, tmp_path, logging.getLogger("test_graph_auth"))
+
+    assert fake_app.device_flow_started is False
 
 
 def test_send_notification_email_calls_graph(monkeypatch, tmp_path):
