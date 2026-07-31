@@ -1,7 +1,7 @@
 """Read-only technical facts for reports and human review."""
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Callable
 
 import pandas as pd
 
@@ -33,17 +33,34 @@ def _volume_ratios(series: pd.Series, index: int) -> dict[str, dict[str, float]]
     return ratios
 
 
-def _volume_state(ratios: dict[str, dict[str, float]]) -> tuple[str, int, int]:
-    high_score = sum(item["ratio"] >= 1.2 for item in ratios.values())
-    low_score = sum(item["ratio"] <= 0.8 for item in ratios.values())
-    if high_score >= 2:
+def _volume_state(
+    ratios: dict[str, dict[str, float]],
+    *,
+    high_ratio: float,
+    low_ratio: float,
+    required_window_count: int,
+) -> tuple[str, int, int]:
+    high_score = sum(item["ratio"] >= high_ratio for item in ratios.values())
+    low_score = sum(item["ratio"] <= low_ratio for item in ratios.values())
+    # The agreed 2/3 rule is meaningful only when all 5/20/120-day
+    # comparisons exist.  A short history must remain explicitly unclassified.
+    if len(ratios) < len(VOLUME_WINDOWS):
+        return "UNAVAILABLE", high_score, low_score
+    if high_score >= required_window_count:
         return "HIGH", high_score, low_score
-    if low_score >= 2:
+    if low_score >= required_window_count:
         return "LOW", high_score, low_score
     return "NORMAL", high_score, low_score
 
 
-def _move_facts(close: pd.Series, index: int, lookback: int = 120) -> dict[str, Any]:
+def _move_facts(
+    close: pd.Series,
+    index: int,
+    *,
+    lookback: int,
+    notice_percentile: float,
+    very_large_percentile: float,
+) -> dict[str, Any]:
     if index < 1:
         return {"available": False}
     previous = float(close.iloc[index - 1])
@@ -70,9 +87,9 @@ def _move_facts(close: pd.Series, index: int, lookback: int = 120) -> dict[str, 
         magnitude = -change
     percentile = _percentile_rank(magnitude, comparable)
     level = "NORMAL"
-    if percentile is not None and percentile >= 80:
+    if percentile is not None and percentile >= very_large_percentile:
         level = "VERY_LARGE"
-    elif percentile is not None and percentile >= 60:
+    elif percentile is not None and percentile >= notice_percentile:
         level = "LARGE"
     return {
         "available": True,
@@ -84,7 +101,15 @@ def _move_facts(close: pd.Series, index: int, lookback: int = 120) -> dict[str, 
     }
 
 
-def _event_key(volume_state: str, move: dict[str, Any]) -> str | None:
+def _event_key(
+    volume_state: str,
+    move: dict[str, Any],
+    *,
+    downtrend_active: bool = False,
+    stabilizing: bool = False,
+) -> str | None:
+    if volume_state == "LOW" and downtrend_active and stabilizing:
+        return "LOW_VOLUME_STABILIZING"
     if move.get("level") not in {"LARGE", "VERY_LARGE"}:
         return None
     direction = move.get("direction")
@@ -93,7 +118,7 @@ def _event_key(volume_state: str, move: dict[str, Any]) -> str | None:
     if volume_state == "LOW" and direction == "DOWN":
         return "LOW_VOLUME_DECLINE"
     if volume_state == "HIGH" and direction == "UP":
-        return "HIGH_VOLUME_RISE"
+        return "HIGH_VOLUME_REBOUND" if downtrend_active else "HIGH_VOLUME_RISE"
     return None
 
 
@@ -109,7 +134,18 @@ def _outcome_summary(values: list[float]) -> dict[str, Any]:
     }
 
 
-def _historical_event_studies(volume: pd.Series, close: pd.Series) -> dict[str, Any]:
+def _historical_event_studies(
+    volume: pd.Series,
+    close: pd.Series,
+    *,
+    high_ratio: float,
+    low_ratio: float,
+    required_window_count: int,
+    move_lookback: int,
+    move_notice_percentile: float,
+    move_very_large_percentile: float,
+    context_at_index: Callable[[int], dict[str, bool]] | None = None,
+) -> dict[str, Any]:
     """Describe outcomes after historical events; this is not a forecast."""
     events: dict[str, dict[int, list[float]]] = {}
     last_event_index = len(close) - max(OUTCOME_HORIZONS)
@@ -117,8 +153,25 @@ def _historical_event_studies(volume: pd.Series, close: pd.Series) -> dict[str, 
         ratios = _volume_ratios(volume, index)
         if len(ratios) < len(VOLUME_WINDOWS):
             continue
-        move = _move_facts(close, index)
-        key = _event_key(_volume_state(ratios)[0], move)
+        move = _move_facts(
+            close,
+            index,
+            lookback=move_lookback,
+            notice_percentile=move_notice_percentile,
+            very_large_percentile=move_very_large_percentile,
+        )
+        context = context_at_index(index) if context_at_index is not None else {}
+        key = _event_key(
+            _volume_state(
+                ratios,
+                high_ratio=high_ratio,
+                low_ratio=low_ratio,
+                required_window_count=required_window_count,
+            )[0],
+            move,
+            downtrend_active=bool(context.get("downtrend_active")),
+            stabilizing=bool(context.get("stabilizing")),
+        )
         if key is None:
             continue
         bucket = events.setdefault(key, {horizon: [] for horizon in OUTCOME_HORIZONS})
@@ -190,6 +243,14 @@ def volume_facts(
     close: pd.Series | None = None,
     *,
     downtrend_active: bool = False,
+    stabilizing: bool = False,
+    high_ratio: float = 1.2,
+    low_ratio: float = 0.8,
+    required_window_count: int = 2,
+    move_notice_percentile: float = 60,
+    move_very_large_percentile: float = 80,
+    move_history_lookback_days: int = 120,
+    historical_context_at_index: Callable[[int], dict[str, bool]] | None = None,
 ) -> dict[str, Any]:
     """Return asset-relative volume facts and descriptive historical outcomes.
 
@@ -197,6 +258,12 @@ def volume_facts(
     label is deliberately read-only; the outcome section only summarizes past
     same-asset observations and never predicts a future return.
     """
+    high_ratio = max(float(high_ratio), 0.0)
+    low_ratio = max(float(low_ratio), 0.0)
+    required_window_count = min(max(int(required_window_count), 1), len(VOLUME_WINDOWS))
+    move_notice_percentile = min(max(float(move_notice_percentile), 0.0), 100.0)
+    move_very_large_percentile = min(max(float(move_very_large_percentile), move_notice_percentile), 100.0)
+    move_history_lookback_days = max(int(move_history_lookback_days), 20)
     raw_volume = pd.to_numeric(volume, errors="coerce").reset_index(drop=True)
     if close is None:
         series = raw_volume.dropna().reset_index(drop=True)
@@ -210,18 +277,23 @@ def volume_facts(
         return {"available": False}
     latest = float(series.iloc[-1])
     ratios = _volume_ratios(series, len(series) - 1)
-    volume_state, high_score, low_score = _volume_state(ratios)
+    volume_state, high_score, low_score = _volume_state(
+        ratios,
+        high_ratio=high_ratio,
+        low_ratio=low_ratio,
+        required_window_count=required_window_count,
+    )
     result: dict[str, Any] = {
         "available": True,
         "latest_volume": latest,
         "ratios": ratios,
         "thresholds": {
-            "high_ratio": 1.2,
-            "low_ratio": 0.8,
-            "required_window_count": 2,
-            "move_notice_percentile": 60,
-            "move_very_large_percentile": 80,
-            "history_lookback_days": 120,
+            "high_ratio": high_ratio,
+            "low_ratio": low_ratio,
+            "required_window_count": required_window_count,
+            "move_notice_percentile": move_notice_percentile,
+            "move_very_large_percentile": move_very_large_percentile,
+            "history_lookback_days": move_history_lookback_days,
         },
         "classification": {
             "volume_state": volume_state,
@@ -232,17 +304,35 @@ def volume_facts(
     if close_series is None or len(close_series) != len(series):
         return result
 
-    move = _move_facts(close_series, len(close_series) - 1)
-    historical_key = _event_key(volume_state, move)
-    current_event = historical_key
-    if historical_key == "HIGH_VOLUME_RISE" and downtrend_active:
-        current_event = "HIGH_VOLUME_REBOUND"
+    move = _move_facts(
+        close_series,
+        len(close_series) - 1,
+        lookback=move_history_lookback_days,
+        notice_percentile=move_notice_percentile,
+        very_large_percentile=move_very_large_percentile,
+    )
+    current_event = _event_key(
+        volume_state,
+        move,
+        downtrend_active=downtrend_active,
+        stabilizing=stabilizing,
+    )
     result["classification"].update({
         "move": move,
-        "historical_event_key": historical_key,
+        "historical_event_key": current_event,
         "event": current_event or "NONE",
     })
-    result["event_studies"] = _historical_event_studies(series, close_series)
+    result["event_studies"] = _historical_event_studies(
+        series,
+        close_series,
+        high_ratio=high_ratio,
+        low_ratio=low_ratio,
+        required_window_count=required_window_count,
+        move_lookback=move_history_lookback_days,
+        move_notice_percentile=move_notice_percentile,
+        move_very_large_percentile=move_very_large_percentile,
+        context_at_index=historical_context_at_index,
+    )
     return result
 
 

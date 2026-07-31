@@ -105,6 +105,8 @@ def test_trigger_conditions_page_edits_asset_specific_strategy_settings():
     assert 'name="same_price_band_max_buys"' in body
     assert 'name="planned_investment_reference"' in body
     assert 'name="relative_strength_benchmark_code"' in body
+    assert 'name="volume_high_ratio"' in body
+    assert 'name="volume_move_very_large_percentile"' in body
     assert 'name="sell_first_percentile"' in body
     assert 'fetch(api("/api/settings/save")' in script
 
@@ -245,6 +247,8 @@ def test_asset_strategy_files_contain_only_current_rule_parameters():
         "downtrend_watch_percentile", "downtrend_risk_percentile",
         "same_price_band_pct", "same_price_band_max_buys", "planned_investment_reference",
         "relative_strength_benchmark_code", "relative_strength_benchmark_name",
+        "volume_high_ratio", "volume_low_ratio", "volume_required_window_count",
+        "volume_move_notice_percentile", "volume_move_very_large_percentile", "volume_move_history_lookback_days",
         "normal_add_amount", "enhanced_add_amount",
         "strategy_type", "cycle_confirmation_pct", "rebound_recovery_threshold_pct",
         "deep_drawdown_percentile", "sell_first_percentile", "sell_second_percentile",

@@ -7,6 +7,12 @@
     "downtrend_watch_percentile": 38.0,
     "downtrend_risk_percentile": 62.0,
     "same_price_band_pct": 3.0,
-    "same_price_band_max_buys": 5
+    "same_price_band_max_buys": 5,
+    "volume_high_ratio": 1.2,
+    "volume_low_ratio": 0.8,
+    "volume_required_window_count": 2,
+    "volume_move_notice_percentile": 60.0,
+    "volume_move_very_large_percentile": 80.0,
+    "volume_move_history_lookback_days": 120
   }
 }

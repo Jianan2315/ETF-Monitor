@@ -145,16 +145,17 @@
         {% set volume = result.indicators.volume_analysis|default({}) or {} %}
         {% if volume.get('available') %}
           {% set volume_classification = volume.get('classification', {}) or {} %}
+          {% set volume_thresholds = volume.get('thresholds', {}) or {} %}
           {% set move = volume_classification.get('move', {}) or {} %}
           <p class="muted"><strong>成交量：</strong>当日 {{ '%.0f'|format(volume.get('latest_volume', 0)) }}；{% for period, item in (volume.get('ratios', {}) or {}).items() %}相对前{{ period }}日均量 {{ '%.2f'|format(item.get('ratio', 0)) }} 倍{% if not loop.last %} · {% endif %}{% endfor %}</p>
           {% if volume_classification %}
-          <p class="muted"><strong>量能判定：</strong>{{ {'HIGH':'放量（至少 2/3 个量比达到 1.2 倍）','LOW':'缩量（至少 2/3 个量比不高于 0.8 倍）','NORMAL':'量能正常/混合'}.get(volume_classification.get('volume_state'), '样本不足') }}{% if move.get('available') and move.get('direction') != 'FLAT' %} · 当日{{ '收涨' if move.get('direction') == 'UP' else '收跌' }} {{ '%+.2f'|format(move.get('daily_return_pct', 0)) }}%，在过去 {{ move.get('comparison_sample_size', 0) }} 个同方向交易日中处于 {{ move.get('percentile') }} 分位（{{ {'VERY_LARGE':'涨跌幅非常大','LARGE':'涨跌幅较大','NORMAL':'涨跌幅常规'}.get(move.get('level'), '样本不足') }}）{% endif %}</p>
+          <p class="muted"><strong>量能判定：</strong>{% if volume_classification.get('volume_state') == 'HIGH' %}放量（{{ volume_classification.get('high_window_count', 0) }}/3 个量比达到 {{ volume_thresholds.get('high_ratio', 1.2) }} 倍）{% elif volume_classification.get('volume_state') == 'LOW' %}缩量（{{ volume_classification.get('low_window_count', 0) }}/3 个量比不高于 {{ volume_thresholds.get('low_ratio', 0.8) }} 倍）{% elif volume_classification.get('volume_state') == 'NORMAL' %}量能正常/混合{% else %}120 日量能样本不足{% endif %}{% if move.get('available') and move.get('direction') != 'FLAT' %} · 当日{{ '收涨' if move.get('direction') == 'UP' else '收跌' }} {{ '%+.2f'|format(move.get('daily_return_pct', 0)) }}%，在过去 {{ move.get('comparison_sample_size', 0) }} 个同方向交易日中处于 {{ move.get('percentile') }} 分位（{{ {'VERY_LARGE':'涨跌幅非常大','LARGE':'涨跌幅较大','NORMAL':'涨跌幅常规'}.get(move.get('level'), '样本不足') }}）{% endif %}</p>
           {% set event = volume_classification.get('event', 'NONE') %}
-          {% if event != 'NONE' %}<p class="data-warning-list"><strong>量价辅助标签：</strong>{{ {'HIGH_VOLUME_DECLINE':'放量下跌','LOW_VOLUME_DECLINE':'缩量下跌','HIGH_VOLUME_RISE':'放量上涨','HIGH_VOLUME_REBOUND':'下行周期中的放量反弹'}.get(event, event) }}。仅供人工复核，不改变策略状态。</p>{% endif %}
+          {% if event != 'NONE' %}<p class="data-warning-list"><strong>量价辅助标签：</strong>{{ {'HIGH_VOLUME_DECLINE':'放量下跌','LOW_VOLUME_DECLINE':'缩量下跌','LOW_VOLUME_STABILIZING':'缩量企稳','HIGH_VOLUME_RISE':'放量上涨','HIGH_VOLUME_REBOUND':'下行周期中的放量反弹'}.get(event, event) }}。仅供人工复核，不改变策略状态。</p>{% endif %}
           {% set study = (volume.get('event_studies', {}) or {}).get(volume_classification.get('historical_event_key')) %}
           {% if study %}
           <div class="metric-list">
-            <div><span>{% if event == 'HIGH_VOLUME_REBOUND' %}历史放量上涨事件{% else %}同类历史量价事件{% endif %} <small>{% if event == 'HIGH_VOLUME_REBOUND' %}历史统计未按周期逐笔回溯区分“反弹”；{% endif %}{% if study.get('sufficient_sample') %}描述性统计，不构成预测{% else %}样本少于 15 次，仅供参考{% endif %}</small></span><strong>{{ study.get('sample_size', 0) }} 次</strong></div>
+            <div><span>同类历史量价事件 <small>{% if study.get('sufficient_sample') %}描述性统计，不构成预测{% else %}样本少于 15 次，仅供参考{% endif %}</small></span><strong>{{ study.get('sample_size', 0) }} 次</strong></div>
             {% for period in ['1', '3', '5'] %}{% set outcome = (study.get('outcomes', {}) or {}).get(period, {}) %}<div><span>后{{ period }}日 <small>上涨率 {{ outcome.get('positive_rate_pct') if outcome.get('positive_rate_pct') is not none else '不适用' }}%</small></span><strong>{% if outcome.get('median_return_pct') is not none %}中位 {{ '%+.2f'|format(outcome.get('median_return_pct')) }}%{% else %}样本不足{% endif %}</strong></div>{% endfor %}
           </div>
           {% endif %}

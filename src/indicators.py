@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import math
+from functools import lru_cache
 import pandas as pd
 
 from src.models import IndicatorResult, MarketSnapshot
@@ -38,6 +39,30 @@ def calculate_indicators(asset: dict, history: pd.DataFrame, latest: MarketSnaps
         float(latest.price),
         float(strategy.get("cycle_confirmation_pct", 8.0)),
     )
+    cycle_confirmation_pct = float(strategy.get("cycle_confirmation_pct", 8.0))
+    stable_days_required = max(int(strategy.get("stable_days_required", 5)), 1)
+    stable_range_pct = float(strategy.get("stable_range_pct", 3.0))
+    current_stabilizing = bool(
+        cycle_analysis.get("active_phase") == "DOWN"
+        and not is_new_low(close, 5)
+        and count_stable_days(close, stable_range_pct) >= stable_days_required
+    )
+
+    @lru_cache(maxsize=None)
+    def historical_volume_context(index: int) -> dict[str, bool]:
+        """Re-evaluate the 8% cycle using only data known on that day."""
+        prior = data.iloc[:index + 1].copy()
+        prior_close = prior["close"].reset_index(drop=True)
+        prior_cycle = analyze_market_cycles(prior, float(prior_close.iloc[-1]), cycle_confirmation_pct)
+        downtrend_active = prior_cycle.get("active_phase") == "DOWN"
+        return {
+            "downtrend_active": bool(downtrend_active),
+            "stabilizing": bool(
+                downtrend_active
+                and not is_new_low(prior_close, 5)
+                and count_stable_days(prior_close, stable_range_pct) >= stable_days_required
+            ),
+        }
     if latest.main_fund_flow is None:
         fund_flow_status = "UNAVAILABLE"
         fund_flow_impact = "中性：资金流数据不可用，不阻断价格信号"
@@ -78,6 +103,14 @@ def calculate_indicators(asset: dict, history: pd.DataFrame, latest: MarketSnaps
                 data["volume"],
                 close,
                 downtrend_active=cycle_analysis.get("active_phase") == "DOWN",
+                stabilizing=current_stabilizing,
+                high_ratio=float(strategy.get("volume_high_ratio", 1.2)),
+                low_ratio=float(strategy.get("volume_low_ratio", 0.8)),
+                required_window_count=int(strategy.get("volume_required_window_count", 2)),
+                move_notice_percentile=float(strategy.get("volume_move_notice_percentile", 60)),
+                move_very_large_percentile=float(strategy.get("volume_move_very_large_percentile", 80)),
+                move_history_lookback_days=int(strategy.get("volume_move_history_lookback_days", 120)),
+                historical_context_at_index=historical_volume_context,
             )
             if "volume" in data else {"available": False}
         ),

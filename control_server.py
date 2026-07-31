@@ -1831,6 +1831,8 @@ def _save_settings(payload: dict[str, Any], asset_id: str | None = None) -> dict
         "stable_days_required",
         "new_low_window_days",
         "same_price_band_max_buys",
+        "volume_required_window_count",
+        "volume_move_history_lookback_days",
         "sell_first_max_reminder_days",
         "sell_residual_max_reminder_days",
     }
@@ -1840,6 +1842,8 @@ def _save_settings(payload: dict[str, Any], asset_id: str | None = None) -> dict
         "downtrend_watch_percentile", "downtrend_risk_percentile",
         "same_price_band_pct", "same_price_band_max_buys", "planned_investment_reference",
         "relative_strength_benchmark_code", "relative_strength_benchmark_name",
+        "volume_high_ratio", "volume_low_ratio", "volume_required_window_count",
+        "volume_move_notice_percentile", "volume_move_very_large_percentile", "volume_move_history_lookback_days",
         "normal_add_amount", "enhanced_add_amount", "rebound_recovery_threshold_pct",
         "deep_drawdown_percentile", "sell_first_percentile", "sell_second_percentile",
         "sell_early_alert_points", "sell_first_max_reminder_days",
@@ -1857,6 +1861,12 @@ def _save_settings(payload: dict[str, Any], asset_id: str | None = None) -> dict
             strategy[key] = str(value).upper() if str(value).upper() in {"TREND", "CYCLICAL"} else "CYCLICAL"
         else:
             strategy[key] = _coerce_int(value, key) if key in integer_fields else _coerce_float(value, key)
+    if float(strategy.get("volume_high_ratio", 1.2)) <= float(strategy.get("volume_low_ratio", 0.8)):
+        raise ValueError("放量量比阈值必须大于缩量量比阈值")
+    if not 1 <= int(strategy.get("volume_required_window_count", 2)) <= 3:
+        raise ValueError("满足量比基准数必须在 1 到 3 之间")
+    if float(strategy.get("volume_move_very_large_percentile", 80)) < float(strategy.get("volume_move_notice_percentile", 60)):
+        raise ValueError("非常大涨跌幅分位不能低于较大涨跌幅分位")
     updated["strategy"] = strategy
     saved = save_asset(ROOT, updated, old_id=old_id)
     return {"success": True, "message": "资产与策略已保存。", "changes": changes, "asset": saved}
