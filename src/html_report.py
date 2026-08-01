@@ -71,8 +71,7 @@ def generate_html_report(
         while snapshot_path.exists():
             snapshot_path = history_dir / f"{snapshot_stem}_{collision}.html"
             collision += 1
-        snapshot_html = html.replace('../static/', '../../static/')
-        snapshot_path.write_text(snapshot_html, encoding="utf-8")
+        snapshot_path.write_text(html, encoding="utf-8")
         _cleanup_history(history_dir, report)
         first_result = results[0] if results else {}
         first_asset = first_result.get("asset", {}) if isinstance(first_result, dict) else getattr(first_result, "asset", {})

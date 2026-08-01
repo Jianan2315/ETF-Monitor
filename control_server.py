@@ -123,8 +123,8 @@ OPTIONAL_PARAMETER_DEFINITIONS: tuple[dict[str, str], ...] = (
 
 app = Flask(
     __name__,
-    template_folder=str(ROOT / "control_web" / "templates"),
-    static_folder=str(ROOT / "control_web" / "static"),
+    template_folder=str(ROOT / "web" / "control" / "templates"),
+    static_folder=str(ROOT / "web" / "control" / "static"),
     static_url_path="/control-static",
 )
 
@@ -2196,8 +2196,17 @@ def history_file(asset_id: str, filename: str):
 
 @app.get("/static/<path:filename>")
 def project_static(filename: str):
+    """Keep existing generated reports styled after moving report assets."""
     return send_from_directory(
-        ROOT / "static",
+        ROOT / "web" / "report" / "static",
+        filename,
+    )
+
+
+@app.get("/report-static/<path:filename>")
+def report_static(filename: str):
+    return send_from_directory(
+        ROOT / "web" / "report" / "static",
         filename,
     )
 

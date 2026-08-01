@@ -1,6 +1,6 @@
 {
   "report": {
-    "template_file": "templates/dashboard.html",
+    "template_file": "web/report/templates/dashboard.html",
     "output_file": "output/assets/{asset_id}/latest/report.html",
     "history_index_file": "output/assets/{asset_id}/history.html",
     "history_directory": "output/assets/{asset_id}/history",

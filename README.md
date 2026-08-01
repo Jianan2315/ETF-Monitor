@@ -38,6 +38,10 @@ data/assets/<id>/    交易、缓存、运行数据
 output/assets/<id>/  资产最新与历史报告
 logs/global/         全局日志
 logs/assets/<id>/    资产日志
+web/control/         控制台模板与静态资源
+web/report/          资产报告模板与静态资源
+docs/                使用限制、路线图与版本记录
+scripts/windows/     Windows 辅助脚本
 ```
 
 运行时会自动创建缺失目录。Microsoft Graph token 位于 `config/private/msal_token_cache.json`；不得提交、共享或打包。
@@ -48,4 +52,4 @@ logs/assets/<id>/    资产日志
 - 无法发邮件：报告标题旁会显示“邮件发送失败，请验证”链接；打开后检查 Microsoft 应用注册配置与本地私密配置。
 - 报告为空：这是该资产尚未生成报告的正常状态；从首页选择该资产后生成第一份报告。
 
-更多限制见 [KNOWN_ISSUES.md](KNOWN_ISSUES.md)。
+更多限制见 [已知限制](docs/KNOWN_ISSUES.md)。

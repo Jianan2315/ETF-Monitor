@@ -19,6 +19,15 @@ def test_v13_2_system_tools_route_loads():
     assert "系统工具" in response.get_data(as_text=True)
 
 
+def test_web_assets_are_served_from_the_unified_web_tree():
+    client = control_server.app.test_client()
+
+    assert client.get("/control-static/control.css").status_code == 200
+    assert client.get("/report-static/style.css").status_code == 200
+    # Existing generated reports used /static/ before the web-tree migration.
+    assert client.get("/static/style.css").status_code == 200
+
+
 def test_homepage_places_system_navigation_in_dedicated_cards():
     client = control_server.app.test_client()
     body = client.get("/").get_data(as_text=True)
@@ -52,7 +61,7 @@ def test_homepage_uses_consistent_disabled_asset_action_markup():
     assert 'id="edit-asset-link"' not in body
     assert 'id="latest-report-link"' not in body
     assert 'aria-disabled="true"' in body
-    script = (control_server.ROOT / "control_web" / "static" / "control.js").read_text(encoding="utf-8")
+    script = (control_server.ROOT / "web" / "control" / "static" / "control.js").read_text(encoding="utf-8")
     assert "请先选择或创建一个资产。" in script
     assert "button.disabled = !enabled" in script
 
@@ -90,7 +99,7 @@ def test_homepage_parameter_onboarding_marks_required_and_optional_items(monkeyp
 
 def test_homepage_includes_parameter_onboarding_modal_and_client_check():
     body = control_server.app.test_client().get("/").get_data(as_text=True)
-    script = (control_server.ROOT / "control_web" / "static" / "control.js").read_text(encoding="utf-8")
+    script = (control_server.ROOT / "web" / "control" / "static" / "control.js").read_text(encoding="utf-8")
 
     assert 'id="parameter-onboarding-modal"' in body
     assert 'id="parameter-onboarding-dismiss-optionals"' in body
@@ -135,7 +144,7 @@ def test_trigger_conditions_page_edits_asset_specific_strategy_settings():
     client = control_server.app.test_client()
     response = client.get("/trigger-conditions")
     body = response.get_data(as_text=True)
-    script = (control_server.ROOT / "control_web" / "static" / "trigger_conditions.js").read_text(encoding="utf-8")
+    script = (control_server.ROOT / "web" / "control" / "static" / "trigger_conditions.js").read_text(encoding="utf-8")
 
     assert response.status_code == 200
     assert 'name="consecutive_down_warning_days"' not in body
@@ -159,7 +168,7 @@ def test_dashboard_schedule_action_uses_the_explicit_plan_label():
     assert "定时运行计划" in body
     assert '>资产计划</a>' not in body
 
-    script = (control_server.ROOT / "control_web" / "static" / "control.js").read_text(encoding="utf-8")
+    script = (control_server.ROOT / "web" / "control" / "static" / "control.js").read_text(encoding="utf-8")
     assert 'setLink("schedule-link", `/schedules?asset_id=${id}`, !!selected)' in script
     assert 'fetch(`/api/environment${assetQuery}`, {cache: "no-store"})' in script
 
@@ -167,7 +176,7 @@ def test_dashboard_schedule_action_uses_the_explicit_plan_label():
 def test_homepage_has_one_add_asset_entry_and_a_button_free_empty_state():
     client = control_server.app.test_client()
     body = client.get("/").get_data(as_text=True)
-    script = (control_server.ROOT / "control_web" / "static" / "control.js").read_text(encoding="utf-8")
+    script = (control_server.ROOT / "web" / "control" / "static" / "control.js").read_text(encoding="utf-8")
 
     assert body.count('href="/asset/new"') == 1
     assert "添加第一个资产" not in script
@@ -179,7 +188,7 @@ def test_homepage_has_one_add_asset_entry_and_a_button_free_empty_state():
 def test_homepage_keeps_asset_actions_only_inside_asset_cards():
     client = control_server.app.test_client()
     body = client.get("/").get_data(as_text=True)
-    script = (control_server.ROOT / "control_web" / "static" / "control.js").read_text(encoding="utf-8")
+    script = (control_server.ROOT / "web" / "control" / "static" / "control.js").read_text(encoding="utf-8")
 
     assert 'href="/asset/new"' in body
     assert "编辑当前资产" not in body
@@ -323,7 +332,7 @@ def test_asset_forms_expose_only_the_four_identity_fields():
 def test_transaction_history_is_collapsed_and_supports_batch_delete_and_chart():
     client = control_server.app.test_client()
     body = client.get("/asset/manage").get_data(as_text=True)
-    script = (control_server.ROOT / "control_web" / "static" / "asset_manage.js").read_text(encoding="utf-8")
+    script = (control_server.ROOT / "web" / "control" / "static" / "asset_manage.js").read_text(encoding="utf-8")
 
     assert '<details id="transaction-history"' in body
     assert 'id="delete-selected-transactions"' in body
@@ -382,7 +391,7 @@ def test_asset_identity_forms_use_the_shared_two_column_layout_and_action_spacin
     assert new_asset.count('class="form-actions"') == 1
     assert edit_asset.count('class="form-actions"') == 3
 
-    styles = (control_server.ROOT / "control_web" / "static" / "control.css").read_text(encoding="utf-8")
+    styles = (control_server.ROOT / "web" / "control" / "static" / "control.css").read_text(encoding="utf-8")
     assert ".asset-identity-grid" in styles
     assert "grid-template-columns: repeat(2, minmax(0, 1fr));" in styles
     assert "@media (max-width: 760px)" in styles
@@ -407,24 +416,24 @@ def test_asset_workspace_uses_clear_asset_specific_navigation_labels():
     assert '>报告记录</a>' not in body
     assert '>运行计划</a>' not in body
 
-    links = (control_server.ROOT / "control_web" / "static" / "asset_manage.js").read_text(encoding="utf-8")
+    links = (control_server.ROOT / "web" / "control" / "static" / "asset_manage.js").read_text(encoding="utf-8")
     assert '"asset-report-link":"/report"' in links
     assert '"asset-history-link":"/history"' in links
     assert '"asset-schedule-link":"/schedules"' in links
 
 
 def test_asset_report_and_history_return_to_the_same_asset_workspace(tmp_path: Path):
-    template_dir = tmp_path / "templates"
-    template_dir.mkdir()
+    template_dir = tmp_path / "web" / "report" / "templates"
+    template_dir.mkdir(parents=True)
     (template_dir / "dashboard.html").write_text(
-        (control_server.ROOT / "templates" / "dashboard.html").read_text(encoding="utf-8"),
+        (control_server.ROOT / "web" / "report" / "templates" / "dashboard.html").read_text(encoding="utf-8"),
         encoding="utf-8",
     )
     config = {
         "monitor_name": "Test",
         "report": {
             "asset_id": "demo",
-            "template_file": "templates/dashboard.html",
+            "template_file": "web/report/templates/dashboard.html",
             "output_file": "output/report.html",
             "history_directory": "output/history",
             "history_index_file": "output/history.html",
@@ -522,7 +531,7 @@ def test_asset_report_and_history_return_to_the_same_asset_workspace(tmp_path: P
     assert 'class="table-wrapper"' in history
     assert "生成时间" in history
 
-    report_styles = (control_server.ROOT / "static" / "style.css").read_text(encoding="utf-8")
+    report_styles = (control_server.ROOT / "web" / "report" / "static" / "style.css").read_text(encoding="utf-8")
     assert ".report-chart-sections" in report_styles
     assert "gap: 24px" in report_styles
     assert ".asset-heading + .report-rule-grid" in report_styles
@@ -545,16 +554,16 @@ def test_empty_asset_report_preserves_the_asset_management_return_link():
 
 
 def test_history_snapshots_are_collision_safe_and_keep_second_precision(tmp_path: Path):
-    template_dir = tmp_path / "templates"
-    template_dir.mkdir()
+    template_dir = tmp_path / "web" / "report" / "templates"
+    template_dir.mkdir(parents=True)
     (template_dir / "dashboard.html").write_text(
-        (control_server.ROOT / "templates" / "dashboard.html").read_text(encoding="utf-8"),
+        (control_server.ROOT / "web" / "report" / "templates" / "dashboard.html").read_text(encoding="utf-8"),
         encoding="utf-8",
     )
     config = {
         "report": {
             "asset_id": "demo",
-            "template_file": "templates/dashboard.html",
+            "template_file": "web/report/templates/dashboard.html",
             "output_file": "output/report.html",
             "history_directory": "output/history",
             "history_index_file": "output/history.html",
@@ -648,7 +657,7 @@ def test_manual_review_page_and_api_save_asset_scoped_records(monkeypatch, tmp_p
     reviews = client.get("/api/reviews?asset_id=review-fund").get_json()["reviews"]
     assert reviews[0]["conclusion"] == "WAIT"
     assert all(reviews[0]["checks"].values())
-    script = (Path(control_server.__file__).parent / "control_web" / "static" / "manual_reviews.js").read_text(encoding="utf-8")
+    script = (Path(control_server.__file__).parent / "web" / "control" / "static" / "manual_reviews.js").read_text(encoding="utf-8")
     assert "关联报告" in script
     assert "复核项目" in script
 
