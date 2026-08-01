@@ -48,3 +48,8 @@ config/private/*
 !/logs/global/
 /logs/global/*
 !/logs/global/.gitkeep
+
+# Versioned copies of the desktop shortcut icon are generated locally to force
+# Explorer to refresh when the source ICO is replaced.
+/scripts/windows/icons/generated/*
+!/scripts/windows/icons/generated/.gitkeep
