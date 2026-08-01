@@ -45,7 +45,7 @@ logs/assets/<id>/    资产日志
 ## 排障
 
 - Playwright/浏览器不可用：在系统工具中运行环境检查和浏览器检查，并安装 Playwright Chromium。
-- 无法发邮件：确认 `.env` 的 `MICROSOFT_CLIENT_ID`，然后重新完成设备代码登录。
+- 无法发邮件：报告标题旁会显示“邮件发送失败，请验证”链接；打开后检查 Microsoft 应用注册配置与本地私密配置。
 - 报告为空：这是该资产尚未生成报告的正常状态；从首页选择该资产后生成第一份报告。
 
 更多限制见 [KNOWN_ISSUES.md](KNOWN_ISSUES.md)。

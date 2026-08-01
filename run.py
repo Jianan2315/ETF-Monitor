@@ -693,6 +693,7 @@ def main(argv: list[str] | None = None) -> int:
             result,
             config["email"],
         )
+        result["email_delivery"] = {"state": "SKIPPED"}
         if delivery.should_send and not sell_reminder.get("allowed", True):
             from src.email_sender import EmailDecision
             delivery = EmailDecision(False, sell_reminder.get("reason", "sell reminder blocked"), delivery.status)
@@ -753,6 +754,7 @@ def main(argv: list[str] | None = None) -> int:
                     if delivery.forced
                     else "SENT"
                 )
+                result["email_delivery"] = {"state": "SENT"}
                 if result["decision"]["status"] == "PARTIAL_SELL":
                     record_sell_reminder_sent(
                         ROOT,
@@ -776,6 +778,10 @@ def main(argv: list[str] | None = None) -> int:
                 )
             except Exception as exc:
                 email_status = f"SEND_FAILED: {exc}"
+                result["email_delivery"] = {
+                    "state": "FAILED",
+                    "message": "邮件发送失败，请验证邮件应用配置。",
+                }
                 steps.append(
                     _step(
                         "email",
@@ -787,6 +793,10 @@ def main(argv: list[str] | None = None) -> int:
                 logger.exception("邮件发送失败")
         else:
             email_status = f"SKIPPED: {delivery.reason}"
+            result["email_delivery"] = {
+                "state": "SKIPPED",
+                "reason": delivery.reason,
+            }
             steps.append(
                 _step(
                     "email",

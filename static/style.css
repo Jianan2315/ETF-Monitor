@@ -39,6 +39,7 @@ body.modal-open{overflow:hidden}
 .report-meta div{display:flex;flex-direction:column;gap:4px}
 .report-meta span{color:#64748b;font-size:12px}
 .asset-heading + .report-rule-grid{margin-top:20px}
+.email-delivery-failure{display:inline-block;margin-left:10px;color:#b42318;font-size:.55em;font-weight:700;letter-spacing:normal;text-decoration:underline;text-underline-offset:3px;vertical-align:middle}.email-delivery-failure:hover{color:#8e1c14}
 .research-panel { margin-top: 20px; }
 .research-state { display:inline-flex; align-items:center; border-radius:999px; padding:5px 10px; background:#eef6fb; color:#0d5f80; font-size:12px; font-weight:700; }
 .research-observations > div { display:grid; grid-template-columns:minmax(180px, 1fr) auto; gap:4px 16px; }

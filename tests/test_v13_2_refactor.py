@@ -471,6 +471,7 @@ def test_asset_report_and_history_return_to_the_same_asset_workspace(tmp_path: P
             profit_amount=10,
         ),
         llm_summary=None,
+        email_delivery={"state": "FAILED"},
         indicators=SimpleNamespace(
             daily_change_pct=1,
             five_day_change_pct=1,
@@ -498,6 +499,8 @@ def test_asset_report_and_history_return_to_the_same_asset_workspace(tmp_path: P
     history = (tmp_path / "output" / "history.html").read_text(encoding="utf-8")
     assert "/history?asset_id=demo" in report
     assert "/asset/manage?asset_id=demo" in report
+    assert "邮件发送失败，请验证" in report
+    assert "portal.azure.com/#view/Microsoft_AAD_IAM/ActiveDirectoryMenuBlade/~/RegisteredApps" in report
     assert "返回资产管理页面" in report
     assert 'href="/">返回控制台</a>' in report
     assert 'class="secondary-button" href="/asset/manage?asset_id=demo"' in report

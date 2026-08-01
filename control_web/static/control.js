@@ -189,87 +189,11 @@ async function loadParameterOnboarding() {
   };
 }
 
-let emailAuthorizationPoll = null;
-
 function showRunResult(message, success) {
   const panel = document.getElementById("run-result");
   panel.hidden = false;
   panel.className = `result-box ${success ? "success" : "error"}`;
   panel.textContent = message;
-}
-
-function clearEmailAuthorizationPoll() {
-  if (emailAuthorizationPoll) clearInterval(emailAuthorizationPoll);
-  emailAuthorizationPoll = null;
-}
-
-function renderEmailAuthorization(authorization) {
-  const message = document.getElementById("email-authorization-message");
-  const code = document.getElementById("email-authorization-code");
-  if (authorization?.state === "pending") {
-    const uri = escapeHtml(authorization.verification_uri);
-    code.hidden = false;
-    code.innerHTML = `请在浏览器打开 <a href="${uri}" target="_blank" rel="noopener noreferrer">${uri}</a>，并输入设备码：<strong>${escapeHtml(authorization.user_code)}</strong><br><span>完成登录后，本窗口会自动确认授权结果。</span>`;
-    message.textContent = "请完成 Microsoft 登录；报告任务不会因此被阻塞。";
-    document.getElementById("start-email-authorization").hidden = true;
-  }
-}
-
-async function checkEmailToken({openAuthorization = true, quiet = false} = {}) {
-  let data;
-  try {
-    const response = await fetch("/api/email/token-status", {cache: "no-store"});
-    data = await response.json();
-    if (!response.ok || !data.success) throw new Error(data.message || `HTTP ${response.status}`);
-  } catch (error) {
-    if (!quiet) showRunResult(`邮件 Token 检查失败：${error}`, false);
-    return {valid: false};
-  }
-  if (data.valid) {
-    clearEmailAuthorizationPoll();
-    if (!quiet) showRunResult(data.message || "邮件 Token 可用。", true);
-    return data;
-  }
-  if (data.state === "authorization_pending") {
-    const modal = document.getElementById("email-authorization-modal");
-    modal.hidden = false;
-    renderEmailAuthorization(data.authorization);
-    return data;
-  }
-  if (data.requires_reauthorization && openAuthorization) {
-    const modal = document.getElementById("email-authorization-modal");
-    modal.hidden = false;
-    document.getElementById("email-authorization-message").textContent = `${data.message} 点击“开始重新授权”即可在此页面完成恢复。`;
-    document.getElementById("email-authorization-code").hidden = true;
-    document.getElementById("start-email-authorization").hidden = false;
-  } else if (!quiet) {
-    showRunResult(data.message || "邮件 Token 当前不可用。", false);
-  }
-  return data;
-}
-
-async function startEmailAuthorization() {
-  const startButton = document.getElementById("start-email-authorization");
-  startButton.disabled = true;
-  try {
-    const response = await fetch("/api/email/authorize/start", {method: "POST"});
-    const data = await response.json();
-    if (!response.ok || !data.success) throw new Error(data.message || `HTTP ${response.status}`);
-    renderEmailAuthorization(data.authorization);
-    clearEmailAuthorizationPoll();
-    emailAuthorizationPoll = setInterval(async () => {
-      const status = await checkEmailToken({openAuthorization: true, quiet: true});
-      if (status.valid) {
-        document.getElementById("email-authorization-message").textContent = "Microsoft 邮件 Token 已恢复。";
-        document.getElementById("email-authorization-code").hidden = true;
-        setTimeout(() => { document.getElementById("email-authorization-modal").hidden = true; }, 1000);
-      }
-    }, 3500);
-  } catch (error) {
-    document.getElementById("email-authorization-message").textContent = `无法启动重新授权：${error}`;
-  } finally {
-    startButton.disabled = false;
-  }
 }
 
 async function runReport(mode) {
@@ -282,23 +206,11 @@ async function runReport(mode) {
   const data = await response.json();
   panel.className = `result-box ${data.success ? "success" : "error"}`;
   panel.textContent = data.message || "运行结束。";
-  const emailAuthorizationFailed = String(data.email_status || "").startsWith("SEND_FAILED:")
-    && /visible device login|Microsoft authorization requires/i.test(String(data.email_status));
-  if (emailAuthorizationFailed) {
-    await checkEmailToken({openAuthorization: true, quiet: true});
-    return;
-  }
   if (data.success && data.report_url) setTimeout(() => location.href = data.report_url, 500);
 }
 
 document.querySelectorAll("[data-run-mode]").forEach(button => button.addEventListener("click", () => runReport(button.dataset.runMode)));
 document.getElementById("refresh-status").addEventListener("click", loadRunningStatus);
-document.getElementById("check-email-token").addEventListener("click", () => checkEmailToken());
-document.getElementById("start-email-authorization").addEventListener("click", startEmailAuthorization);
-document.getElementById("close-email-authorization").addEventListener("click", () => {
-  clearEmailAuthorizationPoll();
-  document.getElementById("email-authorization-modal").hidden = true;
-});
 document.addEventListener("click", event => {
   if (event.target.closest("a.disabled")) event.preventDefault();
 });

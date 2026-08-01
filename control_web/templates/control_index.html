@@ -4,7 +4,7 @@
 <body><main class="shell">
 <header class="hero"><div><p class="eyebrow">PORTFOLIO MONITOR V13.2</p><h1>Portfolio Monitor</h1><p>多资产投资组合的日常查看与运行入口。</p></div></header>
 <section class="card homepage-card"><div class="section-title-row"><div><h2>我的资产</h2><p>选择资产后，所有资产相关链接都会保持在同一资产范围内。</p></div><div class="button-row"><a class="button-link" href="/asset/new">添加资产</a></div></div><div class="form-grid"><label>当前资产<select id="asset-selector"><option value="">请选择资产</option></select></label></div><div id="asset-summary" class="status-grid"></div></section>
-<section class="card homepage-card"><div class="section-title-row"><div><h2>运行状态</h2><p>简要显示市场、自动监控、防休眠与最近一次运行；详细诊断请使用系统工具。</p></div><button id="refresh-status" class="secondary-button">刷新状态</button></div><div id="running-status" class="status-grid"></div><div class="button-row"><button id="generate-report" data-run-mode="auto">生成当前资产报告</button><a id="schedule-link" class="button-link secondary disabled" href="#" aria-disabled="true">定时运行计划</a><button id="check-email-token" class="secondary-button">检查邮件 Token</button></div><div id="run-result" class="result-box" hidden></div></section>
+    <section class="card homepage-card"><div class="section-title-row"><div><h2>运行状态</h2><p>简要显示市场、自动监控、防休眠与最近一次运行；详细诊断请使用系统工具。</p></div><button id="refresh-status" class="secondary-button">刷新状态</button></div><div id="running-status" class="status-grid"></div><div class="button-row"><button id="generate-report" data-run-mode="auto">生成当前资产报告</button><a id="schedule-link" class="button-link secondary disabled" href="#" aria-disabled="true">定时运行计划</a></div><div id="run-result" class="result-box" hidden></div></section>
 <section class="card homepage-card"><div><h2>系统工具</h2><p class="muted">用于环境检查、浏览器检查、数据源诊断、保持系统唤醒和日志维护。</p></div><div class="button-row"><a class="secondary-button" href="/system-tools">打开系统工具</a></div></section>
 <section class="card homepage-card"><div><h2>系统设置</h2><p class="muted">用于配置本地模型、邮件通知、数据处理、报告保留规则和默认运行时点。这些设置对所有资产生效。</p></div><div class="button-row"><a class="secondary-button" href="/system-settings">打开系统设置</a></div></section>
 </main>
@@ -21,18 +21,6 @@
     </label>
     <div class="button-row parameter-onboarding-actions">
       <button type="button" id="parameter-onboarding-later" class="secondary-button">本次稍后处理</button>
-    </div>
-  </section>
-</div>
-<div id="email-authorization-modal" class="modal-backdrop" hidden>
-  <section class="modal-card" role="dialog" aria-modal="true" aria-labelledby="email-authorization-title">
-    <p class="eyebrow">MICROSOFT EMAIL</p>
-    <h2 id="email-authorization-title">重新授权邮件通知</h2>
-    <p id="email-authorization-message" class="muted">正在检查邮件 Token。</p>
-    <div id="email-authorization-code" class="email-authorization-code" hidden></div>
-    <div class="button-row parameter-onboarding-actions">
-      <button type="button" id="start-email-authorization">开始重新授权</button>
-      <button type="button" id="close-email-authorization" class="secondary-button">稍后处理</button>
     </div>
   </section>
 </div>

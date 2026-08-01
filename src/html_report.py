@@ -10,6 +10,12 @@ from urllib.parse import quote
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
 
+EMAIL_APP_REGISTRATION_URL = (
+    "https://portal.azure.com/#view/Microsoft_AAD_IAM/"
+    "ActiveDirectoryMenuBlade/~/RegisteredApps"
+)
+
+
 def _environment(template_path: Path) -> Environment:
     return Environment(
         loader=FileSystemLoader(str(template_path.parent)),
@@ -40,6 +46,7 @@ def generate_html_report(
         run_slot=run_slot,
         report_generated_at=generated_at.isoformat(timespec="seconds"),
         asset_id=str(report.get("asset_id", "")),
+        email_app_registration_url=EMAIL_APP_REGISTRATION_URL,
     )
     output_path.write_text(html, encoding="utf-8")
 

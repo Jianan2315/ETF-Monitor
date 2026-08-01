@@ -34,13 +34,6 @@ from src.data_fetcher import (
 from src.browser_inspector import inspect_browser_requests
 from src.config_loader import load_config
 from src.logger import configure_logging
-from src.microsoft_graph_auth import (
-    MicrosoftGraphAuthError,
-    acquire_graph_access_token,
-    complete_graph_device_authorization,
-    start_graph_device_authorization,
-    validate_graph_environment,
-)
 from src.transactions import (
     delete_transaction,
     delete_transactions,
@@ -138,8 +131,6 @@ app = Flask(
 _RUN_LOCK = threading.Lock()
 _PENDING_SETTLEMENT_LOCK = threading.Lock()
 _PENDING_REFRESH_ATTEMPTS: dict[str, datetime] = {}
-_EMAIL_AUTH_LOCK = threading.Lock()
-_EMAIL_AUTH_STATE: dict[str, Any] = {"state": "idle"}
 
 
 def _read_json(path: Path, default: Any) -> Any:
@@ -233,137 +224,6 @@ def _run_status_file() -> Path:
 
 def _read_run_status() -> dict[str, Any]:
     return _read_json(_run_status_file(), {})
-
-
-def _email_auth_state_view() -> dict[str, Any]:
-    with _EMAIL_AUTH_LOCK:
-        return {
-            key: value
-            for key, value in _EMAIL_AUTH_STATE.items()
-            if key != "authorization"
-        }
-
-
-def _email_token_status() -> dict[str, Any]:
-    active = _email_auth_state_view()
-    if active.get("state") == "pending":
-        return {
-            "success": True,
-            "valid": False,
-            "state": "authorization_pending",
-            "message": "正在等待完成 Microsoft 登录。",
-            "authorization": active,
-        }
-    try:
-        config = load_config(ROOT / "config")
-        if not config["email"].get("enabled", False):
-            return {
-                "success": True,
-                "valid": False,
-                "state": "email_disabled",
-                "message": "邮件通知当前未启用。",
-            }
-        settings = validate_graph_environment(config["email"])
-        token = acquire_graph_access_token(
-            settings,
-            ROOT,
-            logging.getLogger("etf_email"),
-        )
-        return {
-            "success": True,
-            "valid": True,
-            "state": "valid",
-            "message": "Microsoft 邮件 Token 可用，可静默续期。",
-            "account": token.account_username,
-        }
-    except MicrosoftGraphAuthError as exc:
-        message = str(exc)
-        requires_reauthorization = "visible device login" in message
-        return {
-            "success": True,
-            "valid": False,
-            "state": "reauthorization_required" if requires_reauthorization else "configuration_error",
-            "message": message,
-            "requires_reauthorization": requires_reauthorization,
-        }
-    except Exception as exc:
-        return {
-            "success": False,
-            "valid": False,
-            "state": "check_failed",
-            "message": f"Token 检查失败：{type(exc).__name__}: {exc}",
-        }
-
-
-def _finish_email_authorization(session_id: str, authorization: Any) -> None:
-    try:
-        token = complete_graph_device_authorization(
-            authorization,
-            logging.getLogger("etf_email"),
-        )
-        update = {
-            "state": "success",
-            "message": "Microsoft 邮件授权已完成。",
-            "account": token.account_username,
-            "completed_at": datetime.now().isoformat(timespec="seconds"),
-        }
-    except Exception as exc:
-        update = {
-            "state": "failed",
-            "message": f"Microsoft 邮件授权失败：{type(exc).__name__}: {exc}",
-            "completed_at": datetime.now().isoformat(timespec="seconds"),
-        }
-    with _EMAIL_AUTH_LOCK:
-        if _EMAIL_AUTH_STATE.get("session_id") == session_id:
-            _EMAIL_AUTH_STATE.clear()
-            _EMAIL_AUTH_STATE.update({"session_id": session_id, **update})
-
-
-def _start_email_authorization() -> dict[str, Any]:
-    with _EMAIL_AUTH_LOCK:
-        if _EMAIL_AUTH_STATE.get("state") == "pending":
-            return {
-                "success": True,
-                "authorization": {
-                    key: value
-                    for key, value in _EMAIL_AUTH_STATE.items()
-                    if key != "authorization"
-                },
-            }
-    try:
-        config = load_config(ROOT / "config")
-        settings = validate_graph_environment(config["email"])
-        authorization = start_graph_device_authorization(
-            settings,
-            ROOT,
-            logging.getLogger("etf_email"),
-        )
-    except Exception as exc:
-        return {
-            "success": False,
-            "message": f"无法启动 Microsoft 登录：{type(exc).__name__}: {exc}",
-        }
-
-    session_id = str(uuid.uuid4())
-    state = {
-        "state": "pending",
-        "session_id": session_id,
-        "message": "请完成 Microsoft 登录。",
-        "verification_uri": authorization.verification_uri,
-        "user_code": authorization.user_code,
-        "started_at": datetime.now().isoformat(timespec="seconds"),
-        "authorization": authorization,
-    }
-    with _EMAIL_AUTH_LOCK:
-        _EMAIL_AUTH_STATE.clear()
-        _EMAIL_AUTH_STATE.update(state)
-    threading.Thread(
-        target=_finish_email_authorization,
-        args=(session_id, authorization),
-        daemon=True,
-        name="microsoft-email-device-login",
-    ).start()
-    return {"success": True, "authorization": _email_auth_state_view()}
 
 
 def _run_monitor(mode: str, slot: str, asset_id: str = "") -> dict[str, Any]:
@@ -2162,7 +2022,6 @@ def _save_settings(payload: dict[str, Any], asset_id: str | None = None) -> dict
 def _environment_status(asset_id: str | None = None) -> dict[str, Any]:
     assets = _all_assets()
     selected = _find_asset(asset_id) if assets else None
-    token_path = ROOT / "config" / "private" / "msal_token_cache.json"
     report_exists = bool(selected and asset_report_path(ROOT, _asset_identity(selected)).exists())
     packages = {}
     for package in ["pandas", "akshare", "msal", "flask", "requests", "playwright"]:
@@ -2186,7 +2045,6 @@ def _environment_status(asset_id: str | None = None) -> dict[str, Any]:
         "keep_awake": keep_awake_status(ROOT), "ollama": _check_ollama(),
         "configuration": {"ok": not missing_config, "message": "配置文件正常" if not missing_config else "缺少：" + ", ".join(missing_config)},
         "directories": {"ok": directory_ok, "message": "运行目录可写" if directory_ok else "运行目录不存在或不可写"},
-        "microsoft_token": {"ok": token_path.exists(), "message": "本地Token缓存已存在" if token_path.exists() else "尚未找到Token缓存，首次发信时需要授权"},
         "report": {"ok": report_exists, "message": "所选资产已有报告" if report_exists else "所选资产尚未生成报告"},
     }
 
@@ -2682,17 +2540,6 @@ def api_parameter_onboarding_dismiss_optionals():
         "dismissed_count": saved,
         **_parameter_onboarding_context(),
     })
-
-
-@app.get("/api/email/token-status")
-def api_email_token_status():
-    return jsonify(_email_token_status())
-
-
-@app.post("/api/email/authorize/start")
-def api_email_authorize_start():
-    result = _start_email_authorization()
-    return jsonify(result), (200 if result.get("success") else 400)
 
 
 @app.post("/api/assets/create")

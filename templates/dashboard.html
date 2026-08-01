@@ -32,7 +32,7 @@
       <div class="asset-heading">
         <div>
           <p class="asset-code">{{ result.asset.asset_code or result.asset.symbol }}{% if result.asset.is_estimated_tracking %} · 盘中跟踪 {{ result.asset.tracking_code }}{% endif %}</p>
-          <h2>{{ result.asset.name }}</h2>
+          <h2>{{ result.asset.name }}{% if (result.email_delivery|default({})).get('state') == 'FAILED' %} <a class="email-delivery-failure" href="{{ email_app_registration_url }}" target="_blank" rel="noopener noreferrer">邮件发送失败，请验证</a>{% endif %}</h2>
           {% if result.asset.is_estimated_tracking %}<p class="muted"><strong>盘中估算：</strong>走势图、涨跌幅和技术指标依据跟踪代码 {{ result.asset.tracking_code }}，不代表持有产品当日最终净值。</p>{% endif %}
           <div class="muted data-source-block">
             <div class="data-source-items">

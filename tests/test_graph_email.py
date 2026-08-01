@@ -150,7 +150,7 @@ def test_unattended_graph_auth_never_starts_device_login(monkeypatch, tmp_path):
         "timeout_seconds": 30, "save_to_sent_items": True,
     }
 
-    with pytest.raises(MicrosoftGraphAuthError, match="visible device login"):
+    with pytest.raises(MicrosoftGraphAuthError, match="local token cache cannot be refreshed"):
         acquire_graph_access_token(settings, tmp_path, logging.getLogger("test_graph_auth"))
 
     assert fake_app.device_flow_started is False

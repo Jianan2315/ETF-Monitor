@@ -18,29 +18,6 @@ class GraphToken:
     acquired_silently: bool
 
 
-@dataclass
-class GraphDeviceAuthorization:
-    """In-memory Device Code Flow state for an explicitly user-started login."""
-
-    app: Any
-    cache: Any
-    cache_path: Path
-    flow: dict[str, Any]
-    expected_sender: str | None
-
-    @property
-    def verification_uri(self) -> str:
-        return str(
-            self.flow.get("verification_uri")
-            or self.flow.get("verification_uri_complete")
-            or "https://microsoft.com/devicelogin"
-        )
-
-    @property
-    def user_code(self) -> str:
-        return str(self.flow.get("user_code") or "")
-
-
 def validate_graph_environment(email_config: dict) -> dict[str, Any]:
     """Validate non-secret Graph settings and return normalized values."""
     client_id = (os.getenv("MICROSOFT_CLIENT_ID") or "").strip()
@@ -102,14 +79,11 @@ def acquire_graph_access_token(
     settings: dict[str, Any],
     project_root: Path,
     logger: logging.Logger,
-    *,
-    allow_interactive: bool = False,
 ) -> GraphToken:
     """Acquire a delegated Microsoft Graph token with a persistent MSAL cache.
 
-    Scheduled and web-triggered report runs must never wait for a person to
-    complete Device Code Flow, so interactive authorization is disabled by
-    default.  A visible, user-started authorization command can opt in to it.
+    Report runs only use an existing local MSAL cache.  They never initiate an
+    interactive Microsoft authorization flow.
     """
     app, cache, cache_path = _build_msal_client(settings, project_root, logger)
 
@@ -144,93 +118,13 @@ def acquire_graph_access_token(
     else:
         logger.info("No matching Microsoft account found in the local token cache")
 
-    if not allow_interactive:
-        logger.warning(
-            "Interactive Microsoft authorization is required; skipping it in "
-            "this unattended run so report generation can continue."
-        )
-        raise MicrosoftGraphAuthError(
-            "Microsoft authorization requires a visible device login. "
-            "Run .\\.venv\\Scripts\\python.exe .\\authenticate_email.py, "
-            "then complete the Microsoft sign-in."
-        )
-
     logger.warning(
-        "Interactive Microsoft authorization is required. "
-        "Complete the device login in this visible terminal."
+        "Microsoft authorization is unavailable because the local token cache "
+        "cannot be refreshed; continuing without email delivery."
     )
-    authorization = start_graph_device_authorization(
-        settings,
-        project_root,
-        logger,
-        app=app,
-        cache=cache,
-        cache_path=cache_path,
+    raise MicrosoftGraphAuthError(
+        "Microsoft authorization is unavailable because the local token cache cannot be refreshed."
     )
-    message = str(authorization.flow.get("message", ""))
-    logger.warning(
-        "Device authorization required | URL=%s | Code=%s",
-        authorization.verification_uri,
-        authorization.user_code,
-    )
-    print("\n" + message + "\n", flush=True)
-    return complete_graph_device_authorization(authorization, logger)
-
-
-def start_graph_device_authorization(
-    settings: dict[str, Any],
-    project_root: Path,
-    logger: logging.Logger,
-    *,
-    app: Any | None = None,
-    cache: Any | None = None,
-    cache_path: Path | None = None,
-) -> GraphDeviceAuthorization:
-    """Create a Device Code Flow without waiting for the user to finish it."""
-    if app is None or cache is None or cache_path is None:
-        app, cache, cache_path = _build_msal_client(settings, project_root, logger)
-    flow = app.initiate_device_flow(scopes=settings["scopes"])
-    if "user_code" not in flow:
-        raise MicrosoftGraphAuthError(
-            "Unable to start Microsoft device code flow: "
-            + str(flow.get("error_description") or flow)
-        )
-    return GraphDeviceAuthorization(
-        app=app,
-        cache=cache,
-        cache_path=cache_path,
-        flow=dict(flow),
-        expected_sender=settings.get("expected_sender"),
-    )
-
-
-def complete_graph_device_authorization(
-    authorization: GraphDeviceAuthorization,
-    logger: logging.Logger,
-) -> GraphToken:
-    """Wait for a previously created Device Code Flow and persist its token."""
-    result = authorization.app.acquire_token_by_device_flow(authorization.flow)
-    _save_cache_if_changed(authorization.cache, authorization.cache_path, logger)
-    if not result or "access_token" not in result:
-        error = result.get("error") if isinstance(result, dict) else "unknown_error"
-        description = result.get("error_description") if isinstance(result, dict) else str(result)
-        raise MicrosoftGraphAuthError(
-            f"Microsoft authorization failed: {error}: {description}"
-        )
-    claims = result.get("id_token_claims", {}) or {}
-    account_username = (
-        claims.get("preferred_username") or claims.get("email") or claims.get("unique_name")
-    )
-    if not account_username:
-        refreshed_accounts = authorization.app.get_accounts()
-        if refreshed_accounts:
-            account_username = refreshed_accounts[0].get("username")
-    _validate_expected_sender(authorization.expected_sender, account_username)
-    logger.info(
-        "Microsoft access token acquired through device code flow | Account=%s",
-        account_username or "unknown",
-    )
-    return GraphToken(result["access_token"], account_username, acquired_silently=False)
 
 
 def _build_msal_client(
