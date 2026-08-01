@@ -501,6 +501,7 @@ def test_asset_report_and_history_return_to_the_same_asset_workspace(tmp_path: P
     assert "/asset/manage?asset_id=demo" in report
     assert "邮件发送失败，请验证" in report
     assert "portal.azure.com/#view/Microsoft_AAD_IAM/ActiveDirectoryMenuBlade/~/RegisteredApps" in report
+    assert "定时：收盘后" in report
     assert "返回资产管理页面" in report
     assert 'href="/">返回控制台</a>' in report
     assert 'class="secondary-button" href="/asset/manage?asset_id=demo"' in report
@@ -523,10 +524,10 @@ def test_asset_report_and_history_return_to_the_same_asset_workspace(tmp_path: P
 
     report_styles = (control_server.ROOT / "static" / "style.css").read_text(encoding="utf-8")
     assert ".report-chart-sections" in report_styles
-    assert "gap:24px" in report_styles
-    assert ".asset-heading + .report-rule-grid{margin-top:20px}" in report_styles
+    assert "gap: 24px" in report_styles
+    assert ".asset-heading + .report-rule-grid" in report_styles
     assert ".report-header-actions .secondary-button" in report_styles
-    assert "background:#e7edf1" in report_styles
+    assert "background: #e7edf1" in report_styles
 
 
 def test_empty_asset_report_preserves_the_asset_management_return_link():

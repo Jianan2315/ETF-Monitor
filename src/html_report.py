@@ -14,6 +14,16 @@ EMAIL_APP_REGISTRATION_URL = (
     "https://portal.azure.com/#view/Microsoft_AAD_IAM/"
     "ActiveDirectoryMenuBlade/~/RegisteredApps"
 )
+RUN_MODE_LABELS = {
+    "manual": "手动触发",
+    "auto": "定时：按当前时间判断",
+    "intraday": "定时：盘中",
+    "close": "定时：收盘后",
+}
+
+
+def _run_mode_label(mode: str) -> str:
+    return RUN_MODE_LABELS.get(str(mode).lower(), str(mode))
 
 
 def _environment(template_path: Path) -> Environment:
@@ -43,6 +53,7 @@ def generate_html_report(
         monitor_name=config.get("monitor_name", "ETF Monitor"),
         results=results,
         run_mode=run_mode,
+        run_mode_label=_run_mode_label(run_mode),
         run_slot=run_slot,
         report_generated_at=generated_at.isoformat(timespec="seconds"),
         asset_id=str(report.get("asset_id", "")),
@@ -127,6 +138,7 @@ def _history_snapshot_details(path: Path) -> dict[str, object] | None:
         "date": date,
         "time": display_time,
         "mode": match.group("mode"),
+        "mode_label": _run_mode_label(match.group("mode")),
         "name": path.name,
         "sort_key": sortable,
     }
@@ -162,14 +174,14 @@ def generate_history_index(
             "<tr>"
             f"<td>{escape(str(row['date']))}</td>"
             f"<td>{escape(str(row['time']))}</td>"
-            f"<td>{escape(str(row['mode']))}</td>"
+            f"<td>{escape(str(row['mode_label']))}</td>"
             f"<td><a class=\"secondary-button history-view-link\" href=\"/history/{safe_asset_id}/{quote(str(row['name']))}\">查看</a></td>"
             "</tr>"
             for row in rows
         )
         list_content = (
             "<div class=\"table-wrapper\"><table class=\"history-table\">"
-            "<thead><tr><th>日期</th><th>生成时间</th><th>运行类型</th><th>报告</th></tr></thead>"
+            "<thead><tr><th>日期</th><th>生成时间</th><th>触发方式</th><th>报告</th></tr></thead>"
             f"<tbody>{body}</tbody></table></div>"
         )
     else:

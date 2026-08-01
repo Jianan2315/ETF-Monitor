@@ -21,7 +21,7 @@
     </header>
 
     <section class="report-meta panel">
-      <div><span>运行类型</span><strong>{{ run_mode }}</strong></div>
+      <div><span>触发方式</span><strong>{{ run_mode_label }}</strong></div>
       <div><span>计划时点</span><strong>{{ run_slot or '手动/自动识别' }}</strong></div>
       <div><span>报告生成时间</span><strong>{{ report_generated_at }}</strong></div>
       <div><a href="/history?asset_id={{ asset_id }}">报告记录</a></div>
