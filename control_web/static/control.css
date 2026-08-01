@@ -629,13 +629,13 @@ dialog::backdrop { background: rgba(15,23,42,.62); }
 }
 .modal-backdrop[hidden] { display: none; }
 .modal-card {
-  width: min(680px, 100%);
-  max-height: min(760px, calc(100vh - 40px));
-  overflow: auto;
+  /*width: min(680px, 100%);*/
+  /*max-height: min(760px, calc(100vh - 40px));*/
+  /*overflow: auto;*/
   padding: 26px;
   border-radius: 18px;
   background: #fff;
-  box-shadow: 0 24px 60px rgba(15, 23, 42, .28);
+  /*box-shadow: 0 24px 60px rgba(15, 23, 42, .28);*/
 }
 .modal-card h2 { margin: 0 0 8px; }
 .parameter-onboarding-list { display: grid; gap: 10px; margin-top: 16px; }
