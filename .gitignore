@@ -52,4 +52,6 @@ config/private/*
 # Versioned copies of the desktop shortcut icon are generated locally to force
 # Explorer to refresh when the source ICO is replaced.
 /scripts/windows/icons/generated/*
+/scripts/windows/icons/*
 !/scripts/windows/icons/generated/.gitkeep
+!/scripts/windows/icons/.gitkeep
