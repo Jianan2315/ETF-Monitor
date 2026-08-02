@@ -42,6 +42,11 @@ from src.transactions import (
     save_transaction,
 )
 from src.position import calculate_position
+from src.strategy_replay import (
+    default_replay_settings,
+    normalize_replay_settings,
+    replay_strategy,
+)
 from src.asset_store import (
     ensure_layout, load_assets, save_asset, delete_asset,
     asset_transactions_path, asset_cache_dir, asset_data_dir, asset_latest_path,
@@ -838,6 +843,54 @@ def _transaction_chart_data(asset_id: str | None = None) -> dict[str, Any]:
         "history": history,
         "transactions": list(reversed(transactions)),
         "settlement": settlement,
+    }
+
+
+def _strategy_replay_config_path(asset_id: str) -> Path:
+    return ROOT / "config" / "assets" / f"{asset_id}_simulation.json"
+
+
+def _strategy_replay_context(asset_id: str | None, overrides: dict[str, Any] | None = None) -> dict[str, Any]:
+    """Build a read-only strategy-versus-actual comparison for one asset."""
+    asset = _find_asset(asset_id)
+    key = _asset_identity(asset)
+    transaction_key, _tracking_code, transaction_path = _transaction_context(key)
+    history = _history_frame_from_asset_cache(asset)
+    records = reconcile_pending_transactions(transaction_path, transaction_key, history)
+    defaults = default_replay_settings(asset, records, history)
+    saved_doc = _read_json(_strategy_replay_config_path(key), {})
+    saved = saved_doc.get("settings", {}) if isinstance(saved_doc, dict) else {}
+    chosen = overrides if isinstance(overrides, dict) else saved
+    settings = normalize_replay_settings(chosen, defaults)
+    try:
+        replay = replay_strategy(asset, history, records, settings)
+        return {"success": True, "asset": _asset_summary(asset), "defaults": defaults, **replay}
+    except ValueError as exc:
+        return {
+            "success": False,
+            "asset": _asset_summary(asset),
+            "defaults": defaults,
+            "settings": settings,
+            "message": str(exc),
+        }
+
+
+def _save_strategy_replay_settings(asset_id: str | None, payload: dict[str, Any]) -> dict[str, Any]:
+    asset = _find_asset(asset_id)
+    key = _asset_identity(asset)
+    transaction_key, _tracking_code, transaction_path = _transaction_context(key)
+    history = _history_frame_from_asset_cache(asset)
+    records = reconcile_pending_transactions(transaction_path, transaction_key, history)
+    defaults = default_replay_settings(asset, records, history)
+    settings = normalize_replay_settings(payload.get("settings", {}), defaults)
+    _atomic_write_json(_strategy_replay_config_path(key), {
+        "asset_id": key,
+        "settings": settings,
+    })
+    return {
+        "success": True,
+        "message": "已保存该资产的策略模拟参数；不会修改真实交易记录或实时策略参数。",
+        "settings": settings,
     }
 
 
@@ -2069,6 +2122,11 @@ def asset_manage_page():
     return render_template("asset_manage.html")
 
 
+@app.get("/strategy-replay")
+def strategy_replay_page():
+    return render_template("strategy_replay.html")
+
+
 def _manual_reviews_path(asset_id: str) -> Path:
     return asset_data_dir(ROOT, asset_id) / "manual_reviews.json"
 
@@ -2696,6 +2754,37 @@ def api_transactions_chart():
             "success": False,
             "message": str(exc),
         }), 400
+
+
+@app.get("/api/strategy-replay")
+def api_strategy_replay_get():
+    try:
+        return jsonify(_strategy_replay_context(request.args.get("asset_id")))
+    except ValueError as exc:
+        return jsonify({"success": False, "message": str(exc)}), 400
+
+
+@app.post("/api/strategy-replay/run")
+def api_strategy_replay_run():
+    payload = request.get_json(silent=True) or {}
+    try:
+        return jsonify(_strategy_replay_context(
+            request.args.get("asset_id") or payload.get("asset_id"),
+            payload.get("settings", {}),
+        ))
+    except ValueError as exc:
+        return jsonify({"success": False, "message": str(exc)}), 400
+
+
+@app.post("/api/strategy-replay/settings")
+def api_strategy_replay_settings_save():
+    payload = request.get_json(silent=True) or {}
+    try:
+        return jsonify(_save_strategy_replay_settings(
+            request.args.get("asset_id") or payload.get("asset_id"), payload,
+        ))
+    except ValueError as exc:
+        return jsonify({"success": False, "message": str(exc)}), 400
 
 
 @app.post("/api/transactions/delete")

@@ -8,6 +8,7 @@ from typing import Any
 
 
 STRATEGY_CONFIG_SUFFIX = "_strategy.json"
+SIMULATION_CONFIG_SUFFIX = "_simulation.json"
 
 
 def _read_json(path: Path, default: Any) -> Any:
@@ -54,7 +55,7 @@ def asset_config_dir(root: Path) -> Path:
 def load_assets(root: Path) -> list[dict[str, Any]]:
     assets: list[dict[str, Any]] = []
     for path in sorted(asset_config_dir(root).glob('*.json')):
-        if path.name.endswith(STRATEGY_CONFIG_SUFFIX):
+        if path.name.endswith((STRATEGY_CONFIG_SUFFIX, SIMULATION_CONFIG_SUFFIX)):
             continue
         doc = _read_json(path, {})
         asset = doc.get('asset', doc)
@@ -117,6 +118,10 @@ def save_asset(root: Path, asset: dict[str, Any], *, old_id: str | None = None) 
         new_strategy_path = asset_config_dir(root) / f'{asset_id}{STRATEGY_CONFIG_SUFFIX}'
         if old_strategy_path.exists() and not new_strategy_path.exists():
             old_strategy_path.rename(new_strategy_path)
+        old_simulation_path = asset_config_dir(root) / f'{safe_asset_id(old_id)}{SIMULATION_CONFIG_SUFFIX}'
+        new_simulation_path = asset_config_dir(root) / f'{asset_id}{SIMULATION_CONFIG_SUFFIX}'
+        if old_simulation_path.exists() and not new_simulation_path.exists():
+            old_simulation_path.rename(new_simulation_path)
         old_data = root / 'data' / 'assets' / safe_asset_id(old_id)
         new_data = root / 'data' / 'assets' / asset_id
         if old_data.exists() and not new_data.exists():
@@ -133,6 +138,7 @@ def delete_asset(root: Path, asset_id: str, *, purge_runtime: bool = True) -> No
     key = safe_asset_id(asset_id)
     (asset_config_dir(root) / f'{key}.json').unlink(missing_ok=True)
     (asset_config_dir(root) / f'{key}{STRATEGY_CONFIG_SUFFIX}').unlink(missing_ok=True)
+    (asset_config_dir(root) / f'{key}{SIMULATION_CONFIG_SUFFIX}').unlink(missing_ok=True)
     if purge_runtime:
         shutil.rmtree(root / 'data' / 'assets' / key, ignore_errors=True)
         shutil.rmtree(root / 'output' / 'assets' / key, ignore_errors=True)

@@ -37,6 +37,7 @@ function updateLinks() {
     "asset-report-link":"/report",
     "asset-history-link":"/history",
     "asset-schedule-link":"/schedules",
+    "asset-strategy-replay-link":"/strategy-replay",
     "asset-trigger-link":"/trigger-conditions",
   };
   Object.entries(paths).forEach(([id, path]) => {

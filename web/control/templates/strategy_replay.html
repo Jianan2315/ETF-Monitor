@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>策略模拟对比</title>
+  <link rel="stylesheet" href="/control-static/control.css">
+</head>
+<body>
+  <main class="shell">
+    <header class="hero compact">
+      <div>
+        <p class="eyebrow">STRATEGY REPLAY</p>
+        <h1>策略模拟对比</h1>
+        <p>将实际交易记录与“严格按当前策略信号执行”的假设结果并列比较；仅供复盘，不会创建真实交易。</p>
+      </div>
+      <div class="button-row">
+        <a id="back-to-asset-manage" class="secondary-button" href="/asset/manage">返回资产管理页面</a>
+        <a class="secondary-button" href="/">返回控制台</a>
+      </div>
+    </header>
+
+    <section class="card">
+      <label>当前资产<select id="asset-selector"></select></label>
+      <div class="result-box" id="replay-assumption">
+        策略信号在当日收盘后生成，因此模拟会在下一交易日收盘价执行。策略原本的人工复核性质不会改变：下行风险复核默认不自动卖出。
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="section-title-row">
+        <div><h2>模拟执行参数</h2><p>这些参数只用于本页模拟，可按资产独立保存，不会修改实时策略或交易记录。</p></div>
+      </div>
+      <div class="form-grid" id="replay-settings">
+        <label>模拟起始日期<input name="start_date" type="date"></label>
+        <label>模拟初始资金<input name="initial_capital" type="number" min="0" step="0.01"></label>
+        <label>起始建仓金额<input name="initial_buy_amount" type="number" min="0" step="0.01"></label>
+        <label>普通 REVIEW_BUY 加仓金额<input name="review_buy_amount" type="number" min="0" step="0.01"></label>
+        <label>深度回撤 REVIEW_BUY 加仓金额<input name="deep_drawdown_buy_amount" type="number" min="0" step="0.01"></label>
+        <label>第一档 PARTIAL_SELL 减仓比例（%）<input name="first_sell_pct" type="number" min="0" max="100" step="0.01"></label>
+        <label>第二档 PARTIAL_SELL 减仓比例（%）<input name="second_sell_pct" type="number" min="0" max="100" step="0.01"></label>
+        <label class="checkbox-row"><input name="execute_downtrend_sell" type="checkbox">遇到 REVIEW_SELL 下行风险复核时，模拟全额卖出</label>
+      </div>
+      <div class="button-row">
+        <button id="run-replay">按当前参数重算</button>
+        <button id="save-replay-settings" class="secondary-button">保存本资产模拟参数</button>
+      </div>
+      <div id="replay-result" class="result-box" hidden></div>
+    </section>
+
+    <section class="card" id="comparison-card" hidden>
+      <h2>当前结果对比</h2>
+      <p id="comparison-period" class="muted"></p>
+      <div class="status-grid">
+        <article class="status-item"><strong>实际操作</strong><p>净资产：<span id="actual-net-value">-</span></p><p>总收益：<span id="actual-profit">-</span></p><p>收益率：<span id="actual-return">-</span></p></article>
+        <article class="status-item"><strong>按策略模拟</strong><p>净资产：<span id="strategy-net-value">-</span></p><p>总收益：<span id="strategy-profit">-</span></p><p>收益率：<span id="strategy-return">-</span></p></article>
+        <article class="status-item"><strong>差异</strong><p id="difference-summary">-</p><p id="comparison-note" class="muted"></p></article>
+      </div>
+      <p id="comparison-details" class="muted"></p>
+    </section>
+
+    <section class="card" id="replay-events-card" hidden>
+      <h2>模拟执行记录</h2>
+      <p class="muted">最多展示最近 100 笔模拟订单；信号日与执行日分开显示。</p>
+      <div id="replay-events"></div>
+    </section>
+  </main>
+  <script src="/control-static/strategy_replay.js"></script>
+</body>
+</html>
