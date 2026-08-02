@@ -644,6 +644,9 @@ def test_manual_review_page_and_api_save_asset_scoped_records(monkeypatch, tmp_p
     client = control_server.app.test_client()
 
     assert client.get("/reviews").status_code == 200
+    review_page = client.get("/reviews").get_data(as_text=True)
+    assert 'id="back-to-asset-manage"' in review_page
+    assert "返回资产管理页面" in review_page
     context = client.get("/api/reviews?asset_id=review-fund").get_json()
     assert context["latest"]["status"] == "REVIEW_BUY"
     assert any(item["id"] == "research_0" for item in context["checklist"])
@@ -660,6 +663,8 @@ def test_manual_review_page_and_api_save_asset_scoped_records(monkeypatch, tmp_p
     script = (Path(control_server.__file__).parent / "web" / "control" / "static" / "manual_reviews.js").read_text(encoding="utf-8")
     assert "关联报告" in script
     assert "复核项目" in script
+    assert "updateAssetManageLink" in script
+    assert "/asset/manage?asset_id=" in script
 
 
 def test_asset_basic_configuration_and_strategy_are_stored_separately(tmp_path: Path):

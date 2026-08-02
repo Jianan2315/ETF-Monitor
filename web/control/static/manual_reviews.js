@@ -4,11 +4,18 @@ const checklist = document.getElementById("review-checklist");
 const latestContext = document.getElementById("latest-context");
 const reviewResult = document.getElementById("review-result");
 const reviewHistory = document.getElementById("review-history");
+const backToAssetManage = document.getElementById("back-to-asset-manage");
 let currentChecklist = [];
 const escapeHtml = value => String(value ?? "").replace(/[&<>'"]/g, character => ({"&":"&amp;","<":"&lt;",">":"&gt;","'":"&#39;",'"':"&quot;"}[character]));
 const api = path => `${path}?asset_id=${encodeURIComponent(selectedAssetId)}`;
 
 function showResult(message, success) { reviewResult.hidden = false; reviewResult.className = `result-box ${success ? "success" : "error"}`; reviewResult.textContent = message; }
+
+function updateAssetManageLink() {
+  backToAssetManage.href = selectedAssetId
+    ? `/asset/manage?asset_id=${encodeURIComponent(selectedAssetId)}`
+    : "/asset/manage";
+}
 
 async function loadAssets() {
   const data = await fetch("/api/assets", {cache:"no-store"}).then(response => response.json());
@@ -16,6 +23,7 @@ async function loadAssets() {
   if (!assets.some(asset => asset.id === selectedAssetId)) selectedAssetId = assets[0]?.id || "";
   selector.innerHTML = assets.map(asset => `<option value="${escapeHtml(asset.id)}">${escapeHtml(asset.name)}（${escapeHtml(asset.asset_code)}）</option>`).join("");
   selector.value = selectedAssetId;
+  updateAssetManageLink();
 }
 
 function renderHistory(reviews, checklistItems) {
@@ -42,7 +50,7 @@ async function loadReview() {
   renderHistory(data.reviews || [], currentChecklist);
 }
 
-selector.addEventListener("change", async event => { selectedAssetId = event.target.value; localStorage.setItem("portfolio.selectedAssetId", selectedAssetId); window.history.replaceState(null, "", `?asset_id=${encodeURIComponent(selectedAssetId)}`); await loadReview(); });
+selector.addEventListener("change", async event => { selectedAssetId = event.target.value; localStorage.setItem("portfolio.selectedAssetId", selectedAssetId); window.history.replaceState(null, "", `?asset_id=${encodeURIComponent(selectedAssetId)}`); updateAssetManageLink(); await loadReview(); });
 document.getElementById("save-review").addEventListener("click", async () => {
   const checks = Object.fromEntries(currentChecklist.map(item => [item.id, Boolean(checklist.querySelector(`[data-check="${item.id}"]`)?.checked)]));
   const response = await fetch(api("/api/reviews/save"), {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({asset_id:selectedAssetId, checks, conclusion:document.getElementById("review-conclusion").value, notes:document.getElementById("review-notes").value})});
