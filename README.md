@@ -30,14 +30,15 @@ python control_server.py
 ## 目录
 
 ```text
-config/global/       全局应用、邮件、LLM、调度和电源配置
+config/global/       全局应用、邮件、LLM、调度、数据和报告配置
+config/power.json    保持系统唤醒配置
 config/assets/       每个资产的基本信息与独立 strategy 文件
 config/private/      Token 与其他私密配置（不进入 Git）
-data/global/         全局运行状态
+data/global/         全局运行状态、定时计划、任务状态与任务 XML
 data/assets/<id>/    交易、缓存、运行数据
+data/intraday/       当日与上一交易日的分时缓存
 output/assets/<id>/  资产最新与历史报告
 logs/global/         全局日志
-logs/assets/<id>/    资产日志
 web/control/         控制台模板与静态资源
 web/report/          资产报告模板与静态资源
 docs/                使用限制、路线图与版本记录
