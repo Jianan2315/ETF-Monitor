@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>运行数据浏览</title>
+  <link rel="stylesheet" href="/control-static/control.css">
+</head>
+<body>
+<main class="shell">
+  <header class="hero compact">
+    <div>
+      <p class="eyebrow">RUN DATA</p>
+      <h1>运行数据浏览</h1>
+      <p>浏览和维护当前资产的指标历史与决策历史。这里的修改不会影响交易记录、策略参数或已生成报告。</p>
+    </div>
+    <div class="button-row">
+      <a id="back-to-asset-manage" class="secondary-button" href="/asset/manage">返回资产管理页面</a>
+      <a class="secondary-button" href="/">返回控制台</a>
+    </div>
+  </header>
+
+  <section class="card">
+    <label>当前资产<select id="asset-selector"></select></label>
+  </section>
+
+  <section class="card">
+    <div class="section-title-row">
+      <div>
+        <h2 id="dataset-title">指标历史</h2>
+        <p id="dataset-description">每次生成报告时写入的指标快照。</p>
+      </div>
+      <div class="button-row">
+        <button type="button" class="secondary-button active" data-dataset="history">指标历史</button>
+        <button type="button" class="secondary-button" data-dataset="decisions">决策历史</button>
+      </div>
+    </div>
+    <div class="form-actions">
+      <button id="add-record" type="button">新增记录</button>
+      <button id="delete-selected" type="button" class="danger-button" disabled>删除已选记录</button>
+    </div>
+    <div id="run-history-result" class="result-box" hidden></div>
+    <div class="table-wrapper">
+      <table class="history-table">
+        <thead id="records-head"></thead>
+        <tbody id="records-body"></tbody>
+      </table>
+    </div>
+    <p id="records-empty" class="empty-state" hidden>暂无运行数据。生成报告后会自动新增记录。</p>
+  </section>
+
+  <section id="record-editor" class="card" hidden>
+    <div class="section-title-row">
+      <div>
+        <h2 id="editor-title">新增记录</h2>
+        <p>仅修改当前 Excel 历史表中的这条记录。</p>
+      </div>
+      <button id="cancel-edit" type="button" class="secondary-button">取消</button>
+    </div>
+    <form id="record-form">
+      <div id="editor-fields" class="form-grid"></div>
+      <div class="form-actions"><button type="submit">保存记录</button></div>
+    </form>
+  </section>
+</main>
+<script src="/control-static/run_history.js"></script>
+</body>
+</html>

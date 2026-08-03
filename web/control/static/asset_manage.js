@@ -36,6 +36,7 @@ function updateLinks() {
   const paths = {
     "asset-report-link":"/report",
     "asset-history-link":"/history",
+    "asset-run-history-link":"/run-history",
     "asset-schedule-link":"/schedules",
     "asset-strategy-replay-link":"/strategy-replay",
     "asset-trigger-link":"/trigger-conditions",

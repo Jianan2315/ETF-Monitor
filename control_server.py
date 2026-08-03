@@ -57,6 +57,7 @@ from src.power_management import (
     keep_awake_status,
 )
 from src.html_report import generate_history_index
+from src.run_history import delete_run_records, list_run_records, save_run_record
 from src.sell_reminders import stop_sell_reminders
 
 
@@ -1760,6 +1761,11 @@ def asset_manage_page():
     return render_template("asset_manage.html")
 
 
+@app.get("/run-history")
+def run_history_page():
+    return render_template("run_history.html")
+
+
 @app.get("/strategy-replay")
 def strategy_replay_page():
     return render_template("strategy_replay.html")
@@ -2345,6 +2351,50 @@ def api_transactions_get():
             "success": False,
             "message": str(exc),
         }), 400
+
+
+@app.get("/api/run-history")
+def api_run_history_get():
+    try:
+        asset = _find_asset(request.args.get("asset_id"))
+        return jsonify(list_run_records(
+            ROOT,
+            _asset_identity(asset),
+            request.args.get("dataset", "history"),
+        ))
+    except ValueError as exc:
+        return jsonify({"success": False, "message": str(exc)}), 400
+
+
+@app.post("/api/run-history/save")
+def api_run_history_save():
+    payload = request.get_json(silent=True) or {}
+    try:
+        asset = _find_asset(request.args.get("asset_id") or payload.get("asset_id"))
+        return jsonify(save_run_record(
+            ROOT,
+            _asset_identity(asset),
+            payload.get("dataset"),
+            payload.get("values"),
+            payload.get("row_index"),
+        ))
+    except ValueError as exc:
+        return jsonify({"success": False, "message": str(exc)}), 400
+
+
+@app.post("/api/run-history/delete")
+def api_run_history_delete():
+    payload = request.get_json(silent=True) or {}
+    try:
+        asset = _find_asset(request.args.get("asset_id") or payload.get("asset_id"))
+        return jsonify(delete_run_records(
+            ROOT,
+            _asset_identity(asset),
+            payload.get("dataset"),
+            payload.get("row_indices"),
+        ))
+    except ValueError as exc:
+        return jsonify({"success": False, "message": str(exc)}), 400
 
 
 @app.post("/api/transactions/save")
