@@ -11,7 +11,6 @@ import socket
 import subprocess
 import re
 import uuid
-import xml.etree.ElementTree as ET
 import sys
 import threading
 import time
@@ -58,7 +57,6 @@ from src.power_management import (
     keep_awake_status,
 )
 from src.html_report import generate_history_index
-from src.status import migrate_email_triggers
 from src.sell_reminders import stop_sell_reminders
 
 
@@ -411,7 +409,6 @@ def _normalize_asset(asset: dict[str, Any], index: int = 0) -> dict[str, Any]:
     item["tracking_code"] = str(item.get("tracking_code") or "").strip()
     item.setdefault("tracking_name", item.get("name", ""))
     item["symbol"] = _asset_tracking_code(item)
-    item["enabled"] = True
     return item
 
 
@@ -450,9 +447,9 @@ def _is_missing_parameter(value: Any) -> bool:
 def _parameter_onboarding_context() -> dict[str, Any]:
     """Return missing configuration for the homepage parameter prompt.
 
-    Required values deliberately use an asset's effective strategy: legacy
-    files that safely inherit a current default do not need a pointless form
-    visit.  Optional values use the raw asset file, which lets the UI remember
+    Required values deliberately use an asset's effective strategy, so values
+    supplied by a current default do not need a pointless form visit. Optional
+    values use the raw asset file, which lets the UI remember
     a deliberate choice to leave a field blank.
     """
     state = _parameter_prompt_state()
@@ -960,273 +957,6 @@ DAY_LABELS = {
 }
 
 
-def _system_task_names() -> list[str]:
-    if os.name != "nt":
-        return []
-    completed = _run_schtasks([
-        "/Query",
-        "/FO",
-        "CSV",
-        "/NH",
-    ])
-    if completed.returncode != 0:
-        return []
-
-    names: list[str] = []
-    rows = csv.reader(io.StringIO(completed.stdout))
-    for row in rows:
-        if not row:
-            continue
-        name = str(row[0]).strip().lstrip("\\")
-        if (
-            name.startswith(TASK_PREFIX)
-            and name != "ETFMonitor_KeepAwake"
-        ):
-            names.append(name)
-    return names
-
-
-def _xml_text(root, local_name: str) -> str | None:
-    for node in root.iter():
-        if node.tag.rsplit("}", 1)[-1] == local_name:
-            return node.text
-    return None
-
-
-def _query_windows_task_xml(task_name: str) -> str | None:
-    completed = _run_schtasks([
-        "/Query",
-        "/TN",
-        task_name,
-        "/XML",
-    ])
-    if completed.returncode != 0:
-        return None
-    xml_text = completed.stdout.strip()
-    return xml_text or None
-
-
-def _normalize_task_path(value: str) -> str:
-    return str(value or "").strip().strip('"').replace("/", "\\").rstrip("\\").lower()
-
-
-def _task_uses_hidden_runner(
-    plan: dict[str, Any],
-    task_xml: str | None = None,
-) -> bool:
-    task_xml = task_xml or _query_windows_task_xml(str(plan["task_name"]))
-    if not task_xml:
-        return False
-    try:
-        root = ET.fromstring(task_xml)
-    except ET.ParseError:
-        return False
-
-    command = _xml_text(root, "Command") or ""
-    arguments = _xml_text(root, "Arguments") or ""
-    expected_command = _normalize_task_path(str(_schedule_pythonw()))
-    actual_command = _normalize_task_path(command)
-    normalized_arguments = arguments.replace("/", "\\").lower()
-    expected_runner = str(ROOT / "scheduled_runner.py").replace("/", "\\").lower()
-    expected_plan_id = str(plan["id"]).lower()
-
-    return (
-        actual_command == expected_command
-        and expected_runner in normalized_arguments
-        and "--plan-id" in normalized_arguments
-        and expected_plan_id in normalized_arguments
-    )
-
-
-def _ensure_schedule_task_current(
-    plan: dict[str, Any],
-    task_xml: str | None = None,
-) -> dict[str, Any]:
-    if os.name != "nt":
-        return {
-            "ok": True,
-            "migrated": False,
-            "message": "当前不是Windows，无需迁移系统任务。",
-        }
-    if not _task_exists(str(plan["task_name"])):
-        return {
-            "ok": True,
-            "migrated": False,
-            "message": "系统任务不存在，未执行迁移。",
-        }
-    if _task_uses_hidden_runner(plan, task_xml):
-        return {
-            "ok": True,
-            "migrated": False,
-            "message": "系统任务已使用隐藏运行器。",
-        }
-
-    sync_result = _sync_plan_to_windows(plan)
-    return {
-        "ok": bool(sync_result.get("ok")),
-        "migrated": bool(sync_result.get("ok")),
-        "message": (
-            "已将旧版CMD定时任务迁移为后台隐藏运行器。"
-            if sync_result.get("ok")
-            else sync_result.get("message", "迁移系统任务失败")
-        ),
-    }
-
-
-def _import_plan_from_windows_task(
-    task_name: str,
-    task_xml: str | None = None,
-) -> dict[str, Any] | None:
-    task_xml = task_xml or _query_windows_task_xml(task_name)
-    if not task_xml:
-        return None
-
-    try:
-        root = ET.fromstring(task_xml)
-    except ET.ParseError:
-        return None
-
-    start_boundary = _xml_text(root, "StartBoundary")
-    if not start_boundary:
-        return None
-    try:
-        run_time = datetime.fromisoformat(start_boundary).strftime("%H:%M")
-    except ValueError:
-        return None
-
-    day_map = {
-        "Monday": "MON",
-        "Tuesday": "TUE",
-        "Wednesday": "WED",
-        "Thursday": "THU",
-        "Friday": "FRI",
-        "Saturday": "SAT",
-        "Sunday": "SUN",
-    }
-    weekdays = []
-    for node in root.iter():
-        local = node.tag.rsplit("}", 1)[-1]
-        if local in day_map:
-            weekdays.append(day_map[local])
-    if not weekdays:
-        weekdays = ["MON", "TUE", "WED", "THU", "FRI"]
-
-    arguments = _xml_text(root, "Arguments") or ""
-    description = _xml_text(root, "Description") or ""
-    mode_match = re.search(
-        r"--mode\s+[\"']?(auto|intraday|close)",
-        arguments,
-        re.IGNORECASE,
-    )
-    slot_match = re.search(
-        r"--slot\s+[\"']?(\d{2}:\d{2})",
-        arguments,
-    )
-    plan_id_match = re.search(
-        r"--plan-id\s+[\"']?([0-9a-fA-F-]{36})",
-        arguments,
-    )
-
-    mode = (
-        mode_match.group(1).lower()
-        if mode_match
-        else (
-            "close"
-            if run_time >= "15:05"
-            else "intraday"
-        )
-    )
-    if slot_match:
-        run_time = slot_match.group(1)
-
-    plan_id = (
-        _normalize_plan_id(plan_id_match.group(1))
-        if plan_id_match
-        else str(uuid.uuid4())
-    )
-    enabled_text = _xml_text(root, "Enabled")
-    enabled = str(enabled_text or "true").lower() != "false"
-
-    name = description.strip()
-    if name.startswith("ETF Monitor定时报告："):
-        name = name.split("：", 1)[1].strip()
-    if not name:
-        name = f"导入的系统计划 {run_time}"
-
-    now_text = datetime.now().isoformat(timespec="seconds")
-    return {
-        "id": plan_id,
-        "name": name[:60],
-        "mode": mode,
-        "time": run_time,
-        "weekdays": _normalize_weekdays(weekdays),
-        "enabled": enabled,
-        "task_name": task_name,
-        "created_at": now_text,
-        "updated_at": now_text,
-        "imported_from_windows": True,
-    }
-
-
-def _import_existing_windows_plans() -> dict[str, Any]:
-    if os.name != "nt":
-        return {
-            "imported": 0,
-            "migrated": 0,
-            "migration_failures": [],
-            "message": "当前不是Windows，未扫描系统任务。",
-        }
-
-    plans = _load_schedule_plans_raw()
-    known_by_task = {
-        str(item.get("task_name", "")): item
-        for item in plans
-        if item.get("task_name")
-    }
-    imported: list[dict[str, Any]] = []
-    migrated: list[dict[str, Any]] = []
-    migration_failures: list[str] = []
-
-    for task_name in _system_task_names():
-        task_xml = _query_windows_task_xml(task_name)
-        plan = known_by_task.get(task_name)
-        if plan is None:
-            plan = _import_plan_from_windows_task(task_name, task_xml)
-            if plan is None:
-                continue
-            plans.append(plan)
-            known_by_task[task_name] = plan
-            imported.append(plan)
-
-        migration = _ensure_schedule_task_current(plan, task_xml)
-        if migration.get("migrated"):
-            migrated.append(plan)
-        elif not migration.get("ok"):
-            migration_failures.append(
-                f'{plan.get("name", task_name)}: {migration.get("message", "迁移失败")}'
-            )
-
-    if imported:
-        _save_schedule_plans(plans)
-
-    parts = []
-    if imported:
-        parts.append(f"导入{len(imported)}个旧计划")
-    if migrated:
-        parts.append(f"迁移{len(migrated)}个旧版CMD任务为后台隐藏运行器")
-    if migration_failures:
-        parts.append(f"{len(migration_failures)}个任务迁移失败")
-    if not parts:
-        parts.append("未发现需要导入或迁移的旧计划")
-
-    return {
-        "imported": len(imported),
-        "migrated": len(migrated),
-        "migration_failures": migration_failures,
-        "message": "；".join(parts) + "。",
-    }
-
-
 def _load_schedule_plans_raw() -> list[dict[str, Any]]:
     payload = _read_json(SCHEDULE_PLANS_FILE, {"plans": []})
     plans = payload.get("plans", [])
@@ -1297,36 +1027,6 @@ def _normalize_plan_id(value: Any) -> str:
 def _plan_task_name(plan_id: str) -> str:
     safe_id = _normalize_plan_id(plan_id)
     return f"{TASK_PREFIX}{safe_id.replace('-', '')}"
-
-
-def _plan_wrapper_path(plan_id: str) -> Path:
-    return SCHEDULE_WRAPPER_DIR / f"{plan_id}.cmd"
-
-
-def _write_plan_wrapper(plan: dict[str, Any]) -> Path:
-    """Write a legacy wrapper without a UTF-8 BOM.
-
-    Current Windows tasks use scheduled_runner.py through pythonw.exe and do
-    not need this file. Keeping the wrapper valid allows old/manual entries to
-    run without CMD interpreting the BOM as the characters "ï»¿".
-    """
-    SCHEDULE_WRAPPER_DIR.mkdir(parents=True, exist_ok=True)
-    wrapper_path = _plan_wrapper_path(plan["id"])
-    mode = plan["mode"]
-    run_time = plan["time"]
-    lines = [
-        "@echo off",
-        "chcp 65001 >nul",
-        f'cd /d "{ROOT}"',
-        'if not exist "logs" mkdir "logs"',
-        f'set "PYTHON_EXE={ROOT / ".venv" / "Scripts" / "python.exe"}"',
-        'if not exist "%PYTHON_EXE%" set "PYTHON_EXE=python"',
-        f'echo [%date% %time%] Scheduled plan {plan["id"]} started. >> "logs\\global\\scheduler.log"',
-        f'"%PYTHON_EXE%" run.py --mode {mode} --slot {run_time} >> "logs\\global\\scheduler.log" 2>&1',
-        f'echo [%date% %time%] Scheduled plan {plan["id"]} finished with code %errorlevel%. >> "logs\\global\\scheduler.log"',
-    ]
-    wrapper_path.write_bytes(("\r\n".join(lines) + "\r\n").encode("utf-8"))
-    return wrapper_path
 
 
 def _run_schtasks(arguments: list[str]) -> subprocess.CompletedProcess[str]:
@@ -1675,7 +1375,6 @@ def _delete_schedule_plan(plan_id: str) -> dict[str, Any]:
     if os.name == "nt" and not delete_result["ok"]:
         raise RuntimeError(delete_result["message"])
 
-    _plan_wrapper_path(plan_id).unlink(missing_ok=True)
     _schedule_task_xml_path(plan_id).unlink(missing_ok=True)
     _schedule_status_path(plan_id).unlink(missing_ok=True)
     plans = [item for item in plans if item.get("id") != plan_id]
@@ -1697,11 +1396,6 @@ def _run_schedule_plan_now(plan_id: str) -> dict[str, Any]:
         raise ValueError("该定时计划当前已停用")
 
     if os.name == "nt" and _task_exists(plan["task_name"]):
-        migration = _ensure_schedule_task_current(plan)
-        if not migration.get("ok"):
-            raise RuntimeError(
-                migration.get("message", "系统定时任务迁移失败")
-            )
         completed = _run_schtasks(["/Run", "/TN", plan["task_name"]])
         if completed.returncode != 0:
             combined = f"{completed.stdout}\n{completed.stderr}".strip()
@@ -1719,7 +1413,6 @@ def _run_schedule_plan_now(plan_id: str) -> dict[str, Any]:
 
 
 def _sync_all_schedule_plans() -> dict[str, Any]:
-    import_result = _import_existing_windows_plans()
     plans = _load_schedule_plans()
     results = []
     failures = []
@@ -1741,12 +1434,9 @@ def _sync_all_schedule_plans() -> dict[str, Any]:
             else "部分定时计划同步失败：" + "；".join(failures)
         ),
         "results": results,
-        "import_result": import_result,
     }
 
 
-# Clean V13.1 data/config layer overrides. These definitions intentionally
-# replace the legacy single-file helpers above without carrying old runtime data.
 def _global_config(name: str, default: dict[str, Any]) -> dict[str, Any]:
     return _read_json(ROOT / "config" / "global" / f"{name}.json", default)
 
@@ -1758,7 +1448,6 @@ def _asset_summary(item: dict[str, Any]) -> dict[str, Any]:
         "asset_code": item.get("asset_code", ""),
         "tracking_name": item.get("tracking_name", ""),
         "tracking_code": item.get("tracking_code", item.get("symbol", "")),
-        "enabled": item.get("enabled", True),
         "has_report": asset_report_path(ROOT, _asset_identity(item)).exists(),
         "report_url": f"/report?asset_id={_asset_identity(item)}",
         "history_url": f"/history?asset_id={_asset_identity(item)}",
@@ -1843,7 +1532,6 @@ def _homepage_asset_position_summary(asset: dict[str, Any]) -> dict[str, Any]:
 def _load_system_settings() -> dict[str, Any]:
     """Return only configuration that is global to every asset."""
     email = _global_config("email", {"email": {}}).get("email", {})
-    email = {**email, "triggers": migrate_email_triggers(email.get("triggers", {}))}
     return {
         "email": email,
         "llm": _global_config("llm", {"llm": {}}).get("llm", {}),
@@ -1890,10 +1578,6 @@ def _save_system_settings(payload: dict[str, Any]) -> dict[str, Any]:
         update_integer("llm", llm, key, payload.get("llm", {}).get(key), label)
 
     email = docs["email"].setdefault("email", {})
-    migrated_triggers = migrate_email_triggers(email.get("triggers", {}))
-    if email.get("triggers") != migrated_triggers:
-        email["triggers"] = migrated_triggers
-        changed_docs.add("email")
     for key, label in {
         "enabled": "启用邮件",
         "recipient": "收件人",
@@ -1908,7 +1592,6 @@ def _save_system_settings(payload: dict[str, Any]) -> dict[str, Any]:
     update_integer("email", email, "data_error_dedup_minutes", payload.get("email", {}).get("data_error_dedup_minutes"), "DATA_ERROR 去重分钟")
     triggers = payload.get("email", {}).get("triggers")
     if isinstance(triggers, dict):
-        triggers = migrate_email_triggers(triggers)
         configured_triggers = email.setdefault("triggers", {})
         for status in {"OBSERVE", "REVIEW_BUY", "REVIEW_SELL", "PARTIAL_SELL"}:
             if status in triggers:
@@ -2445,14 +2128,12 @@ def api_report_run():
 
 @app.get("/api/schedules")
 def api_schedules_get():
-    import_result = _import_existing_windows_plans()
     asset_id = str(request.args.get("asset_id", "")).strip()
     plans = [_schedule_plan_view(plan) for plan in _load_schedule_plans() if not asset_id or str(plan.get("asset_id", "")) == asset_id]
     return jsonify({
         "success": True,
         "platform_supported": os.name == "nt",
         "plans": plans,
-        "import_result": import_result,
     })
 
 
@@ -2488,25 +2169,6 @@ def api_schedules_run():
         return jsonify({"success": False, "message": str(exc)}), 400
     except RuntimeError as exc:
         return jsonify({"success": False, "message": str(exc)}), 500
-
-
-@app.post("/api/schedules/import")
-def api_schedules_import():
-    try:
-        result = _import_existing_windows_plans()
-        return jsonify({
-            "success": True,
-            **result,
-            "plans": [
-                _schedule_plan_view(plan)
-                for plan in _load_schedule_plans()
-            ],
-        })
-    except RuntimeError as exc:
-        return jsonify({
-            "success": False,
-            "message": str(exc),
-        }), 500
 
 
 @app.post("/api/schedules/sync")
@@ -2772,18 +2434,6 @@ def api_transactions_delete_batch():
                 request.args.get("asset_id") or payload.get("asset_id"),
             )
         )
-    except ValueError as exc:
-        return jsonify({
-            "success": False,
-            "message": str(exc),
-        }), 400
-
-
-@app.post("/api/transactions/add")
-def api_transactions_add_legacy():
-    payload = request.get_json(silent=True) or {}
-    try:
-        return jsonify(_save_transaction_record(payload, request.args.get("asset_id") or payload.get("asset_id")))
     except ValueError as exc:
         return jsonify({
             "success": False,

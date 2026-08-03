@@ -22,7 +22,7 @@ REQUIREMENTS_FILE = ROOT / "requirements.txt"
 
 def print_header() -> None:
     print("=" * 62)
-    print("                 ETF Monitor Launcher V11")
+    print("                 ETF Monitor Launcher V13.2")
     print("=" * 62)
     print(f"Project folder: {ROOT}")
     print(f"Python: {sys.executable}")
@@ -215,7 +215,7 @@ def run_server() -> int:
         log_handle.write("\n" + "=" * 62 + "\n")
         log_handle.write(
             f"[{datetime.now():%Y-%m-%d %H:%M:%S}] "
-            "Starting ETF Monitor Control Server V11\n"
+            "Starting ETF Monitor Control Server V13.2\n"
         )
         log_handle.write("=" * 62 + "\n")
         log_handle.flush()
@@ -241,7 +241,7 @@ def run_server() -> int:
 def main() -> int:
     print_header()
     LOG_DIR.mkdir(parents=True, exist_ok=True)
-    append_log(BOOT_LOG, "Launcher V11 started")
+    append_log(BOOT_LOG, "Launcher V13.2 started")
 
     print("[1/4] Checking port 8765...")
     if port_is_open():

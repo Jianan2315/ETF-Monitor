@@ -332,8 +332,6 @@ def main(argv: list[str] | None = None) -> int:
         return 4
 
     for configured_asset in config["assets"]:
-        if not configured_asset.get("enabled", True):
-            continue
         asset_id = str(configured_asset.get("id") or configured_asset.get("asset_code") or configured_asset.get("symbol") or "")
         if args.asset and args.asset not in {asset_id, str(configured_asset.get("asset_code", "")), str(configured_asset.get("tracking_code", "")), str(configured_asset.get("symbol", ""))}:
             continue

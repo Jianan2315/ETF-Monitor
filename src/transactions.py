@@ -43,25 +43,13 @@ def normalize_transaction(record: dict[str, Any]) -> dict[str, Any]:
     price = _as_float(record.get("price"))
     shares = _as_float(record.get("shares"))
 
-    # Legacy records only contained amount + price.
-    if shares <= 0 and amount > 0 and price > 0:
-        shares = amount / price
-
     pricing_mode = str(record.get("pricing_mode") or "").upper()
-    if pricing_mode == "CONFIRMED":
-        pricing_mode = "CLOSE_ESTIMATE"
-    if not pricing_mode:
-        pricing_mode = "CLOSE_ESTIMATE" if price > 0 and shares > 0 else "PENDING"
     if pricing_mode not in VALID_PRICING_MODES:
-        pricing_mode = "CLOSE_ESTIMATE" if price > 0 else "PENDING"
+        pricing_mode = "PENDING"
 
     status = str(record.get("status") or "").upper()
-    if status in {"CONFIRMED", "ESTIMATED", "SETTLED"}:
-        status = "SETTLED"
-    elif status not in {"PENDING", "PENDING_CLOSE"}:
-        status = "SETTLED" if price > 0 and shares > 0 else (
-            "PENDING_CLOSE" if pricing_mode == "CLOSE_ESTIMATE" else "PENDING"
-        )
+    if status not in {"PENDING", "PENDING_CLOSE", "SETTLED"}:
+        status = "PENDING"
 
     price_source = str(
         record.get("price_source")
@@ -114,7 +102,7 @@ def load_transactions(path: Path, symbol: str) -> list[dict[str, Any]]:
         )
     )
 
-    # Persist migration only when the normalized form differs.
+    # Persist the normalized current record format when it differs.
     if normalized != raw:
         doc[str(symbol)] = normalized
         _atomic_write_json(path, doc)

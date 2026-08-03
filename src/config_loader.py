@@ -3,7 +3,6 @@ import json
 from pathlib import Path
 from dotenv import load_dotenv
 from src.asset_store import ensure_layout, load_assets
-from src.status import migrate_email_triggers
 
 REQUIRED_SECTIONS = ['assets','data','llm','email','storage','report']
 
@@ -12,8 +11,8 @@ def load_config(path: Path) -> dict:
     """Load clean Portfolio Monitor configuration.
 
     Global settings live under config/global/*.json. Each asset has its own
-    config/assets/<asset_id>.json file. Runtime data is never read from legacy
-    single-asset files.
+    config/assets/<asset_id>.json file. Runtime data stays separate from
+    configuration.
     """
     root = path.parent if path.name == "config" else path.parent
     ensure_layout(root)
@@ -57,7 +56,6 @@ def validate_email_config(email: dict) -> None:
     triggers = email.get("triggers", {})
     if not isinstance(triggers, dict):
         raise ValueError("email.triggers 必须是对象")
-    email["triggers"] = migrate_email_triggers(triggers)
 
     debug = email.get("debug", {})
     if not isinstance(debug, dict):

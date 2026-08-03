@@ -3,12 +3,12 @@ from src.buy_discipline import buy_discipline_reasons, summarize_buy_discipline
 
 def test_same_price_band_is_scoped_to_the_confirmed_low_cycle():
     transactions = [
-        {"type": "BUY", "date": "2026-01-01", "price": 10, "amount": 100, "status": "CONFIRMED"},
-        {"type": "BUY", "date": "2026-02-01", "price": 10, "amount": 100, "status": "ESTIMATED"},
-        {"type": "BUY", "date": "2026-02-02", "price": 10.1, "amount": 100, "status": "CONFIRMED"},
-        {"type": "BUY", "date": "2026-02-03", "price": 8.5, "amount": 100, "status": "CONFIRMED"},
+        {"type": "BUY", "date": "2026-01-01", "price": 10, "amount": 100, "status": "SETTLED"},
+        {"type": "BUY", "date": "2026-02-01", "price": 10, "amount": 100, "status": "SETTLED"},
+        {"type": "BUY", "date": "2026-02-02", "price": 10.1, "amount": 100, "status": "SETTLED"},
+        {"type": "BUY", "date": "2026-02-03", "price": 8.5, "amount": 100, "status": "SETTLED"},
         {"type": "BUY", "date": "2026-02-04", "price": 0, "amount": 250, "status": "PENDING_CLOSE"},
-        {"type": "SELL", "date": "2026-02-05", "price": 11, "amount": 500, "status": "CONFIRMED"},
+        {"type": "SELL", "date": "2026-02-05", "price": 11, "amount": 500, "status": "SETTLED"},
     ]
     summary = summarize_buy_discipline(
         {"same_price_band_pct": 3, "same_price_band_max_buys": 2, "planned_investment_reference": 500},
@@ -27,9 +27,9 @@ def test_same_price_band_is_scoped_to_the_confirmed_low_cycle():
 
 def test_same_price_attention_is_advisory_and_pending_is_explained():
     transactions = [
-        {"type": "BUY", "date": "2026-02-01", "price": 10, "amount": 100, "status": "CONFIRMED"},
-        {"type": "BUY", "date": "2026-02-02", "price": 10.1, "amount": 100, "status": "ESTIMATED"},
-        {"type": "BUY", "date": "2026-02-03", "price": 10.2, "amount": 100, "status": "CONFIRMED"},
+        {"type": "BUY", "date": "2026-02-01", "price": 10, "amount": 100, "status": "SETTLED"},
+        {"type": "BUY", "date": "2026-02-02", "price": 10.1, "amount": 100, "status": "SETTLED"},
+        {"type": "BUY", "date": "2026-02-03", "price": 10.2, "amount": 100, "status": "SETTLED"},
         {"type": "BUY", "date": "2026-02-04", "price": 0, "amount": 80, "status": "PENDING"},
     ]
     summary = summarize_buy_discipline(

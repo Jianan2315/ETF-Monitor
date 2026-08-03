@@ -845,29 +845,6 @@ def _save_intraday_cache(
     return merged
 
 
-# Compatibility wrappers retained for existing tests and older callers.
-def _market_phase(now: datetime, mode: str) -> str:
-    context = build_market_context(now)
-    if mode == "close":
-        return "AFTER_CLOSE"
-    return context.phase
-
-
-def _expected_history_date(now: datetime, phase: str) -> pd.Timestamp:
-    context = build_market_context(now)
-    # Tests may pass an explicit historical phase. Preserve that meaning.
-    if phase != context.phase:
-        context = type(context)(
-            now=context.now,
-            phase=phase,
-            phase_label=phase,
-            close_ready=(phase == "AFTER_CLOSE" and now.time() >= datetime.strptime("15:05", "%H:%M").time()),
-            can_intraday=phase in SESSION_PHASES,
-            can_close=(phase == "AFTER_CLOSE" and now.time() >= datetime.strptime("15:05", "%H:%M").time()),
-        )
-    return expected_history_date(now, context)
-
-
 def _cache_path(project_root: Path, config: dict, symbol: str) -> Path:
     cache_dir = config.get("data", {}).get("cache_directory", "data/global/cache")
     return project_root / cache_dir / f"{symbol}_daily.json"

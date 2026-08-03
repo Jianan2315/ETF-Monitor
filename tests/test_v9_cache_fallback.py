@@ -1,6 +1,7 @@
 from pathlib import Path
 
-from src.data_fetcher import _load_history_cache, _market_phase
+from src.data_fetcher import _load_history_cache
+from src.market_clock import classify_market_phase
 
 
 def test_returns_empty_when_asset_cache_is_missing(tmp_path: Path):
@@ -18,9 +19,6 @@ def test_intraday_argument_does_not_force_realtime_before_open():
     from datetime import datetime
 
     assert (
-        _market_phase(
-            datetime(2026, 7, 15, 8, 0),
-            "intraday",
-        )
+        classify_market_phase(datetime(2026, 7, 15, 8, 0))
         == "PRE_OPEN"
     )

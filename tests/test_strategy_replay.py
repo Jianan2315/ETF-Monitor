@@ -27,7 +27,7 @@ def test_strategy_replay_uses_cash_and_initial_position_without_creating_real_tr
     result = replay_strategy(
         _asset(),
         _history(),
-        [{"date": "2026-01-02", "type": "BUY", "amount": 1000, "price": 10, "shares": 100, "status": "ESTIMATED"}],
+        [{"date": "2026-01-02", "type": "BUY", "amount": 1000, "price": 10, "shares": 100, "status": "SETTLED"}],
         {
             "start_date": "2026-01-02", "initial_capital": 1000, "initial_buy_amount": 400,
             "review_buy_amount": 100, "deep_drawdown_buy_amount": 100,
@@ -51,7 +51,7 @@ def test_strategy_replay_api_saves_asset_scoped_parameters_without_loading_them_
         for row in history.itertuples()
     ]}), encoding="utf-8")
     asset_transactions_path(tmp_path, "demo").write_text(json.dumps({"demo": [
-        {"date": "2026-01-02", "type": "BUY", "amount": 1000, "price": 10, "shares": 100, "status": "ESTIMATED"},
+        {"date": "2026-01-02", "type": "BUY", "amount": 1000, "price": 10, "shares": 100, "status": "SETTLED"},
     ]}), encoding="utf-8")
     client = control_server.app.test_client()
 

@@ -128,7 +128,7 @@ def test_system_settings_save_is_global_and_has_no_default_report_time_fields(mo
     monkeypatch.setattr(control_server, "ROOT", tmp_path)
     response = control_server.app.test_client().post("/api/system-settings/save", json={
         "llm": {"enabled": True, "model": "test-model", "timeout_seconds": "120"},
-        "email": {"enabled": True, "recipient": "test@example.com", "triggers": {"WAIT": True}},
+        "email": {"enabled": True, "recipient": "test@example.com", "triggers": {"OBSERVE": True}},
         "data": {"history_days": "300", "retry_max_attempts": "2"},
         "report": {"retention_days": "90", "max_history_files": "50"},
     })
@@ -216,7 +216,7 @@ def test_homepage_summary_uses_previous_close_and_marks_today_pending_buy(monkey
     })
     transactions_path = tmp_path / "data" / "assets" / "123456" / "transactions.json"
     transactions_path.write_text(json.dumps({"123456": [
-        {"date": "2026-07-22", "type": "BUY", "amount": 100, "shares": 10, "price": 10, "status": "CONFIRMED"},
+        {"date": "2026-07-22", "type": "BUY", "amount": 100, "shares": 10, "price": 10, "status": "SETTLED"},
         {"date": "2026-07-23", "type": "BUY", "amount": 50, "shares": 0, "price": 0, "status": "PENDING_CLOSE"},
     ]}), encoding="utf-8")
     cache_path = asset_cache_dir(tmp_path, "123456") / "399001_daily.json"
@@ -356,8 +356,8 @@ def test_transaction_chart_and_batch_delete_are_scoped_to_the_selected_asset(mon
     })
     transactions_path = tmp_path / "data" / "assets" / "123456" / "transactions.json"
     transactions_path.write_text(json.dumps({"123456": [
-        {"id": "buy", "date": "2026-07-21", "type": "BUY", "amount": 100, "status": "ESTIMATED"},
-        {"id": "sell", "date": "2026-07-22", "type": "SELL", "amount": 80, "status": "ESTIMATED"},
+        {"id": "buy", "date": "2026-07-21", "type": "BUY", "amount": 100, "status": "SETTLED"},
+        {"id": "sell", "date": "2026-07-22", "type": "SELL", "amount": 80, "status": "SETTLED"},
     ]}), encoding="utf-8")
     cache_path = asset_cache_dir(tmp_path, "123456") / "399001_daily.json"
     cache_path.write_text(json.dumps({"rows": [

@@ -52,7 +52,7 @@ async function renderSelectedAsset(selected) {
   const pending = Number(data.pending_buy_count || 0) > 0
     ? `<p class="today-buy-note">待确认买入 ${money(data.pending_buy_amount)}（${escapeHtml(pendingDates || "日期待确认")}），尚未纳入已投入成本和收益计算。${escapeHtml(data.settlement?.message || "")}</p>`
     : "";
-  cards.innerHTML = `<article class="status-item asset-card selected-asset-card ${selected.enabled ? "ok" : "bad"}">
+  cards.innerHTML = `<article class="status-item asset-card selected-asset-card ok">
     <strong>${escapeHtml(selected.name)}</strong>
     <p>持有代码：${escapeHtml(selected.asset_code)} · 跟踪代码：${escapeHtml(selected.tracking_code)}</p>
     <div class="asset-performance-grid">

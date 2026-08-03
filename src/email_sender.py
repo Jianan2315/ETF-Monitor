@@ -13,7 +13,7 @@ from src.microsoft_graph_auth import (
     acquire_graph_access_token,
     validate_graph_environment,
 )
-from src.status import migrate_email_triggers, normalize_status
+from src.status import normalize_status
 
 
 class MicrosoftGraphEmailError(RuntimeError):
@@ -55,7 +55,9 @@ def evaluate_email_delivery(result: dict, email_config: dict) -> EmailDecision:
             status,
         )
 
-    trigger_map = migrate_email_triggers(email_config.get("triggers", {}))
+    trigger_map = email_config.get("triggers", {})
+    if not isinstance(trigger_map, dict):
+        trigger_map = {}
     trigger_enabled = bool(trigger_map.get(status, False))
     if trigger_enabled:
         return EmailDecision(
@@ -69,12 +71,6 @@ def evaluate_email_delivery(result: dict, email_config: dict) -> EmailDecision:
         f"status {status} is disabled or missing in email.triggers",
         status,
     )
-
-
-def should_send_email(result: dict, email_config: dict) -> bool:
-    """Backward-compatible boolean helper used by tests and callers."""
-    return evaluate_email_delivery(result, email_config).should_send
-
 
 def _status_icon(status: str) -> str:
     return {

@@ -66,7 +66,6 @@ def load_assets(root: Path) -> list[dict[str, Any]]:
         item['asset_code'] = str(item.get('asset_code') or path.stem).strip()
         item['tracking_code'] = str(item.get('tracking_code') or '').strip()
         item['symbol'] = item['tracking_code']
-        item['enabled'] = True
         strategy_path = asset_config_dir(root) / f'{path.stem}{STRATEGY_CONFIG_SUFFIX}'
         strategy_doc = _read_json(strategy_path, {})
         strategy = dict(strategy_doc.get('strategy', item.get('strategy', {})))
@@ -138,7 +137,6 @@ def save_asset(root: Path, asset: dict[str, Any], *, old_id: str | None = None) 
         **persisted,
         'id': asset_id,
         'symbol': persisted['tracking_code'],
-        'enabled': True,
         'strategy': strategy,
     }
 
