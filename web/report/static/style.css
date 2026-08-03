@@ -603,13 +603,6 @@ body.modal-open {
     }
 }
 
-.strategy-version {
-    margin: -2px 0 8px;
-    color: #1d6fa5;
-    font-size: 13px;
-    font-weight: 700
-}
-
 .operation-panel {
     margin-bottom: 16px
 }

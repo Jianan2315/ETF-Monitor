@@ -166,8 +166,6 @@ def _plain_body(result: dict, include_raw: bool = True, forced: bool = False) ->
         f"数据阶段：{result.get('data_phase_label', result.get('data_phase', 'UNKNOWN'))}（{result.get('data_phase', 'UNKNOWN')}）\n"
         f"行情时间：{result.get('market_timestamp', '未知')}\n"
         f"运行时点：{result.get('run_slot') or result.get('run_mode', 'manual')}\n"
-        f"策略：{asset['strategy'].get('name', '')} "
-        f"v{asset['strategy'].get('version', '')}\n"
         f"{_suggested_amount_text(decision)}\n\n"
         f"内部原因码：{decision.get('reason_code', 'NO_ACTION')}\n"
         f"当前周期：{cycle.get('current_cycle_id') or '尚未确认'}\n"
@@ -340,11 +338,7 @@ def _html_body(result: dict, include_raw: bool = True, forced: bool = False) -> 
     {test_banner}
     <h2 style="margin:0 0 4px">{html.escape(asset['name'])}</h2>
     {summary}
-    <p style="color:#64748b">
-      {html.escape(asset['symbol'])} ·
-      {html.escape(asset['strategy'].get('name', ''))}
-      v{html.escape(str(asset['strategy'].get('version', '')))}
-    </p>
+    <p style="color:#64748b">{html.escape(asset['symbol'])}</p>
     <div style="display:inline-block;padding:8px 12px;background:#fff0cf;border-radius:999px;font-weight:700">
       {html.escape(display_status)}
     </div>

@@ -1,6 +1,5 @@
 {
   "schedule": {
-    "timezone": "Asia/Shanghai",
-    "close_send_email": false
+    "timezone": "Asia/Shanghai"
   }
 }

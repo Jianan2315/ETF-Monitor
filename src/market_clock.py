@@ -42,11 +42,7 @@ class ModeValidation:
 def market_now(config: dict | None = None) -> datetime:
     timezone_name = "Asia/Shanghai"
     if config:
-        timezone_name = (
-            config.get("schedule", {}).get("timezone")
-            or config.get("timezone")
-            or timezone_name
-        )
+        timezone_name = config.get("schedule", {}).get("timezone") or timezone_name
     aware = datetime.now(ZoneInfo(timezone_name))
     # The rest of this project uses naive datetimes. Keep the market-local wall
     # clock while removing tzinfo to avoid mixing aware and naive pandas values.

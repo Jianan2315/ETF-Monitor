@@ -1,11 +1,8 @@
 {
   "asset": {
-    "id": "015596",
     "name": "国泰国证有色金属行业指数C",
     "asset_code": "015596",
     "tracking_code": "399395",
-    "tracking_name": "国证有色",
-    "enabled": true,
-    "symbol": "399395"
+    "tracking_name": "国证有色"
   }
 }

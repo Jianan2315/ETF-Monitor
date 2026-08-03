@@ -168,46 +168,6 @@ def _backup_file(path: Path) -> Path | None:
     return backup_path
 
 
-def _disable_legacy_force_email_once() -> None:
-    marker = (
-        ROOT
-        / "data"
-        / "migrations"
-        / "v11_6_force_email_disabled"
-    )
-    if marker.exists():
-        return
-
-    email_path = ROOT / "config" / "global" / "email.json"
-    email_doc = _read_json(email_path, {"email": {}})
-    debug = email_doc.setdefault("email", {}).setdefault(
-        "debug",
-        {},
-    )
-    changed = bool(
-        debug.get("enabled")
-        or debug.get("force_send_email")
-    )
-    debug["enabled"] = False
-    debug["force_send_email"] = False
-    if changed:
-        _backup_file(email_path)
-        _atomic_write_json(email_path, email_doc)
-
-    marker.parent.mkdir(parents=True, exist_ok=True)
-    marker.write_text(
-        datetime.now().isoformat(timespec="seconds"),
-        encoding="utf-8",
-    )
-
-def _migrate_legacy_report() -> None:
-    """Retained as a no-op for callers from older launchers.
-
-    V13.2 never migrates a global report: reports belong to individual assets.
-    """
-    return None
-
-
 def _python_executable() -> str:
     venv_python = ROOT / ".venv" / "Scripts" / "python.exe"
     if venv_python.exists():
@@ -446,13 +406,12 @@ def _asset_tracking_code(asset: dict[str, Any]) -> str:
 
 def _normalize_asset(asset: dict[str, Any], index: int = 0) -> dict[str, Any]:
     item = dict(asset or {})
-    legacy_symbol = str(item.get("symbol") or "").strip()
-    item.setdefault("id", item.get("asset_code") or legacy_symbol or f"asset-{index+1}")
-    item.setdefault("asset_code", legacy_symbol)
-    item.setdefault("tracking_code", legacy_symbol)
+    item["asset_code"] = str(item.get("asset_code") or item.get("id") or f"asset-{index+1}").strip()
+    item["id"] = item["asset_code"]
+    item["tracking_code"] = str(item.get("tracking_code") or "").strip()
     item.setdefault("tracking_name", item.get("name", ""))
-    # Keep symbol as the market-data code for backward compatibility.
     item["symbol"] = _asset_tracking_code(item)
+    item["enabled"] = True
     return item
 
 
@@ -2016,10 +1975,6 @@ def _save_settings(payload: dict[str, Any], asset_id: str | None = None) -> dict
             if updated.get(key) != value:
                 changes.append(f"{label}: {updated.get(key)} → {value}")
                 updated[key] = value
-    if "enabled" in asset_payload:
-        updated["enabled"] = bool(asset_payload["enabled"])
-    updated["id"] = str(updated.get("asset_code") or old_id)
-    updated["symbol"] = str(updated.get("tracking_code") or "")
     strategy = dict(updated.get("strategy", {}))
     integer_fields = {
         "stable_days_required",
@@ -2625,13 +2580,10 @@ def api_assets_create():
     template = _read_json(ROOT / "config" / "asset_template.json", {"asset": {}}).get("asset", {})
     asset = {
         **template,
-        "id": asset_code,
         "name": name,
         "asset_code": asset_code,
         "tracking_code": tracking_code,
         "tracking_name": tracking_name,
-        "symbol": tracking_code,
-        "enabled": True,
     }
     saved = save_asset(ROOT, asset)
     return jsonify({"success": True, "message": "资产已新增。", "asset": saved})
@@ -2851,8 +2803,6 @@ def _port_is_open() -> bool:
 
 
 if __name__ == "__main__":
-    _disable_legacy_force_email_once()
-
     if _port_is_open():
         webbrowser.open(f"http://{HOST}:{PORT}/")
         raise SystemExit(0)

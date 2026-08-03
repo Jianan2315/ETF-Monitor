@@ -388,9 +388,8 @@ def test_asset_identity_forms_use_the_shared_two_column_layout_and_action_spacin
     for page in (new_asset, edit_asset):
         positions = [page.index(label) for label in field_order]
         assert positions == sorted(positions)
-    identity_grid = edit_asset.split('<div class="asset-identity-grid">', 1)[1].split("</div>", 1)[0]
-    assert 'name="asset_enabled"' not in identity_grid
-    assert '<div class="asset-enabled-row">' in edit_asset
+    assert 'name="asset_enabled"' not in edit_asset
+    assert 'class="asset-enabled-row"' not in edit_asset
     assert new_asset.count('class="form-actions"') == 1
     assert edit_asset.count('class="form-actions"') == 3
 
@@ -612,15 +611,15 @@ def test_history_route_rebuilds_a_styled_asset_specific_empty_state(monkeypatch,
     })
     monkeypatch.setattr(control_server, "ROOT", tmp_path)
 
-    response = control_server.app.test_client().get("/history?asset_id=demo")
+    response = control_server.app.test_client().get("/history?asset_id=510300")
     body = response.get_data(as_text=True)
     assert response.status_code == 200
     assert "过往报告记录 — Demo ETF" in body
     assert "暂无过往报告" in body
     assert 'class="shell"' in body
     assert 'class="card"' in body
-    assert 'href="/report?asset_id=demo"' in body
-    assert 'href="/asset/manage?asset_id=demo"' in body
+    assert 'href="/report?asset_id=510300"' in body
+    assert 'href="/asset/manage?asset_id=510300"' in body
     assert 'href="/">返回控制台</a>' in body
 
 
@@ -672,7 +671,6 @@ def test_manual_review_page_and_api_save_asset_scoped_records(monkeypatch, tmp_p
 
 def test_asset_basic_configuration_and_strategy_are_stored_separately(tmp_path: Path):
     saved = save_asset(tmp_path, {
-        "id": "grid-fund",
         "name": "Grid Fund",
         "asset_code": "012345",
         "tracking_name": "Grid ETF",
@@ -680,12 +678,18 @@ def test_asset_basic_configuration_and_strategy_are_stored_separately(tmp_path: 
         "strategy": {"planned_capital": 100000},
     })
     assert saved["strategy"]["planned_capital"] == 100000
-    assert (tmp_path / "config" / "assets" / "grid-fund.json").exists()
-    assert (tmp_path / "config" / "assets" / "grid-fund_strategy.json").exists()
+    asset_path = tmp_path / "config" / "assets" / "012345.json"
+    assert asset_path.exists()
+    assert (tmp_path / "config" / "assets" / "012345_strategy.json").exists()
+    assert set(json.loads(asset_path.read_text(encoding="utf-8"))["asset"]) == {
+        "name", "asset_code", "tracking_name", "tracking_code",
+    }
     loaded = load_assets(tmp_path)[0]
+    assert loaded["id"] == "012345"
+    assert loaded["symbol"] == "159326"
     assert loaded["tracking_code"] == "159326"
     assert loaded["strategy"]["planned_capital"] == 100000
-    assert asset_report_path(tmp_path, "grid-fund") == tmp_path / "output" / "assets" / "grid-fund" / "latest" / "report.html"
+    assert asset_report_path(tmp_path, "012345") == tmp_path / "output" / "assets" / "012345" / "latest" / "report.html"
 
 
 def test_latest_status_uses_holding_scope_and_tracking_named_cache(monkeypatch, tmp_path: Path):
@@ -739,6 +743,6 @@ def test_runtime_layout_has_no_legacy_private_or_scheduler_directory(tmp_path: P
     assert not (tmp_path / "data" / "global" / "schedule_status").exists()
     assert not (tmp_path / "output" / "portfolio").exists()
     assert not (tmp_path / "logs" / "assets").exists()
-    assert not (tmp_path / "data" / "assets" / "demo" / "diagnostics").exists()
-    assert not (tmp_path / "data" / "assets" / "demo" / "run_status").exists()
-    assert (tmp_path / "data" / "assets" / "demo" / "notifications").is_dir()
+    assert not (tmp_path / "data" / "assets" / "001" / "diagnostics").exists()
+    assert not (tmp_path / "data" / "assets" / "001" / "run_status").exists()
+    assert (tmp_path / "data" / "assets" / "001" / "notifications").is_dir()

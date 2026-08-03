@@ -73,7 +73,6 @@ async function loadSettings() {
   setv("asset_code", asset.asset_code);
   setv("tracking_name", asset.tracking_name);
   setv("tracking_code", asset.tracking_code || asset.symbol);
-  setv("asset_enabled", asset.enabled);
   strategyKeys.forEach(key => setv(key, strategy[key]));
 }
 
@@ -231,7 +230,6 @@ async function saveAsset(includeStrategy) {
   const asset = {
     name: getv("asset_name"), asset_code: getv("asset_code"),
     tracking_name: getv("tracking_name"), tracking_code: getv("tracking_code"),
-    enabled: getv("asset_enabled"),
   };
   const strategy = includeStrategy ? Object.fromEntries(strategyKeys.map(key => [key, getv(key)])) : {};
   assetResult.hidden = false;

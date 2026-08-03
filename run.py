@@ -357,7 +357,6 @@ def main(argv: list[str] | None = None) -> int:
             "history_file": str((data_dir / "history.xlsx").relative_to(ROOT)).replace("\\", "/"),
             "decisions_file": str((data_dir / "decisions.xlsx").relative_to(ROOT)).replace("\\", "/"),
             "latest_file": str((data_dir / "latest.json").relative_to(ROOT)).replace("\\", "/"),
-            "transactions_file": str(transaction_path.relative_to(ROOT)).replace("\\", "/"),
         }
         asset_config["report"] = {
             **config.get("report", {}),

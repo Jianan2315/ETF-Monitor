@@ -2,7 +2,6 @@
   "storage": {
     "history_file": "data/assets/{asset_id}/history.xlsx",
     "decisions_file": "data/assets/{asset_id}/decisions.xlsx",
-    "latest_file": "data/assets/{asset_id}/latest.json",
-    "transactions_file": "data/assets/{asset_id}/transactions.json"
+    "latest_file": "data/assets/{asset_id}/latest.json"
   }
 }

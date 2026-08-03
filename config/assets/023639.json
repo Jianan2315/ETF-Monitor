@@ -1,11 +1,8 @@
 {
   "asset": {
-    "id": "023639",
     "name": "国泰A股电网设备ETF联接C",
     "asset_code": "023639",
     "tracking_code": "561380",
-    "tracking_name": "国泰恒生电网设备ETF",
-    "enabled": true,
-    "symbol": "561380"
+    "tracking_name": "国泰恒生电网设备ETF"
   }
 }

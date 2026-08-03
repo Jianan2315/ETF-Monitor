@@ -1,11 +1,5 @@
 {
   "asset": {
-    "id": "",
-    "name": "",
-    "asset_code": "",
-    "tracking_code": "",
-    "tracking_name": "",
-    "enabled": true,
     "strategy": {
       "strategy_type": "CYCLICAL",
       "cycle_confirmation_pct": 8.0,

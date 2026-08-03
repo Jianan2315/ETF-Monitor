@@ -1,38 +1,8 @@
 {
   "research": {
-    "version": "investment-framework-v2",
     "asset_profiles": {
       "015596": "nonferrous",
       "023639": "grid_equipment"
-    },
-    "source_validation": {
-      "etf_market_and_shares": {
-        "automation": true,
-        "validated_attempts": "3/3",
-        "tested_at": "2026-07-26",
-        "note": "ETF 行情、最新份额和单日资金字段可自动采集；资金流仅作确认项。"
-      },
-      "copper_daily": {
-        "automation": true,
-        "validated_attempts": "3/3",
-        "tested_at": "2026-07-26"
-      },
-      "lme_copper_inventory": {
-        "automation": true,
-        "validated_attempts": "3/3",
-        "tested_at": "2026-07-26"
-      },
-      "china_manufacturing_pmi": {
-        "automation": true,
-        "validated_attempts": "3/3",
-        "tested_at": "2026-07-26",
-        "note": "只自动记录 PMI 总指数；生产和新订单明细仍为人工复核项。"
-      },
-      "dollar_index": {
-        "automation": false,
-        "tested_at": "2026-07-26",
-        "note": "候选全球指数接口在验证中出现一次代理断连，按可靠性规则改为人工筛选。"
-      }
     }
   }
 }

@@ -62,10 +62,11 @@ def load_assets(root: Path) -> list[dict[str, Any]]:
         if not isinstance(asset, dict):
             continue
         item = dict(asset)
-        item.setdefault('id', path.stem)
-        item.setdefault('asset_code', item.get('id', path.stem))
-        item.setdefault('tracking_code', item.get('symbol', ''))
-        item['symbol'] = str(item.get('tracking_code') or item.get('symbol') or '')
+        item['id'] = path.stem
+        item['asset_code'] = str(item.get('asset_code') or path.stem).strip()
+        item['tracking_code'] = str(item.get('tracking_code') or '').strip()
+        item['symbol'] = item['tracking_code']
+        item['enabled'] = True
         strategy_path = asset_config_dir(root) / f'{path.stem}{STRATEGY_CONFIG_SUFFIX}'
         strategy_doc = _read_json(strategy_path, {})
         strategy = dict(strategy_doc.get('strategy', item.get('strategy', {})))
@@ -97,15 +98,17 @@ def load_assets(root: Path) -> list[dict[str, Any]]:
 
 def save_asset(root: Path, asset: dict[str, Any], *, old_id: str | None = None) -> dict[str, Any]:
     item = dict(asset)
-    asset_id = safe_asset_id(item.get('id') or item.get('asset_code'))
-    item['id'] = asset_id
-    item['asset_code'] = str(item.get('asset_code') or asset_id).strip()
-    item['tracking_code'] = str(item.get('tracking_code') or item.get('symbol') or '').strip()
-    item['symbol'] = item['tracking_code']
+    asset_id = safe_asset_id(item.get('asset_code'))
+    item['asset_code'] = asset_id
+    item['tracking_code'] = str(item.get('tracking_code') or '').strip()
     strategy = dict(item.pop('strategy', {}))
     strategy.setdefault('strategy_type', 'CYCLICAL')
+    persisted = {
+        key: str(item.get(key) or '').strip()
+        for key in ('name', 'asset_code', 'tracking_name', 'tracking_code')
+    }
     path = asset_config_dir(root) / f'{asset_id}.json'
-    _atomic_write(path, {'asset': item})
+    _atomic_write(path, {'asset': persisted})
     if strategy:
         _atomic_write(asset_config_dir(root) / f'{asset_id}{STRATEGY_CONFIG_SUFFIX}', {
             'asset_id': asset_id,
@@ -131,7 +134,13 @@ def save_asset(root: Path, asset: dict[str, Any], *, old_id: str | None = None) 
         if old_output.exists() and not new_output.exists():
             old_output.rename(new_output)
     ensure_asset_runtime(root, asset_id)
-    return {**item, 'strategy': strategy}
+    return {
+        **persisted,
+        'id': asset_id,
+        'symbol': persisted['tracking_code'],
+        'enabled': True,
+        'strategy': strategy,
+    }
 
 
 def delete_asset(root: Path, asset_id: str, *, purge_runtime: bool = True) -> None:
