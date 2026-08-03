@@ -13,15 +13,20 @@
     <p class="eyebrow">CONFIGURATION CHECK</p>
     <h2 id="parameter-onboarding-title">参数检查</h2>
     <p id="parameter-onboarding-intro" class="muted"></p>
-    <div id="parameter-onboarding-required" class="parameter-onboarding-list"></div>
-    <div id="parameter-onboarding-optional" class="parameter-onboarding-list"></div>
+    <div id="parameter-onboarding-items" class="parameter-onboarding-list"></div>
     <label id="parameter-onboarding-dismiss-row" class="parameter-dismiss-option" hidden>
       本次暂不填写的选填项下次不再提示
       <input id="parameter-onboarding-dismiss-optionals" type="checkbox">
     </label>
     <div class="button-row parameter-onboarding-actions">
       <button type="button" id="parameter-onboarding-later" class="secondary-button">本次稍后处理</button>
+      <button type="button" id="parameter-onboarding-close" class="secondary-button">关闭</button>
     </div>
   </section>
 </div>
+<button id="parameter-onboarding-toast" class="parameter-onboarding-toast" type="button" hidden aria-expanded="false">
+  <strong>参数检查</strong>
+  <span id="parameter-onboarding-toast-message"></span>
+  <span class="parameter-onboarding-toast-action">点击查看</span>
+</button>
 <script src="/control-static/control.js"></script></body></html>

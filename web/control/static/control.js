@@ -114,12 +114,30 @@ async function loadRunningStatus() {
   grid.innerHTML = cards.join("");
 }
 
-function onboardingItem(item, kind) {
-  const title = `${escapeHtml(item.asset_name)} · ${escapeHtml(item.label)}`;
-  return `<article class="parameter-onboarding-item ${kind}">
+function onboardingItem(item) {
+  const title = escapeHtml(item.label);
+  return `<article class="parameter-onboarding-item ${item.kind}">
     <div><strong>${title}</strong><span>${escapeHtml(item.description)}</span></div>
     <a class="button-link secondary" href="${escapeHtml(item.settings_url)}">前往设置</a>
   </article>`;
+}
+
+function onboardingGroups(items) {
+  const groups = new Map();
+  items.forEach(item => {
+    const key = item.asset_id || item.asset_name;
+    if (!groups.has(key)) groups.set(key, {assetName: item.asset_name, items: []});
+    groups.get(key).items.push(item);
+  });
+  return [...groups.values()].map(group => {
+    const requiredCount = group.items.filter(item => item.kind === "required").length;
+    const optionalCount = group.items.length - requiredCount;
+    const summary = `${group.items.length} 项待处理${requiredCount ? ` · 必填 ${requiredCount}` : ""}${optionalCount ? ` · 选填 ${optionalCount}` : ""}`;
+    return `<details class="parameter-onboarding-group">
+      <summary><span>${escapeHtml(group.assetName)} · 参数检查</span><span>${summary}</span></summary>
+      <div class="parameter-onboarding-group-items">${group.items.map(onboardingItem).join("")}</div>
+    </details>`;
+  }).join("");
 }
 
 async function dismissOptionalOnboardingItems(items) {
@@ -134,12 +152,14 @@ async function dismissOptionalOnboardingItems(items) {
 
 async function loadParameterOnboarding() {
   const modal = document.getElementById("parameter-onboarding-modal");
-  const requiredPanel = document.getElementById("parameter-onboarding-required");
-  const optionalPanel = document.getElementById("parameter-onboarding-optional");
+  const itemsPanel = document.getElementById("parameter-onboarding-items");
   const intro = document.getElementById("parameter-onboarding-intro");
   const dismissRow = document.getElementById("parameter-onboarding-dismiss-row");
   const dismissCheckbox = document.getElementById("parameter-onboarding-dismiss-optionals");
   const laterButton = document.getElementById("parameter-onboarding-later");
+  const closeButton = document.getElementById("parameter-onboarding-close");
+  const toast = document.getElementById("parameter-onboarding-toast");
+  const toastMessage = document.getElementById("parameter-onboarding-toast-message");
   let data;
   try {
     const response = await fetch("/api/parameter-onboarding", {cache: "no-store"});
@@ -154,11 +174,14 @@ async function loadParameterOnboarding() {
   const optional = data.optional || [];
   if (!required.length && !optional.length) {
     modal.hidden = true;
+    toast.hidden = true;
     return;
   }
 
-  requiredPanel.innerHTML = required.map(item => onboardingItem(item, "required")).join("");
-  optionalPanel.innerHTML = optional.map(item => onboardingItem(item, "optional")).join("");
+  itemsPanel.innerHTML = onboardingGroups([
+    ...required.map(item => ({...item, kind: "required"})),
+    ...optional.map(item => ({...item, kind: "optional"})),
+  ]);
   dismissRow.hidden = !optional.length;
   dismissCheckbox.checked = false;
   if (required.length) {
@@ -170,17 +193,25 @@ async function loadParameterOnboarding() {
     laterButton.hidden = false;
     laterButton.textContent = "本次稍后处理";
   }
-  modal.hidden = false;
+  toast.hidden = false;
+  toastMessage.textContent = `${required.length ? `必填 ${required.length} 项` : ""}${required.length && optional.length ? " · " : ""}${optional.length ? `选填 ${optional.length} 项` : ""}`;
+  toast.onclick = () => {
+    modal.hidden = false;
+    toast.setAttribute("aria-expanded", "true");
+  };
+  const closeModal = () => {
+    modal.hidden = true;
+    toast.setAttribute("aria-expanded", "false");
+  };
+  closeButton.onclick = closeModal;
+  modal.onclick = event => { if (event.target === modal) closeModal(); };
 
   laterButton.onclick = async () => {
     laterButton.disabled = true;
     try {
       if (dismissCheckbox.checked) await dismissOptionalOnboardingItems(optional);
-      if (required.length) {
-        await loadParameterOnboarding();
-      } else {
-        modal.hidden = true;
-      }
+      await loadParameterOnboarding();
+      closeModal();
     } catch (error) {
       intro.textContent = `无法保存选填项的提示偏好：${error}`;
     } finally {

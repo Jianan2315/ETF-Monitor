@@ -51,12 +51,14 @@
     <section class="card" id="comparison-card" hidden>
       <h2>当前结果对比</h2>
       <p id="comparison-period" class="muted"></p>
-      <div class="status-grid">
-        <article class="status-item"><strong>实际操作</strong><p>净资产：<span id="actual-net-value">-</span></p><p>总收益：<span id="actual-profit">-</span></p><p>收益率：<span id="actual-return">-</span></p></article>
-        <article class="status-item"><strong>按策略模拟</strong><p>净资产：<span id="strategy-net-value">-</span></p><p>总收益：<span id="strategy-profit">-</span></p><p>收益率：<span id="strategy-return">-</span></p></article>
-        <article class="status-item"><strong>差异</strong><p id="difference-summary">-</p><p id="comparison-note" class="muted"></p></article>
+      <div class="replay-comparison-stack">
+        <article class="status-item replay-comparison-item"><strong>实际操作</strong><p>净资产：<span id="actual-net-value">-</span></p><p>总收益：<span id="actual-profit">-</span></p><p>收益率：<span id="actual-return">-</span></p></article>
+        <article class="status-item replay-comparison-item"><strong>按策略模拟</strong><p>净资产：<span id="strategy-net-value">-</span></p><p>总收益：<span id="strategy-profit">-</span></p><p>收益率：<span id="strategy-return">-</span></p><p class="replay-difference"><strong>与实际操作的差异</strong><span id="difference-summary">-</span></p><p id="comparison-note" class="muted"></p></article>
       </div>
-      <p id="comparison-details" class="muted"></p>
+      <div class="replay-detail-stack">
+        <p id="strategy-details" class="muted"></p>
+        <p id="actual-details" class="muted"></p>
+      </div>
     </section>
 
     <section class="card" id="replay-events-card" hidden>

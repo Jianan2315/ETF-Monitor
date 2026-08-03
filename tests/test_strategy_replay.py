@@ -61,8 +61,13 @@ def test_strategy_replay_api_saves_asset_scoped_parameters_without_loading_them_
     assert client.get("/strategy-replay").status_code == 200
     page = client.get("/strategy-replay").get_data(as_text=True)
     assert '<form class="form-grid" id="replay-settings">' in page
+    assert 'class="replay-comparison-stack"' in page
+    assert page.count('class="status-item replay-comparison-item"') == 2
+    assert 'id="strategy-details"' in page
+    assert 'id="actual-details"' in page
     script = Path(control_server.__file__).parent / "web" / "control" / "static" / "strategy_replay.js"
     assert "settingsForm.elements" in script.read_text(encoding="utf-8")
+    assert 'getElementById("strategy-details")' in script.read_text(encoding="utf-8")
 
     saved = client.post("/api/strategy-replay/settings?asset_id=demo", json={
         "settings": {"start_date": "2026-01-02", "initial_capital": 2000, "initial_buy_amount": 500},

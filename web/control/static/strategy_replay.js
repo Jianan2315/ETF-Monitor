@@ -89,7 +89,8 @@ function renderReplay(data) {
   const winner = difference.profit_amount > 0 ? "策略模拟较高" : difference.profit_amount < 0 ? "实际操作较高" : "两者相同";
   document.getElementById("difference-summary").textContent = `${winner}：${currency(Math.abs(difference.profit_amount))}（${percent(Math.abs(difference.return_pct))}）`;
   document.getElementById("comparison-note").textContent = difference.directly_comparable ? "模拟初始资金与实际累计买入金额一致，收益率可直接参考。" : "模拟初始资金与实际累计买入金额不同，收益率仅供情景参考。";
-  document.getElementById("comparison-details").textContent = `策略模拟：现金 ${currency(strategy.cash)}，持有 ${strategy.shares} 份，已执行 ${strategy.executed_order_count} 笔；实际记录：累计买入 ${currency(actual.gross_buy_amount)}，卖出回款 ${currency(actual.sale_proceeds)}，忽略待确认记录 ${actual.pending_transactions_ignored} 笔。`;
+  document.getElementById("strategy-details").textContent = `策略模拟：现金 ${currency(strategy.cash)}，持有 ${strategy.shares} 份，已执行 ${strategy.executed_order_count} 笔。`;
+  document.getElementById("actual-details").textContent = `实际记录：累计买入 ${currency(actual.gross_buy_amount)}，卖出回款 ${currency(actual.sale_proceeds)}，忽略待确认记录 ${actual.pending_transactions_ignored} 笔。`;
   renderEvents(data.events || []);
 }
 

@@ -102,9 +102,12 @@ def test_homepage_includes_parameter_onboarding_modal_and_client_check():
     script = (control_server.ROOT / "web" / "control" / "static" / "control.js").read_text(encoding="utf-8")
 
     assert 'id="parameter-onboarding-modal"' in body
+    assert 'id="parameter-onboarding-toast"' in body
+    assert 'id="parameter-onboarding-items"' in body
     assert 'id="parameter-onboarding-dismiss-optionals"' in body
     assert 'fetch("/api/parameter-onboarding"' in script
     assert 'dismiss-optionals' in script
+    assert 'onboardingGroups' in script
 
 
 def test_system_settings_explains_each_email_trigger_before_its_checkboxes():
