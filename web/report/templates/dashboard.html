@@ -288,7 +288,7 @@
             <div>
               <strong>
                 {{ item.date }} · {{ '买入' if item.type == 'BUY' else '卖出' }}
-                · {{ item.status or 'CONFIRMED' }}
+                · {{ item.status or 'SETTLED' }}
               </strong>
               <p>
                 金额 {{ "%.2f"|format(item.amount or 0) }} 元 ·

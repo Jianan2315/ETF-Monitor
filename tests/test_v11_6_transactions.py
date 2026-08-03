@@ -50,9 +50,20 @@ def test_pending_close_is_reconciled_from_history(tmp_path):
         "561380",
         history,
     )
-    assert records[0]["status"] == "ESTIMATED"
+    assert records[0]["status"] == "SETTLED"
     assert records[0]["price"] == 0.8
     assert records[0]["shares"] == 6250
+
+
+def test_existing_estimated_record_is_migrated_to_settled_when_close_exists(tmp_path):
+    path = tmp_path / "transactions.json"
+    path.write_text('''{"561380":[{"id":"legacy","date":"2026-07-16","type":"BUY","amount":5000,"shares":6250,"price":0.8,"pricing_mode":"CLOSE_ESTIMATE","status":"ESTIMATED","estimated":true}]}''', encoding="utf-8")
+    history = pd.DataFrame({"date": pd.to_datetime(["2026-07-16"]), "close": [0.8]})
+
+    records = reconcile_pending_transactions(path, "561380", history)
+
+    assert records[0]["status"] == "SETTLED"
+    assert records[0]["estimated"] is True
 
 
 def test_sell_amount_is_converted_to_shares_from_close(tmp_path):

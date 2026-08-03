@@ -486,7 +486,7 @@ def main(argv: list[str] | None = None) -> int:
                     "transactions",
                     "交易记录与待确认处理",
                     "SUCCESS",
-                    f"已读取{len(transactions)}条交易记录；可用收盘数据会自动更新估算记录",
+                    f"已读取{len(transactions)}条交易记录；可用收盘数据会自动完成交易结算",
                 )
             )
         except Exception as exc:

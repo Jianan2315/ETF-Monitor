@@ -13,7 +13,7 @@ def calculate_position(transactions: list[dict], latest_price: float) -> dict:
     last_buy_date = ""
 
     for item in transactions:
-        status = str(item.get("status", "CONFIRMED")).upper()
+        status = str(item.get("status", "SETTLED")).upper()
         if status in {"PENDING", "PENDING_CLOSE"}:
             continue
 

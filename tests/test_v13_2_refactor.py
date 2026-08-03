@@ -258,7 +258,7 @@ def test_homepage_reconciles_prior_day_pending_buy_from_asset_cache(monkeypatch,
     assert body["position"]["shares"] == 50
     assert body["pending_buy_count"] == 0
     stored = json.loads(transactions_path.read_text(encoding="utf-8"))["123456"][0]
-    assert stored["status"] == "ESTIMATED"
+    assert stored["status"] == "SETTLED"
     assert stored["price"] == 20
 
 

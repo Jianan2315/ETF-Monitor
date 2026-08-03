@@ -889,7 +889,7 @@ def _save_transaction_record(payload: dict[str, Any], asset_id: str | None = Non
                 record,
             )
 
-    calculated = record.get("status") == "ESTIMATED"
+    calculated = record.get("status") == "SETTLED"
     return {
         "success": True,
         "message": (

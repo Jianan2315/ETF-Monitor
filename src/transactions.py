@@ -10,7 +10,7 @@ import pandas as pd
 
 
 VALID_TYPES = {"BUY", "SELL"}
-VALID_PRICING_MODES = {"CONFIRMED", "PENDING", "CLOSE_ESTIMATE"}
+VALID_PRICING_MODES = {"PENDING", "CLOSE_ESTIMATE"}
 
 
 def _read_json(path: Path, default: Any) -> Any:
@@ -47,40 +47,28 @@ def normalize_transaction(record: dict[str, Any]) -> dict[str, Any]:
     if shares <= 0 and amount > 0 and price > 0:
         shares = amount / price
 
-    pricing_mode = str(
-        record.get("pricing_mode")
-        or (
-            "CONFIRMED"
-            if price > 0 and shares > 0
-            else "PENDING"
-        )
-    ).upper()
+    pricing_mode = str(record.get("pricing_mode") or "").upper()
+    if pricing_mode == "CONFIRMED":
+        pricing_mode = "CLOSE_ESTIMATE"
+    if not pricing_mode:
+        pricing_mode = "CLOSE_ESTIMATE" if price > 0 and shares > 0 else "PENDING"
     if pricing_mode not in VALID_PRICING_MODES:
-        pricing_mode = "CONFIRMED" if price > 0 else "PENDING"
+        pricing_mode = "CLOSE_ESTIMATE" if price > 0 else "PENDING"
 
     status = str(record.get("status") or "").upper()
-    if not status:
-        if pricing_mode == "PENDING":
-            status = "PENDING"
-        elif pricing_mode == "CLOSE_ESTIMATE" or record.get("estimated"):
-            status = "ESTIMATED"
-        else:
-            status = "CONFIRMED"
+    if status in {"CONFIRMED", "ESTIMATED", "SETTLED"}:
+        status = "SETTLED"
+    elif status not in {"PENDING", "PENDING_CLOSE"}:
+        status = "SETTLED" if price > 0 and shares > 0 else (
+            "PENDING_CLOSE" if pricing_mode == "CLOSE_ESTIMATE" else "PENDING"
+        )
 
     price_source = str(
         record.get("price_source")
         or (
-            "legacy_manual"
-            if price > 0 and "pricing_mode" not in record
-            else (
-                "confirmed_amount_div_shares"
-                if status == "CONFIRMED"
-                else (
-                    "close_estimate"
-                    if status == "ESTIMATED"
-                    else "pending"
-                )
-            )
+            "daily_close_estimate"
+            if status == "SETTLED"
+            else "pending"
         )
     )
 
@@ -96,7 +84,7 @@ def normalize_transaction(record: dict[str, Any]) -> dict[str, Any]:
         "price_source": price_source,
         "estimated": bool(
             record.get("estimated")
-            or status == "ESTIMATED"
+            or status == "SETTLED"
         ),
         "note": str(record.get("note", "")),
         "created_at": str(
@@ -317,7 +305,10 @@ def reconcile_pending_transactions(
             "amount": round(amount, 8),
             "shares": round(shares, 8),
             "price": round(close_price, 8),
-            "status": "ESTIMATED",
+            # The price remains explicitly marked as a daily-close estimate,
+            # but the transaction itself is settled and can no longer be
+            # mistaken for a current pending estimate.
+            "status": "SETTLED",
             "price_source": "daily_close_estimate",
             "estimated": True,
             "updated_at": datetime.now().isoformat(timespec="seconds"),

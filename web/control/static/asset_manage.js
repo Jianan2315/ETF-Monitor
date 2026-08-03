@@ -89,6 +89,17 @@ function syncTransactionSelection() {
   deleteSelectedTransactions.textContent = selectedCount ? `删除已选记录（${selectedCount}）` : "删除已选记录";
 }
 
+const transactionStatusLabels = {
+  PENDING: "待补充价格",
+  PENDING_CLOSE: "等待交易日收盘",
+  SETTLED: "已结算",
+};
+
+function transactionStatusLabel(status) {
+  const normalized = String(status || "").toUpperCase();
+  return transactionStatusLabels[normalized] || normalized || "-";
+}
+
 function renderTransactions(records) {
   transactionCount.textContent = records.length ? `（${records.length} 条）` : "";
   selectAllTransactions.checked = false;
@@ -103,7 +114,7 @@ function renderTransactions(records) {
         <label class="transaction-select"><input type="checkbox" data-transaction-select value="${escapeHtml(record.id)}" aria-label="选择 ${escapeHtml(record.date)} 的${transactionType}记录"></label>
         <div class="transaction-item-content">
           <div class="transaction-title-row"><strong>${escapeHtml(record.date || "-")} · ${transactionType}</strong></div>
-          <p>金额：${escapeHtml(record.amount ?? "-")} · 状态：${escapeHtml(record.status || "-")}</p>
+          <p>金额：${escapeHtml(record.amount ?? "-")} · 状态：${escapeHtml(transactionStatusLabel(record.status))}</p>
           ${note}
         </div>
         <button class="secondary-button" data-delete-tx="${escapeHtml(record.id)}">删除</button>

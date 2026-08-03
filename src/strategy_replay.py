@@ -28,7 +28,7 @@ def _number(value: Any, default: float = 0.0) -> float:
 def _confirmed(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return [
         item for item in records
-        if str(item.get("status", "CONFIRMED")).upper() not in {"PENDING", "PENDING_CLOSE"}
+        if str(item.get("status", "SETTLED")).upper() not in {"PENDING", "PENDING_CLOSE"}
     ]
 
 
