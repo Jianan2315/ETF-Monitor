@@ -72,6 +72,7 @@ button:disabled,
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
+  margin: 8px 0;
 }
 .section-title-row {
   display: flex;
@@ -162,6 +163,7 @@ input, select {
   border-radius: 9px;
   padding: 10px 11px;
   background: #fff;
+  margin: 0 8px;
 }
 .checkbox-row {
   flex-direction: row !important;
