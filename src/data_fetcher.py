@@ -1164,6 +1164,7 @@ def _fetch_spot(ak, asset: dict, now: datetime | None = None) -> tuple[dict, lis
         "previous_close": "昨收",
         "volume": "成交量",
         "amount": "成交额",
+        "main_fund_flow": "主力净流入-净额",
     }
     values: dict[str, float | None] = {}
     for target, source in mapping.items():
@@ -1535,7 +1536,7 @@ def _build_latest(asset: dict, history: pd.DataFrame, spot: dict | None) -> Mark
             float(spot["daily_change_pct"] or 0),
             float(spot["volume"] or 0),
             float(spot["amount"] or 0),
-            None,
+            spot.get("main_fund_flow"),
         )
 
     if "daily_change_pct" in history and pd.notna(last.get("daily_change_pct")):

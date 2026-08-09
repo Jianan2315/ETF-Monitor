@@ -121,7 +121,8 @@
             <div><span>回撤样本 / 上涨样本</span><strong>{{ cycle.get('drawdown_sample_size', 0) }} / {{ cycle.get('rise_sample_size', 0) }}</strong></div>
             <div><span>当前回撤 / 历史分位</span><strong>{% if cycle.get('current_drawdown_pct') is not none %}{{ '%.2f'|format(cycle.get('current_drawdown_pct')) }}% / {{ cycle.get('current_drawdown_percentile') }}%{% else %}不适用{% endif %}</strong></div>
             <div><span>当前上涨 / 历史分位</span><strong>{% if cycle.get('current_rise_pct') is not none %}{{ '%.2f'|format(cycle.get('current_rise_pct')) }}% / {{ cycle.get('current_rise_percentile') }}%{% else %}不适用{% endif %}</strong></div>
-            <div><span>资金流状态</span><strong>{{ result.indicators.fund_flow_status }} · {{ result.indicators.fund_flow_impact }}</strong></div>
+            {% set fund_flow_amount = result.indicators.main_fund_flow|default(none) %}
+            <div><span>当日主力资金流</span><strong>{{ result.indicators.fund_flow_status|default('UNAVAILABLE') }}{% if fund_flow_amount is not none %} · {{ '%.2f'|format(fund_flow_amount) }} 元{% endif %}<small>{{ result.indicators.fund_flow_impact|default('当日资金流数据不可用，不阻断价格信号') }}</small></strong></div>
           </div>
         </div>
         {% if result.sell_reminder %}
@@ -222,6 +223,29 @@
         {% endif %}
       </section>
       {% endif %}
+
+      <section class="panel research-panel">
+        <div class="panel-title-row">
+          <div>
+            <h3>近期资讯与研究摘要</h3>
+            <p class="muted">资讯仅供人工复核，不参与策略状态、交易建议或邮件发送。</p>
+          </div>
+          <span class="research-state">{{ (result.news or {}).get('status', 'NOT_SEARCHED') }}</span>
+        </div>
+        {% set news = result.news or {} %}
+        {% if news.get('status') == 'SUCCESS' %}
+          {% if news.get('summary') %}<div class="summary-box"><strong>本地摘要</strong><p>{{ news.get('summary') }}</p></div>{% endif %}
+          {% if news.get('summary_status') == 'FAILED' %}<p class="data-warning-list">本地摘要失败，以下保留原始来源供人工查阅。</p>{% endif %}
+          <p class="muted">检索词：{{ news.get('query') }}；范围：过去 {{ news.get('lookback_days') }} 天；检索时间：{{ news.get('generated_at') }}。</p>
+          <ul class="research-manual-list">{% for item in news.get('articles', []) %}<li><a href="{{ item.url }}" target="_blank" rel="noopener noreferrer">{{ item.title }}</a><small> · {{ item.source }}{% if item.published_at %} · {{ item.published_at }}{% endif %}</small>{% if item.snippet %}<br>{{ item.snippet }}{% endif %}</li>{% endfor %}</ul>
+        {% elif news.get('status') == 'NO_RESULTS' %}
+          <p class="muted">{{ news.get('message', '本次检索未找到近期相关资讯。') }}</p>
+        {% elif news.get('status') == 'FAILED' %}
+          <p class="data-warning-list">{{ news.get('message', '资讯检索失败；报告仍可正常生成。') }}</p>
+        {% else %}
+          <p class="muted">尚未执行手动资讯检索。请在人工复核单中发起检索；报告不会自行访问资讯接口。</p>
+        {% endif %}
+      </section>
 
       <div class="analysis-grid">
         <section class="panel metric-group">

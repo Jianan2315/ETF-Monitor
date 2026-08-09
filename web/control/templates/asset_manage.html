@@ -21,6 +21,7 @@
       <a id="asset-run-history-link" class="secondary-button" href="#">运行数据浏览</a>
       <a id="asset-schedule-link" class="secondary-button" href="#">定时运行计划</a>
       <a id="asset-strategy-replay-link" class="secondary-button" href="#">策略模拟对比</a>
+      <a id="asset-review-link" class="secondary-button" href="#">人工复核单</a>
     </div>
   </header>
 
@@ -61,6 +62,17 @@
       <div id="asset-result" class="result-box" hidden></div>
     </section>
   </form>
+
+  <section class="card">
+    <h2>资讯检索设置</h2>
+    <p class="muted">仅用于人工发起的近期资讯检索与本地摘要；不会自动检索，不会改变策略状态，也不会自动发送邮件。</p>
+    <div class="form-grid">
+      <label>检索范围（天）<input id="news-lookback-days" type="number" min="1" max="30" step="1" value="7"></label>
+      <label>行业关键词（可留空）<input id="news-query-keywords" placeholder="例如：有色金属、铜供需、电网投资"></label>
+    </div>
+    <div class="button-row"><button type="button" id="save-news-settings" class="secondary-button">保存资讯检索设置</button></div>
+    <div id="news-settings-result" class="result-box" hidden></div>
+  </section>
 
   <section class="card">
     <h2>交易记录</h2>

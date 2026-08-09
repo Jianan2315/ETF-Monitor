@@ -2,6 +2,7 @@ let selectedAssetId = new URLSearchParams(location.search).get("asset_id") || lo
 
 const form = document.getElementById("asset-form");
 const assetResult = document.getElementById("asset-result");
+const newsSettingsResult = document.getElementById("news-settings-result");
 const txResult = document.getElementById("tx-result");
 const transactionList = document.getElementById("transaction-list");
 const transactionCount = document.getElementById("transaction-count");
@@ -39,6 +40,7 @@ function updateLinks() {
     "asset-run-history-link":"/run-history",
     "asset-schedule-link":"/schedules",
     "asset-strategy-replay-link":"/strategy-replay",
+    "asset-review-link":"/reviews",
     "asset-trigger-link":"/trigger-conditions",
   };
   Object.entries(paths).forEach(([id, path]) => {
@@ -75,6 +77,27 @@ async function loadSettings() {
   setv("tracking_name", asset.tracking_name);
   setv("tracking_code", asset.tracking_code || asset.symbol);
   strategyKeys.forEach(key => setv(key, strategy[key]));
+  const news = data.news || {};
+  document.getElementById("news-lookback-days").value = news.lookback_days ?? 7;
+  document.getElementById("news-query-keywords").value = news.query_keywords ?? "";
+}
+
+function showNewsSettingsResult(data) {
+  newsSettingsResult.hidden = false;
+  newsSettingsResult.className = `result-box ${data.success ? "success" : "error"}`;
+  newsSettingsResult.textContent = data.message || (data.success ? "资讯检索设置已保存。" : "保存失败。");
+}
+
+async function saveNewsSettings() {
+  const data = await requestJson(api("/api/news/settings/save"), {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      asset_id: selectedAssetId,
+      lookback_days: document.getElementById("news-lookback-days").value,
+      query_keywords: document.getElementById("news-query-keywords").value,
+    }),
+  });
+  showNewsSettingsResult(data);
 }
 
 function selectedTransactionIds() {
@@ -267,6 +290,7 @@ document.getElementById("asset-selector").addEventListener("change", async event
 });
 document.getElementById("save-asset").addEventListener("click", () => saveAsset(false));
 document.getElementById("save-strategy").addEventListener("click", () => saveAsset(true));
+document.getElementById("save-news-settings").addEventListener("click", saveNewsSettings);
 
 document.getElementById("save-transaction").addEventListener("click", async () => {
   const payload = {

@@ -5,6 +5,9 @@ const latestContext = document.getElementById("latest-context");
 const reviewResult = document.getElementById("review-result");
 const reviewHistory = document.getElementById("review-history");
 const backToAssetManage = document.getElementById("back-to-asset-manage");
+const newsContext = document.getElementById("news-context");
+const newsArticles = document.getElementById("news-articles");
+const searchNewsButton = document.getElementById("search-news");
 let currentChecklist = [];
 const escapeHtml = value => String(value ?? "").replace(/[&<>'"]/g, character => ({"&":"&amp;","<":"&lt;",">":"&gt;","'":"&#39;",'"':"&quot;"}[character]));
 const api = path => `${path}?asset_id=${encodeURIComponent(selectedAssetId)}`;
@@ -37,6 +40,22 @@ function renderHistory(reviews, checklistItems) {
   }).join("") : "<p class='empty-state'>尚无已保存的人工复核记录。</p>";
 }
 
+function renderNews(news) {
+  const snapshot = news || {};
+  newsContext.hidden = false;
+  newsContext.className = `result-box ${snapshot.status === "FAILED" ? "error" : ""}`;
+  if (!snapshot.status) {
+    newsContext.textContent = "尚未执行手动资讯检索。";
+    newsArticles.innerHTML = "";
+    return;
+  }
+  newsContext.textContent = snapshot.message || "资讯检索状态未知。";
+  const summary = snapshot.summary ? `<p><strong>本地摘要：</strong>${escapeHtml(snapshot.summary)}</p>` : "";
+  const summaryFailure = snapshot.summary_status === "FAILED" ? "<p>本地摘要失败，以下保留原始来源。</p>" : "";
+  const articles = (snapshot.articles || []).map(article => `<li><a href="${escapeHtml(article.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(article.title)}</a><br><small>${escapeHtml(article.source)} · ${escapeHtml(article.published_at || "日期不详")}</small>${article.snippet ? `<br>${escapeHtml(article.snippet)}` : ""}</li>`).join("");
+  newsArticles.innerHTML = `${summary}${summaryFailure}${articles ? `<ul>${articles}</ul>` : ""}`;
+}
+
 async function loadReview() {
   if (!selectedAssetId) return;
   const data = await fetch(api("/api/reviews"), {cache:"no-store"}).then(response => response.json());
@@ -48,6 +67,7 @@ async function loadReview() {
   latestContext.textContent = latest.generated_at ? `关联报告：${latest.generated_at} · ${latest.status} · ${latest.status_label || latest.reason_code}` : "尚未找到最新报告；仍可保存独立的人工复核记录。";
   checklist.innerHTML = currentChecklist.map(item => `<label class="checkbox-row"><input type="checkbox" data-check="${escapeHtml(item.id)}">${escapeHtml(item.label)}</label>`).join("");
   renderHistory(data.reviews || [], currentChecklist);
+  renderNews(data.news || {});
 }
 
 selector.addEventListener("change", async event => { selectedAssetId = event.target.value; localStorage.setItem("portfolio.selectedAssetId", selectedAssetId); window.history.replaceState(null, "", `?asset_id=${encodeURIComponent(selectedAssetId)}`); updateAssetManageLink(); await loadReview(); });
@@ -57,5 +77,20 @@ document.getElementById("save-review").addEventListener("click", async () => {
   const data = await response.json();
   showResult(data.message || "保存失败。", Boolean(data.success));
   if (data.success) { document.getElementById("review-notes").value = ""; await loadReview(); }
+});
+searchNewsButton.addEventListener("click", async () => {
+  searchNewsButton.disabled = true;
+  const original = searchNewsButton.textContent;
+  searchNewsButton.textContent = "正在检索…";
+  try {
+    const response = await fetch(api("/api/news/search"), {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({asset_id:selectedAssetId})});
+    const data = await response.json();
+    renderNews(data.news || {status:"FAILED", message:data.message || "资讯检索失败。"});
+  } catch (error) {
+    renderNews({status:"FAILED", message:`资讯检索失败：${error}`});
+  } finally {
+    searchNewsButton.disabled = false;
+    searchNewsButton.textContent = original;
+  }
 });
 (async () => { await loadAssets(); await loadReview(); })().catch(error => showResult(`读取失败：${error}`, false));

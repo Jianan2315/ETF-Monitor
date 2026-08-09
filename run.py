@@ -37,6 +37,7 @@ from src.position import calculate_position
 from src.buy_discipline import buy_discipline_reasons, summarize_buy_discipline
 from src.technical_analysis import relative_strength_facts
 from src.research_data import collect_research_snapshot
+from src.news_search import load_news_snapshot
 from src.storage import save_run_result
 from src.strategy import evaluate_strategy
 from src.status import normalize_status
@@ -623,6 +624,7 @@ def main(argv: list[str] | None = None) -> int:
             "data_warnings": bundle.data_warnings or [],
             "data_status": bundle.data_status or {},
             "research": research,
+            "news": load_news_snapshot(ROOT, asset_key),
             "market_timestamp": format_market_time(
                 bundle.market_timestamp,
                 bundle.data_phase,

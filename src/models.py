@@ -65,7 +65,8 @@ class IndicatorResult:
     latest_price: float
     cycle_analysis: dict[str, Any] | None = None
     fund_flow_status: str = "UNAVAILABLE"
-    fund_flow_impact: str = "中性：资金流数据不可用，不阻断价格信号"
+    fund_flow_impact: str = "当日资金流数据不可用，不阻断价格信号"
+    main_fund_flow: float | None = None
     moving_averages: dict[str, Any] = field(default_factory=dict)
     volume_analysis: dict[str, Any] = field(default_factory=dict)
 

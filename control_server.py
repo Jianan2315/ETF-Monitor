@@ -51,6 +51,12 @@ from src.asset_store import (
     asset_transactions_path, asset_cache_dir, asset_data_dir, asset_latest_path,
     asset_report_path, asset_history_dir, asset_history_index_path,
 )
+from src.news_search import (
+    load_news_settings,
+    load_news_snapshot,
+    save_news_settings,
+    search_asset_news,
+)
 from src.power_management import (
     disable_keep_awake,
     enable_keep_awake,
@@ -1633,6 +1639,7 @@ def _load_settings(asset_id: str | None = None) -> dict[str, Any]:
         "report": _global_config("report", {"report": {}}).get("report", {}),
         "schedule": _global_config("schedule", {"schedule": {}}).get("schedule", {}),
         "transactions": transactions,
+        "news": load_news_settings(ROOT, _asset_identity(asset)),
     }
 
 
@@ -1781,6 +1788,7 @@ def _manual_review_context(asset_id: str | None) -> dict[str, Any]:
     latest_doc = _read_json(asset_latest_path(ROOT, key), {})
     latest = latest_doc.get(key, {}) if isinstance(latest_doc, dict) else {}
     research = latest.get("research", {}) if isinstance(latest, dict) else {}
+    news = load_news_snapshot(ROOT, key)
     decision = latest.get("decision", {}) if isinstance(latest, dict) else {}
     checklist = [
         {"id": "technical_facts", "label": "已检查报告中的均线位置、均线方向、均线排列和成交量事实。"},
@@ -1803,6 +1811,8 @@ def _manual_review_context(asset_id: str | None) -> dict[str, Any]:
         },
         "checklist": checklist,
         "reviews": list(reversed(records)),
+        "news": news,
+        "news_settings": load_news_settings(ROOT, key),
     }
 
 
@@ -2299,6 +2309,43 @@ def api_reviews_save():
     payload = request.get_json(silent=True) or {}
     try:
         return jsonify(_save_manual_review(payload, request.args.get("asset_id") or payload.get("asset_id")))
+    except ValueError as exc:
+        return jsonify({"success": False, "message": str(exc)}), 400
+
+
+@app.post("/api/news/settings/save")
+def api_news_settings_save():
+    payload = request.get_json(silent=True) or {}
+    try:
+        asset = _find_asset(request.args.get("asset_id") or payload.get("asset_id"))
+        settings = save_news_settings(ROOT, _asset_identity(asset), payload)
+        return jsonify({"success": True, "message": "资讯检索设置已保存。", "settings": settings})
+    except ValueError as exc:
+        return jsonify({"success": False, "message": str(exc)}), 400
+
+
+@app.get("/api/news")
+def api_news_get():
+    try:
+        asset = _find_asset(request.args.get("asset_id"))
+        key = _asset_identity(asset)
+        return jsonify({
+            "success": True,
+            "settings": load_news_settings(ROOT, key),
+            "news": load_news_snapshot(ROOT, key),
+        })
+    except ValueError as exc:
+        return jsonify({"success": False, "message": str(exc)}), 404
+
+
+@app.post("/api/news/search")
+def api_news_search():
+    payload = request.get_json(silent=True) or {}
+    try:
+        asset = _find_asset(request.args.get("asset_id") or payload.get("asset_id"))
+        llm = _global_config("llm", {"llm": {}}).get("llm", {})
+        snapshot = search_asset_news(ROOT, asset, llm_config=llm)
+        return jsonify({"success": snapshot.get("status") != "FAILED", "news": snapshot, "message": snapshot.get("message", "")})
     except ValueError as exc:
         return jsonify({"success": False, "message": str(exc)}), 400
 

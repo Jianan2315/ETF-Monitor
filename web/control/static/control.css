@@ -210,6 +210,11 @@ input, select {
 .review-checks { margin: 6px 0 12px; padding-left: 20px; }
 .review-checks li { margin: 4px 0; }
 .review-checks li strong { display: inline-block; width: 18px; }
+.review-news-list { margin-top: 14px; line-height: 1.55; }
+.review-news-list p { margin: 10px 0; }
+.review-news-list ul { margin: 10px 0 0; padding-left: 20px; }
+.review-news-list li + li { margin-top: 12px; }
+.review-news-list small { color: #64748b; }
 .save-card {
   /*position: sticky;*/
   bottom: 12px;

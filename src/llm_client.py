@@ -285,3 +285,85 @@ def generate_summary(
         return _generate_with_deepseek(result, config, active_logger)
 
     raise ValueError(f"不支持的 llm.provider: {provider}")
+
+
+def _build_news_prompt(asset: dict, articles: list[dict], max_chars: int) -> str:
+    source_lines = []
+    for index, article in enumerate(articles[:12], start=1):
+        source_lines.append(
+            f"{index}. 标题：{article.get('title', '')}\n"
+            f"来源：{article.get('source', '')}；时间：{article.get('published_at', '')}\n"
+            f"摘要：{article.get('snippet', '')}\n"
+            f"链接：{article.get('url', '')}"
+        )
+    return (
+        f"请根据下列有链接的资讯，为 {asset.get('name') or asset.get('tracking_name') or '当前资产'} "
+        f"整理一段不超过 {max_chars} 个中文字符的‘资讯与研究摘要’。\n"
+        "严格要求：\n"
+        "1. 只能概括标题和摘要明确支持的事实，不得补充外部知识或猜测；\n"
+        "2. 不得给出买入、卖出、持有、价格预测或交易状态；\n"
+        "3. 若资讯不足、相互矛盾或只是重复报道，须直接说明；\n"
+        "4. 只输出一段摘要正文，不使用标题、列表或来源编号。\n\n"
+        + "\n\n".join(source_lines)
+    )
+
+
+def generate_news_summary(
+    asset: dict,
+    articles: list[dict],
+    config: dict,
+    logger: logging.Logger | None = None,
+) -> str:
+    """Summarise explicitly retrieved news without letting the model search or trade."""
+    active_logger = logger or logging.getLogger("etf_monitor")
+    if str(config.get("provider", "ollama")).lower().strip() != "ollama":
+        raise LLMError("资讯摘要首版仅使用本地 Ollama 模型")
+
+    base_url = str(config.get("base_url", "http://127.0.0.1:11434"))
+    endpoint = str(config.get("chat_endpoint", "/api/chat"))
+    url = _join_url(base_url, endpoint)
+    connect_timeout = float(config.get("connect_timeout_seconds", 5))
+    timeout = float(config.get("timeout_seconds", 180))
+    max_chars = int(config.get("max_summary_chars", 220))
+    models = _configured_models(config)
+    installed = _get_installed_models(config, active_logger)
+    if installed is not None:
+        models = [model for model in models if _model_is_installed(model, installed)]
+    if not models:
+        raise OllamaModelError("未找到可用的本地 Ollama 模型")
+
+    prompt = _build_news_prompt(asset, articles, max_chars)
+    failures: list[str] = []
+    for model in models:
+        payload = {
+            "model": model,
+            "messages": [
+                {
+                    "role": "system",
+                    "content": (
+                        "你是资讯整理模块。只根据用户提供的来源片段归纳事实，"
+                        "不搜索、不推断、不输出交易建议。"
+                    ),
+                },
+                {"role": "user", "content": prompt},
+            ],
+            "stream": False,
+            "think": False,
+            "keep_alive": config.get("keep_alive", "0"),
+            "options": {
+                "temperature": float(config.get("temperature", 0.1)),
+                "num_ctx": int(config.get("num_ctx", 4096)),
+                "num_predict": int(config.get("num_predict", 320)),
+            },
+        }
+        try:
+            response = requests.post(url, json=payload, timeout=(connect_timeout, timeout))
+            response.raise_for_status()
+            content = str(response.json().get("message", {}).get("content", ""))
+            summary = _clean_summary(content, max_chars)
+            active_logger.info("Local news summary generated | Model=%s | Characters=%s", model, len(summary))
+            return summary
+        except Exception as exc:
+            failures.append(f"{model}: {type(exc).__name__}: {exc}")
+            active_logger.warning("Local news summary failed for %s: %s", model, exc)
+    raise OllamaModelError("本地资讯摘要生成失败：" + " | ".join(failures))
