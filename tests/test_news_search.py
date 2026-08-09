@@ -9,8 +9,9 @@ from src.news_search import (
 
 
 class FakeResponse:
-    def __init__(self, payload):
+    def __init__(self, payload, status_code=200):
         self.payload = payload
+        self.status_code = status_code
 
     def raise_for_status(self):
         return None
@@ -60,6 +61,7 @@ def test_news_search_keeps_source_links_and_does_not_require_llm(tmp_path, monke
     assert len(snapshot["articles"]) == 1
     assert snapshot["articles"][0]["url"] == "https://example.test/one"
     assert captured["params"]["engine"] == "google_news"
+    assert captured["params"]["hl"] == "zh"
     assert captured["params"]["api_key"] == "test-key"
     assert load_news_snapshot(tmp_path, "015596")["status"] == "SUCCESS"
 
@@ -75,3 +77,23 @@ def test_news_search_records_clear_failure_without_blocking(tmp_path, monkeypatc
     assert snapshot["status"] == "FAILED"
     assert snapshot["error_code"] == "MISSING_API_KEY"
     assert "SERPAPI_API_KEY" in snapshot["message"]
+
+
+def test_news_search_surfaces_provider_error_without_request_url(tmp_path, monkeypatch):
+    monkeypatch.setenv("SERPAPI_API_KEY", "test-key")
+
+    def fake_get(*_args, **_kwargs):
+        return FakeResponse({"error": "Invalid parameter: hl"}, status_code=400)
+
+    snapshot = search_asset_news(
+        tmp_path,
+        {"id": "015596", "name": "示例资产", "tracking_name": "示例跟踪"},
+        llm_config={"enabled": False},
+        request_get=fake_get,
+        now=datetime(2026, 8, 9, tzinfo=timezone.utc),
+    )
+
+    assert snapshot["status"] == "FAILED"
+    assert "Invalid parameter: hl" in snapshot["message"]
+    assert "search.json" not in snapshot["message"]
+    assert "test-key" not in snapshot["message"]

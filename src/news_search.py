@@ -196,21 +196,47 @@ def search_asset_news(
         "engine": "google_news",
         "q": snapshot["query"],
         "gl": "cn",
-        "hl": "zh-CN",
+        # Google News accepts a two-letter language code here.  A locale such
+        # as ``zh-CN`` makes SerpApi reject the request with HTTP 400.
+        "hl": "zh",
         "so": "1",
         "api_key": key,
     }
     try:
         response = request_get("https://serpapi.com/search.json", params=params, timeout=(5, 20))
-        response.raise_for_status()
         payload = response.json()
         if not isinstance(payload, dict):
             raise ValueError("资讯接口返回的不是 JSON 对象")
+
+        # SerpApi usually returns a JSON ``error`` field for a rejected
+        # request.  Read it before ``raise_for_status`` so the UI can explain
+        # the problem without exposing requests' full URL (which includes the
+        # API key as a query parameter).
+        status_code = getattr(response, "status_code", None)
+        provider_error = str(
+            payload.get("error")
+            or (payload.get("search_metadata") or {}).get("error")
+            or ""
+        ).strip()
+        if status_code is not None and int(status_code) >= 400:
+            detail = provider_error or f"HTTP {status_code}"
+            raise RuntimeError(f"SerpApi 拒绝了本次请求：{detail}")
+
+        response.raise_for_status()
         metadata = payload.get("search_metadata", {})
         if isinstance(metadata, dict) and str(metadata.get("status", "Success")).upper() == "ERROR":
             raise RuntimeError(str(metadata.get("error") or "资讯接口返回错误"))
         cutoff = current.astimezone(timezone.utc) - timedelta(days=settings["lookback_days"])
         articles = _normalise_articles(payload.get("news_results", []) or [], cutoff)
+    except requests.RequestException as exc:
+        # Do not pass through the original requests exception: its text can
+        # include the complete query URL and therefore the API key.
+        snapshot.update({
+            "error_code": type(exc).__name__.upper(),
+            "message": "资讯检索失败：网络请求未完成，请检查网络连接后重试。",
+        })
+        _write_json(news_snapshot_path(root, snapshot["asset_id"]), snapshot)
+        return snapshot
     except Exception as exc:
         snapshot.update({
             "error_code": type(exc).__name__.upper(),
