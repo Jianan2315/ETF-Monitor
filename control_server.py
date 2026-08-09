@@ -196,7 +196,13 @@ def _read_run_status() -> dict[str, Any]:
     return _read_json(_run_status_file(), {})
 
 
-def _run_monitor(mode: str, slot: str, asset_id: str = "") -> dict[str, Any]:
+def _run_monitor(
+    mode: str,
+    slot: str,
+    asset_id: str = "",
+    *,
+    skip_llm: bool = False,
+) -> dict[str, Any]:
     config = _schedule_config()
     now = market_now(config)
     validation = validate_run_mode(mode, now)
@@ -229,6 +235,8 @@ def _run_monitor(mode: str, slot: str, asset_id: str = "") -> dict[str, Any]:
             command += ["--slot", slot]
         if asset_id:
             command += ["--asset", asset_id]
+        if skip_llm:
+            command.append("--skip-llm")
 
         completed = subprocess.run(
             command,
@@ -285,10 +293,19 @@ def _run_monitor(mode: str, slot: str, asset_id: str = "") -> dict[str, Any]:
         _RUN_LOCK.release()
 
 
-def _ollama_url() -> str:
+def _ollama_config() -> dict[str, Any]:
     llm_doc = _read_json(ROOT / "config" / "global" / "llm.json", {})
     llm = llm_doc.get("llm", {})
-    return str(llm.get("base_url", "http://127.0.0.1:11434")).rstrip("/")
+    return dict(llm) if isinstance(llm, dict) else {}
+
+
+def _ollama_enabled() -> bool:
+    llm = _ollama_config()
+    return bool(llm.get("enabled", False)) and str(llm.get("provider", "ollama")).lower() == "ollama"
+
+
+def _ollama_url() -> str:
+    return str(_ollama_config().get("base_url", "http://127.0.0.1:11434")).rstrip("/")
 
 
 def _check_ollama() -> dict[str, Any]:
@@ -316,6 +333,22 @@ def _check_ollama() -> dict[str, Any]:
             "message": f"Ollama 未运行或无法连接：{exc}",
             "models": [],
         }
+
+
+def _ollama_status() -> dict[str, Any]:
+    """Return service state together with the monitor's local-model setting."""
+    status = _check_ollama()
+    llm = _ollama_config()
+    configured_models = [
+        str(model).strip()
+        for model in [llm.get("model"), *(llm.get("fallback_models", []) or [])]
+        if str(model).strip()
+    ]
+    status.update({
+        "enabled": _ollama_enabled(),
+        "configured_models": configured_models,
+    })
+    return status
 
 
 def _find_ollama_executable() -> str | None:
@@ -1741,7 +1774,7 @@ def _environment_status(asset_id: str | None = None) -> dict[str, Any]:
         "eastmoney": _eastmoney_check(selected) if selected else empty,
         "cache": _cache_status(selected) if selected else empty,
         "latest": _latest_status(selected) if selected else empty,
-        "keep_awake": keep_awake_status(ROOT), "ollama": _check_ollama(),
+        "keep_awake": keep_awake_status(ROOT), "ollama": _ollama_status(),
         "configuration": {"ok": not missing_config, "message": "配置文件正常" if not missing_config else "缺少：" + ", ".join(missing_config)},
         "directories": {"ok": directory_ok, "message": "运行目录可写" if directory_ok else "运行目录不存在或不可写"},
         "report": {"ok": report_exists, "message": "所选资产已有报告" if report_exists else "所选资产尚未生成报告"},
@@ -2138,7 +2171,25 @@ def api_report_run():
         ), 400
 
     slot = str(payload.get("slot", "")).strip()
-    return jsonify(_run_monitor(mode, slot, str(payload.get("asset_id", "")).strip()))
+    # A user-initiated report should not require opening Ollama separately.
+    # Scheduled runs deliberately keep their existing behaviour and never
+    # create a background model service without an explicit user action.
+    ollama_start = _start_ollama() if mode == "manual" and _ollama_enabled() else None
+    skip_llm = bool(ollama_start is not None and not ollama_start.get("ok", False))
+    result = _run_monitor(
+        mode,
+        slot,
+        str(payload.get("asset_id", "")).strip(),
+        skip_llm=skip_llm,
+    )
+    if ollama_start is not None:
+        result["ollama"] = ollama_start
+        if not ollama_start.get("ok", False):
+            result["message"] = (
+                f"{ollama_start.get('message', '本地模型未启动')}；"
+                f"已继续生成报告（模型摘要将跳过）。{result.get('message', '')}"
+            )
+    return jsonify(result)
 
 
 

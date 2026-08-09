@@ -64,6 +64,27 @@ def test_control_version_endpoint():
     assert "pid" in data
 
 
+def test_manual_report_attempts_to_start_enabled_ollama(monkeypatch):
+    calls = []
+    monkeypatch.setattr(control_server, "_ollama_enabled", lambda: True)
+    monkeypatch.setattr(control_server, "_start_ollama", lambda: {"ok": False, "message": "Ollama unavailable"})
+    monkeypatch.setattr(
+        control_server,
+        "_run_monitor",
+        lambda mode, slot, asset_id, *, skip_llm=False: calls.append((mode, slot, asset_id, skip_llm)) or {"success": True, "message": "报告已生成"},
+    )
+
+    response = control_server.app.test_client().post(
+        "/api/report/run",
+        json={"mode": "manual", "asset_id": "015596"},
+    )
+
+    data = response.get_json()
+    assert calls == [("manual", "", "015596", True)]
+    assert data["ollama"]["ok"] is False
+    assert "已继续生成报告" in data["message"]
+
+
 def test_transaction_api_lists_records():
     client = control_server.app.test_client()
     response = client.get("/api/transactions")

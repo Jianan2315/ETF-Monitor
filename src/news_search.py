@@ -196,10 +196,9 @@ def search_asset_news(
         "engine": "google_news",
         "q": snapshot["query"],
         "gl": "cn",
-        # Google News accepts a two-letter language code here.  A locale such
-        # as ``zh-CN`` makes SerpApi reject the request with HTTP 400.
-        "hl": "zh",
-        "so": "1",
+        # SerpApi's Google News engine is case-sensitive for this locale:
+        # simplified Chinese must be the supported value ``zh-cn``.
+        "hl": "zh-cn",
         "api_key": key,
     }
     try:

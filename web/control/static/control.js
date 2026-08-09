@@ -92,8 +92,8 @@ async function loadAssets() {
   };
 }
 
-function statusCard(title, ok, message) {
-  return `<article class="status-item ${ok ? "ok" : "bad"}"><strong>${title}</strong><p>${message || "-"}</p></article>`;
+function statusCard(title, ok, message, action = "") {
+  return `<article class="status-item ${ok ? "ok" : "bad"}"><strong>${escapeHtml(title)}</strong><p>${escapeHtml(message || "-")}</p>${action}</article>`;
 }
 
 async function loadRunningStatus() {
@@ -102,16 +102,45 @@ async function loadRunningStatus() {
   const power = data.keep_awake || {};
   const market = data.market || {};
   const latest = data.latest || {};
+  const ollama = data.ollama || {};
+  const configuredModels = (ollama.configured_models || []).join("、") || "未配置模型";
+  const installedModels = (ollama.models || []).join("、") || "未检测到已安装模型";
+  const ollamaEnabled = Boolean(ollama.enabled);
+  const ollamaMessage = !ollamaEnabled
+    ? "系统设置中未启用本地模型；报告不会调用模型摘要。"
+    : (ollama.ok
+      ? `服务已运行；配置：${configuredModels}；已安装：${installedModels}`
+      : `服务未运行；配置：${configuredModels}。`);
+  const ollamaAction = ollamaEnabled && !ollama.ok
+    ? '<button type="button" id="start-ollama" class="secondary-button">启动本地模型服务</button>'
+    : "";
   const cards = [
     statusCard("市场状态", market.ok, market.message),
     statusCard("自动监控", true, "后台服务运行中"),
     statusCard("保持系统唤醒", power.enabled, power.enabled ? "已启用" : "未启用"),
     statusCard("当前交易窗口", power.active, power.active ? "活动中" : (power.next_window || "非活动")),
     statusCard("最近成功运行", latest.ok, latest.message),
+    statusCard("本地模型", !ollamaEnabled || Boolean(ollama.ok), ollamaMessage, ollamaAction),
   ];
   const grid = document.getElementById("running-status");
   grid.dataset.count = String(cards.length);
   grid.innerHTML = cards.join("");
+  const startButton = document.getElementById("start-ollama");
+  if (startButton) {
+    startButton.addEventListener("click", async () => {
+      startButton.disabled = true;
+      showRunResult("正在启动本地模型服务…", true);
+      try {
+        const response = await fetch("/api/ollama/start", {method: "POST"});
+        const result = await response.json();
+        showRunResult(result.message || "本地模型服务启动完成。", Boolean(result.ok));
+      } catch (error) {
+        showRunResult(`启动本地模型服务失败：${error}`, false);
+      } finally {
+        await loadRunningStatus();
+      }
+    });
+  }
 }
 
 function onboardingItem(item) {

@@ -211,6 +211,7 @@ def run_server() -> int:
         bufsize=1,
     )
 
+    interrupted = False
     with log_handle:
         log_handle.write("\n" + "=" * 62 + "\n")
         log_handle.write(
@@ -227,6 +228,7 @@ def run_server() -> int:
                 log_handle.write(line)
                 log_handle.flush()
         except KeyboardInterrupt:
+            interrupted = True
             print("\nStopping ETF Monitor...")
             append_log(BOOT_LOG, "Keyboard interrupt received")
             process.terminate()
@@ -235,7 +237,10 @@ def run_server() -> int:
             except subprocess.TimeoutExpired:
                 process.kill()
 
-    return process.wait()
+    process.wait()
+    # Keep Ctrl+C distinct from an ordinary server exit so the batch launcher
+    # can offer a restart action instead of only pausing at the end.
+    return 130 if interrupted else process.returncode
 
 
 def main() -> int:

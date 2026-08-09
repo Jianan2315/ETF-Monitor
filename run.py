@@ -110,6 +110,11 @@ def parse_args(argv: list[str] | None = None):
     )
     parser.add_argument("--slot", default="")
     parser.add_argument("--asset", default="", help="Only run one configured asset id/code")
+    parser.add_argument(
+        "--skip-llm",
+        action="store_true",
+        help="Skip local-model summaries for this run without changing saved settings.",
+    )
     return parser.parse_args(argv)
 
 
@@ -263,6 +268,11 @@ def main(argv: list[str] | None = None) -> int:
 
     try:
         config = load_config(ROOT / "config")
+        if args.skip_llm:
+            # This is deliberately an in-memory override.  It is used when a
+            # manually requested report cannot start Ollama, so the report and
+            # its data pipeline can still finish without attempting a summary.
+            config["llm"] = {**config["llm"], "enabled": False}
         steps.append(
             _step(
                 "config",

@@ -61,7 +61,8 @@ def test_news_search_keeps_source_links_and_does_not_require_llm(tmp_path, monke
     assert len(snapshot["articles"]) == 1
     assert snapshot["articles"][0]["url"] == "https://example.test/one"
     assert captured["params"]["engine"] == "google_news"
-    assert captured["params"]["hl"] == "zh"
+    assert captured["params"]["hl"] == "zh-cn"
+    assert "so" not in captured["params"]
     assert captured["params"]["api_key"] == "test-key"
     assert load_news_snapshot(tmp_path, "015596")["status"] == "SUCCESS"
 
