@@ -56,3 +56,4 @@ config/private/*
 /scripts/windows/icons/*
 !/scripts/windows/icons/generated/.gitkeep
 !/scripts/windows/icons/.gitkeep
+/tests/
