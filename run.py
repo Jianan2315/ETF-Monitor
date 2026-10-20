@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -37,7 +38,7 @@ from src.position import calculate_position
 from src.buy_discipline import buy_discipline_reasons, summarize_buy_discipline
 from src.technical_analysis import relative_strength_facts
 from src.research_data import collect_research_snapshot
-from src.news_search import load_news_snapshot
+from src.news_search import load_news_snapshot, news_search_plan, search_asset_news
 from src.storage import save_run_result
 from src.strategy import evaluate_strategy
 from src.status import normalize_status
@@ -207,12 +208,16 @@ def _write_run_status(
         "data_status": data_status or {},
         "email_status": email_status,
     }
-    temp = path.with_suffix(path.suffix + ".tmp")
-    temp.write_text(
-        json.dumps(payload, ensure_ascii=False, indent=2),
-        encoding="utf-8",
-    )
-    temp.replace(path)
+    # A scheduled runner needs its own result, even when another asset runs
+    # concurrently or this process crashes before producing a new status.
+    targets = [path]
+    if os.environ.get("ETF_MONITOR_RUN_STATUS_FILE"):
+        targets.insert(0, Path(os.environ["ETF_MONITOR_RUN_STATUS_FILE"]))
+    for target in targets:
+        target.parent.mkdir(parents=True, exist_ok=True)
+        temp = target.with_suffix(f".{os.getpid()}.tmp")
+        temp.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+        temp.replace(target)
 
 
 def _data_steps(data_status: dict[str, Any]) -> list[dict[str, Any]]:
@@ -353,6 +358,40 @@ def main(argv: list[str] | None = None) -> int:
             "name": configured_asset.get("tracking_name") or configured_asset.get("name"),
         }
         asset_key = str(configured_asset.get("id") or configured_asset.get("asset_code") or tracking_code)
+        news_snapshot = load_news_snapshot(ROOT, asset_key)
+        # Scheduled reports use the latest successful research snapshot for up
+        # to three days.  Once it expires, they refresh only if the locally
+        # recorded SerpApi allowance can cover every configured keyword.
+        if args.mode != "manual":
+            news_plan = news_search_plan(ROOT, configured_asset, now=started_at)
+            if not news_plan["snapshot"]["is_reusable"]:
+                if news_plan["can_refresh"]:
+                    refreshed_news = search_asset_news(
+                        ROOT,
+                        configured_asset,
+                        llm_config=None,
+                        now=started_at,
+                        logger=logger,
+                    )
+                    if refreshed_news.get("status") != "SKIPPED_BUDGET":
+                        news_snapshot = refreshed_news
+                    steps.append(
+                        _step(
+                            "news_refresh",
+                            "更新近期资讯",
+                            "SUCCESS" if refreshed_news.get("status") in {"SUCCESS", "NO_RESULTS"} else "FAILED",
+                            refreshed_news.get("message", "资讯检索结束"),
+                        )
+                    )
+                else:
+                    steps.append(
+                        _step(
+                            "news_refresh",
+                            "更新近期资讯",
+                            "SKIPPED",
+                            "本地资讯接口预算不足，已复用最近一次资讯快照。",
+                        )
+                    )
         transaction_path = asset_transactions_path(ROOT, asset_key)
         data_dir = asset_data_dir(ROOT, asset_key)
         asset_config = {**config}
@@ -634,7 +673,7 @@ def main(argv: list[str] | None = None) -> int:
             "data_warnings": bundle.data_warnings or [],
             "data_status": bundle.data_status or {},
             "research": research,
-            "news": load_news_snapshot(ROOT, asset_key),
+            "news": news_snapshot,
             "market_timestamp": format_market_time(
                 bundle.market_timestamp,
                 bundle.data_phase,

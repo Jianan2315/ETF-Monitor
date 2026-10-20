@@ -67,19 +67,18 @@ def evaluate_sell_reminder(
     if bucket.get("stopped"):
         _write(state_path, state)
         return {"allowed": False, "reason": "tier reminder already completed", "state": state}
-    if day in bucket.get("dates", []):
+    # The first-tier schedule is intentionally not deduplicated: each enabled
+    # scheduled run may notify while its 50% reduction target remains unmet.
+    # Residual second-tier reminders retain daily deduplication.
+    if tier == 2 and day in bucket.get("dates", []):
         _write(state_path, state)
         return {"allowed": False, "reason": "already reminded today", "state": state}
 
     if tier == 1:
-        if reduced_pct >= float(strategy.get("sell_first_stop_reduction_pct", 25.0)):
+        if reduced_pct >= float(strategy.get("sell_first_stop_reduction_pct", 50.0)):
             bucket["stopped"] = True
             _write(state_path, state)
             return {"allowed": False, "reason": "reduction target reached", "state": state}
-        if len(bucket.get("dates", [])) >= int(strategy.get("sell_first_max_reminder_days", 3)):
-            bucket["stopped"] = True
-            _write(state_path, state)
-            return {"allowed": False, "reason": "first-tier reminder day limit reached", "state": state}
     else:
         if remaining_pct <= float(strategy.get("sell_residual_position_pct", 10.0)):
             residual_dates = bucket.setdefault("residual_dates", [])

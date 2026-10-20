@@ -14,7 +14,7 @@
       <h1 id="page-title">资产</h1>
       <p>资产信息、交易、策略、报告、历史与计划均属于当前资产。</p>
     </div>
-    <div class="button-row">
+    <div class="button-row asset-workspace-actions">
       <a class="secondary-button" href="/">返回控制台</a>
       <a id="asset-report-link" class="secondary-button" href="#">最新资产报告</a>
       <a id="asset-history-link" class="secondary-button" href="#">过往报告记录</a>
@@ -68,23 +68,24 @@
     <p class="muted">仅用于人工发起的近期资讯检索与本地摘要；不会自动检索，不会改变策略状态，也不会自动发送邮件。</p>
     <div class="form-grid">
       <label>检索范围（天）<input id="news-lookback-days" type="number" min="1" max="30" step="1" value="7"></label>
-      <label>行业关键词（可留空）<input id="news-query-keywords" placeholder="例如：有色金属、铜供需、电网投资"></label>
+      <label class="wide">检索词（每行一条，分别检索并合并去重）<textarea id="news-queries" rows="4" placeholder="例如：&#10;国证有色&#10;有色金属&#10;铜供需"></textarea></label>
     </div>
     <div class="button-row"><button type="button" id="save-news-settings" class="secondary-button">保存资讯检索设置</button></div>
     <div id="news-settings-result" class="result-box" hidden></div>
   </section>
 
-  <section class="card">
+  <section class="card transaction-card">
     <h2>交易记录</h2>
     <div class="form-grid">
       <label>类型<select id="tx-type"><option value="BUY">买入</option><option value="SELL">卖出</option></select></label>
       <label>日期<input id="tx-date" type="date"></label>
-      <label>价格处理<select id="tx-pricing-mode"><option value="CLOSE_ESTIMATE">按交易日收盘价估算</option><option value="PENDING">等待数据</option></select></label>
-      <label>交易金额<input id="tx-amount" type="number" step="0.01" min="0"></label>
+      <label>交易金额（元）<input id="tx-amount" type="number" step="0.01" min="0"></label>
       <label class="wide">备注<input id="tx-note"></label>
     </div>
-    <div class="form-actions"><button id="save-transaction">保存交易</button><button id="refresh-transactions" class="secondary-button">刷新</button></div>
+    <p class="muted">系统统一按跟踪标的的交易日收盘价估算内部持仓份额；不使用实际基金份额，避免与跟踪标的份额混淆。若交易日收盘价暂不可用，记录会在数据到位后自动结算。</p>
+    <div class="form-actions"><button id="save-transaction">添加交易</button><button id="refresh-transactions" class="secondary-button">刷新</button></div>
     <div id="tx-result" class="result-box" hidden></div>
+    <div id="tx-toast" class="transaction-toast" role="status" aria-live="polite" hidden></div>
 
     <section class="transaction-chart-section" aria-labelledby="transaction-chart-title">
       <div class="section-title-row compact-title-row">
@@ -107,6 +108,29 @@
         </div>
         <canvas id="transaction-chart" aria-label="交易与价格走势图"></canvas>
         <p id="transaction-chart-empty" class="empty-state" hidden>暂无可绘制的价格数据。</p>
+      </div>
+    </section>
+
+    <section class="transaction-chart-section" aria-labelledby="cumulative-profit-chart-title">
+      <div class="section-title-row compact-title-row">
+        <div>
+          <h3 id="cumulative-profit-chart-title">累计盈亏走势</h3>
+          <p class="muted">已实现盈亏与当前持仓浮动盈亏之和；仅统计已结算交易。</p>
+        </div>
+      </div>
+      <div class="transaction-chart-wrap">
+        <div class="chart-range-controls" role="group" aria-label="累计盈亏走势图时间范围">
+          <button type="button" class="chart-range-button active" data-profit-chart-range="ALL">全部</button>
+          <button type="button" class="chart-range-button" data-profit-chart-range="3Y">近三年</button>
+          <button type="button" class="chart-range-button" data-profit-chart-range="1Y">近一年</button>
+          <button type="button" class="chart-range-button" data-profit-chart-range="6M">近半年</button>
+          <button type="button" class="chart-range-button" data-profit-chart-range="3M">近三个月</button>
+          <button type="button" class="chart-range-button" data-profit-chart-range="1M">近一个月</button>
+          <button type="button" class="chart-range-button" data-profit-chart-range="15D">近半月</button>
+          <button type="button" class="chart-range-button" data-profit-chart-range="7D">近一周</button>
+        </div>
+        <canvas id="cumulative-profit-chart" aria-label="累计盈亏走势图"></canvas>
+        <p id="cumulative-profit-chart-empty" class="empty-state" hidden>暂无可绘制的累计盈亏数据；请先等待交易按收盘价结算。</p>
       </div>
     </section>
 

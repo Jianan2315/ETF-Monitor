@@ -72,7 +72,13 @@ function validatePayload(payload) {
 
 function formatScheduleTime(value) {
   if (!value) return "尚无";
-  return String(value).replace("T", " ");
+  const text = String(value);
+  if (!/(Z|[+-]\d{2}:\d{2})$/.test(text)) return `${text.replace("T", " ")}（旧记录，时区未记录）`;
+  const time = new Intl.DateTimeFormat("sv-SE", {
+    timeZone: "Asia/Shanghai", year: "numeric", month: "2-digit", day: "2-digit",
+    hour: "2-digit", minute: "2-digit", hourCycle: "h23",
+  }).format(new Date(text));
+  return `${time}（北京时间 UTC+08:00）`;
 }
 
 function resultLabel(plan) {
@@ -97,13 +103,13 @@ function planCard(plan) {
             <h3>${plan.name}</h3>
             <span class="schedule-badge">${plan.enabled ? "已启用" : "已停用"}</span>
           </div>
-          <p><strong>${plan.time}</strong> · ${modeLabels[plan.mode] || plan.mode}</p>
-          <p>${weekdayText(plan)}</p>
+          <p><strong>${plan.time}（北京时间）</strong> · ${modeLabels[plan.mode] || plan.mode}</p>
+          <p>${weekdayText(plan)}（北京时间）</p>
           <p class="${taskClass}">
             系统任务：${plan.system_task_exists ? "已同步（隐藏后台运行）" : "未找到"}
           </p>
           <div class="schedule-runtime-grid">
-            <div><span>下次运行</span><strong>${formatScheduleTime(plan.next_run)}</strong></div>
+            <div><span>下次运行</span><strong>${formatScheduleTime(plan.next_run)}</strong><small>${plan.next_run_local || ""}</small></div>
             <div><span>上次开始</span><strong>${formatScheduleTime(plan.last_run_started)}</strong></div>
             <div><span>上次结束</span><strong>${formatScheduleTime(plan.last_run_finished)}</strong></div>
             <div><span>执行结果</span><strong class="${resultClass}">${resultLabel(plan)}</strong></div>
@@ -229,8 +235,8 @@ form.addEventListener("submit", event => {
     <ol class="change-list">
       <li>计划名称：${payload.name}</li>
       <li>运行模式：${modeLabels[payload.mode]}</li>
-      <li>运行时间：${payload.time}</li>
-      <li>运行日期：${payload.weekdays.join(", ")}</li>
+      <li>运行时间：${payload.time}（北京时间 UTC+08:00）</li>
+      <li>运行日期：${payload.weekdays.join(", ")}（北京时间）</li>
       <li>状态：${payload.enabled ? "启用" : "停用"}</li>
     </ol>
   `;

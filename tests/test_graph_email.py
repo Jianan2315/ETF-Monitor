@@ -74,6 +74,23 @@ def test_graph_payload_supports_multiple_recipients():
     ] == ["one@example.com", "two@example.com"]
 
 
+def test_graph_payload_includes_only_successful_news_summary_for_review():
+    result = sample_result()
+    result["data_status"] = {"history": {}, "realtime": {}, "intraday": {}}
+    result["news"] = {
+        "status": "SUCCESS",
+        "generated_at": "2026-08-15T14:45:00+08:00",
+        "summary": "行业资讯摘要，仅供人工复核。",
+        "articles": [{"title": "不应出现在邮件中的原始链接"}],
+    }
+
+    body = build_graph_message_payload(result, graph_config())["message"]["body"]["content"]
+
+    assert "近期资讯摘要（仅供人工复核）" in body
+    assert "行业资讯摘要，仅供人工复核。" in body
+    assert "不应出现在邮件中的原始链接" not in body
+
+
 def test_data_error_email_keeps_error_head_and_tail_but_removes_bulky_middle():
     error = "INVALID_RESPONSE: " + "1234567890" * 80 + " final dtype=float64"
     compact = _compact_error_for_email(error)

@@ -13,3 +13,6 @@ def test_sell_reduces_cost_basis():
     p=calculate_position(tx,1.1)
     assert p['shares']==8000
     assert p['invested_amount']==8000
+    assert p['profit_amount']==800
+    assert p['realized_profit']==400
+    assert p['cumulative_profit_amount']==1200

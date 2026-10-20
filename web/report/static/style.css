@@ -172,6 +172,17 @@ h1 {
     margin-bottom: 16px
 }
 
+.sell-reminder-details {
+    margin-top: 16px;
+    padding-top: 12px;
+    border-top: 1px solid #dfe7ed;
+    color: #4b6075;
+}
+
+.sell-reminder-details p {
+    margin: 6px 0;
+}
+
 .cycle-metric-grid .metric-list strong {
     font-size: 14px;
     text-align: right;

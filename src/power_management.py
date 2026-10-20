@@ -8,11 +8,11 @@ import os
 import re
 import subprocess
 import sys
-from datetime import datetime, timedelta, timezone
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 from xml.etree import ElementTree as ET
-from zoneinfo import ZoneInfo
+from src.schedule_clock import WEEKDAYS, as_beijing, beijing_now, local_time_label, next_run, weekly_trigger
 
 TASK_NAME = "ETFMonitor_KeepAwake"
 
@@ -104,6 +104,13 @@ def _parse_task_xml(xml_text: str) -> dict[str, Any]:
     start = start_match.group(1) if start_match else "09:00"
 
     arguments = _first_text(root, "Arguments") or ""
+    beijing_schedule = "--timezone Asia/Shanghai" in arguments
+    day_shift = 0
+    if beijing_schedule:
+        boundary = datetime.fromisoformat(start_boundary.replace("Z", "+00:00"))
+        market_boundary = as_beijing(boundary)
+        start = market_boundary.strftime("%H:%M")
+        day_shift = (market_boundary.date() - boundary.date()).days
     end_match = re.search(r"--until(?:=|\s+)[\"']?(\d{2}:\d{2})", arguments)
     end = end_match.group(1) if end_match else "15:30"
 
@@ -123,6 +130,8 @@ def _parse_task_xml(xml_text: str) -> dict[str, Any]:
             weekdays.append(day)
     if not weekdays:
         weekdays = ["MON", "TUE", "WED", "THU", "FRI"]
+    if day_shift:
+        weekdays = [WEEKDAYS[(WEEKDAYS.index(day) + day_shift) % 7] for day in weekdays]
 
     enabled_text = _settings_text(root, "Enabled")
     if enabled_text is None:
@@ -136,6 +145,7 @@ def _parse_task_xml(xml_text: str) -> dict[str, Any]:
         "weekdays": weekdays,
         "task_name": TASK_NAME,
         "wake_to_run": str(wake_text or "false").lower() != "false",
+        "timezone": "Asia/Shanghai" if beijing_schedule else "system",
     }
 
 
@@ -200,13 +210,13 @@ def _pythonw_executable(root: Path) -> Path:
 
 
 def _task_xml(root: Path, start: str, end: str, sid: str) -> str:
-    start_boundary = datetime.now().strftime("%Y-%m-%d") + f"T{start}:00"
+    start_boundary, days_xml = weekly_trigger(start, WEEKDAYS[:5])
     pythonw = _pythonw_executable(root)
     script = root / "keep_awake.py"
     command = html.escape(str(pythonw))
     working_dir = html.escape(str(root))
     arguments = html.escape(
-        f'"{script}" --until {end} '
+        f'"{script}" --start {start} --until {end} --timezone Asia/Shanghai '
         '--state-file "data/keep_awake_status.json" '
         '--stop-file "data/keep_awake.stop" '
         '--log-file "logs/keep_awake.log"'
@@ -223,7 +233,7 @@ def _task_xml(root: Path, start: str, end: str, sid: str) -> str:
       <ScheduleByWeek>
         <WeeksInterval>1</WeeksInterval>
         <DaysOfWeek>
-          <Monday /><Tuesday /><Wednesday /><Thursday /><Friday />
+          {days_xml}
         </DaysOfWeek>
       </ScheduleByWeek>
     </CalendarTrigger>
@@ -290,31 +300,26 @@ def load_power_config(root: Path) -> dict[str, Any]:
     return config
 
 
-def _window_context() -> dict[str, Any]:
+def _window_context(now: datetime | None = None) -> dict[str, Any]:
     """Return the fixed Beijing monitoring window in the system timezone."""
-    local_now = datetime.now().astimezone()
-    beijing_now = datetime.now(timezone.utc).astimezone(ZoneInfo("Asia/Shanghai"))
-    start = beijing_now.replace(hour=9, minute=0, second=0, microsecond=0)
-    end = beijing_now.replace(hour=15, minute=30, second=0, microsecond=0)
-    active = beijing_now.weekday() < 5 and start <= beijing_now < end
-    next_start = start
-    if beijing_now >= end or beijing_now.weekday() >= 5:
-        days = 1
-        while (beijing_now + timedelta(days=days)).weekday() >= 5:
-            days += 1
-        next_start = (beijing_now + timedelta(days=days)).replace(hour=9, minute=0, second=0, microsecond=0)
+    current = as_beijing(now) if now is not None else beijing_now()
+    local_now = current.astimezone()
+    start = current.replace(hour=9, minute=0, second=0, microsecond=0)
+    end = current.replace(hour=15, minute=30, second=0, microsecond=0)
+    active = current.weekday() < 5 and start <= current < end
+    next_start = next_run("09:00", WEEKDAYS[:5], current)
     return {
         "system_timezone": str(local_now.tzinfo),
         "system_time": local_now.strftime("%Y-%m-%d %H:%M"),
-        "beijing_time": beijing_now.strftime("%Y-%m-%d %H:%M"),
-        "local_window": f"{start.astimezone(local_now.tzinfo):%H:%M}–{end.astimezone(local_now.tzinfo):%H:%M}",
-        "next_window": f"下一个窗口开始于 {next_start.astimezone(local_now.tzinfo):%Y-%m-%d %H:%M}",
+        "beijing_time": current.strftime("%Y-%m-%d %H:%M") + "（北京时间 UTC+08:00）",
+        "local_window": f"{local_time_label(start)} – {local_time_label(end)}",
+        "next_window": f"下一个窗口开始于 {next_start:%Y-%m-%d %H:%M}（北京时间 UTC+08:00）；{local_time_label(next_start)}",
         "window_active": active,
     }
 
 
 def _currently_in_window(start: str, end: str) -> bool:
-    now = datetime.now()
+    now = beijing_now()
     if now.weekday() >= 5:
         return False
     current = now.hour * 60 + now.minute
@@ -328,9 +333,8 @@ def _currently_in_window(start: str, end: str) -> bool:
 def enable_keep_awake(root: Path, start: str = "09:00", end: str = "15:30") -> dict[str, Any]:
     if os.name != "nt":
         raise RuntimeError("防休眠计划仅支持Windows")
-    # Task Scheduler uses local wall time, so translate the fixed Beijing
-    # window before creating the task (including windows that span midnight).
-    start, end = _window_context()["local_window"].split("–")
+    # The monitoring window and weekday selection always belong to Beijing.
+    start, end = "09:00", "15:30"
     sid = _current_user_sid()
     task_dir = root / "data" / "global" / "scheduled_tasks"
     task_dir.mkdir(parents=True, exist_ok=True)
@@ -425,10 +429,10 @@ def keep_awake_status(root: Path) -> dict[str, Any]:
     if state.get("active") and state.get("updated_at"):
         try:
             age = (
-                datetime.now()
-                - datetime.fromisoformat(str(state["updated_at"]))
+                datetime.now().astimezone()
+                - datetime.fromisoformat(str(state["updated_at"])).astimezone()
             ).total_seconds()
-            active = age < 120
+            active = 0 <= age < 120
         except ValueError:
             pass
 
@@ -468,6 +472,10 @@ def keep_awake_status(root: Path) -> dict[str, Any]:
         message = "Windows防休眠任务存在，但任务当前已停用或无法读取完整设置"
     else:
         message = "尚未启用交易时段防休眠"
+
+    schedule_timezone = (task_settings or {}).get("timezone", "system")
+    if enabled:
+        message += "（北京时间 UTC+08:00）" if schedule_timezone == "Asia/Shanghai" else "（旧任务使用本机时间，请重新启用以修复时区）"
 
     return {
         "ok": enabled,

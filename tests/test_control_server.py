@@ -85,6 +85,41 @@ def test_manual_report_attempts_to_start_enabled_ollama(monkeypatch):
     assert "已继续生成报告" in data["message"]
 
 
+def test_ollama_stop_api_delegates_to_safe_stop_helper(monkeypatch):
+    monkeypatch.setattr(
+        control_server,
+        "_stop_ollama",
+        lambda: {"ok": True, "message": "已关闭由控制台启动的本地模型服务。", "models": []},
+    )
+    response = control_server.app.test_client().post("/api/ollama/stop")
+    assert response.status_code == 200
+    assert response.get_json()["ok"] is True
+
+
+def test_ollama_stop_api_allows_confirmed_external_shutdown(monkeypatch):
+    calls = []
+    monkeypatch.setattr(
+        control_server,
+        "_stop_ollama",
+        lambda *, force_external=False: calls.append(force_external) or {"ok": True},
+    )
+    response = control_server.app.test_client().post(
+        "/api/ollama/stop", json={"force_external": True}
+    )
+    assert response.status_code == 200
+    assert response.get_json()["ok"] is True
+    assert calls == [True]
+
+
+def test_eastmoney_failure_kind_distinguishes_proxy_and_direct_disconnects():
+    assert control_server._eastmoney_failure_kind(
+        RuntimeError("ProxyError: Unable to connect to proxy")
+    ) == "代理链路连接失败"
+    assert control_server._eastmoney_failure_kind(
+        RuntimeError("Connection aborted; RemoteDisconnected")
+    ) == "直连被远端或中间网络关闭"
+
+
 def test_transaction_api_lists_records():
     client = control_server.app.test_client()
     response = client.get("/api/transactions")
@@ -98,8 +133,11 @@ def test_asset_manage_page_contains_transaction_manager():
     client = control_server.app.test_client()
     response = client.get("/asset/manage")
     body = response.get_data(as_text=True)
+    assert 'id="save-transaction">添加交易<' in body
+    assert 'id="tx-toast"' in body
     assert "交易记录" in body
-    assert "按交易日收盘价" in body
+    assert "交易金额（元）" in body
+    assert "tx-shares" not in body
 
 def test_new_asset_page_is_separate():
     client = control_server.app.test_client()

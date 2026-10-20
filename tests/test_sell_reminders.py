@@ -5,30 +5,30 @@ from src.sell_reminders import evaluate_sell_reminder, record_sell_reminder_sent
 
 def result(shares=100, tier="SELL_REVIEW"):
     return {
-        "asset": {"strategy": {"sell_first_max_reminder_days": 3, "sell_first_stop_reduction_pct": 25, "sell_residual_position_pct": 10, "sell_residual_max_reminder_days": 5}},
+        "asset": {"strategy": {"sell_first_stop_reduction_pct": 50, "sell_residual_position_pct": 10, "sell_residual_max_reminder_days": 5}},
         "decision": {"status": "PARTIAL_SELL", "reason_code": tier},
         "position_metrics": {"shares": shares},
         "indicators": {"cycle_analysis": {"current_cycle_id": "UP:2026-07-01"}},
     }
 
 
-def test_first_tier_is_limited_to_one_reminder_per_day_and_three_days(tmp_path):
+def test_first_tier_has_no_per_day_or_total_reminder_limit(tmp_path):
     first = evaluate_sell_reminder(tmp_path, "fund", result(), datetime(2026, 7, 1, 10))
     assert first["allowed"] is True
     record_sell_reminder_sent(tmp_path, "fund", first["state"], 1, datetime(2026, 7, 1, 10))
-    assert not evaluate_sell_reminder(tmp_path, "fund", result(), datetime(2026, 7, 1, 14))["allowed"]
+    assert evaluate_sell_reminder(tmp_path, "fund", result(), datetime(2026, 7, 1, 14))["allowed"]
 
-    for day in (2, 3):
+    for day in range(2, 8):
         next_reminder = evaluate_sell_reminder(tmp_path, "fund", result(), datetime(2026, 7, day, 10))
         assert next_reminder["allowed"]
         record_sell_reminder_sent(tmp_path, "fund", next_reminder["state"], 1, datetime(2026, 7, day, 10))
-    assert not evaluate_sell_reminder(tmp_path, "fund", result(), datetime(2026, 7, 4, 10))["allowed"]
 
 
-def test_first_tier_stops_after_a_quarter_of_reference_shares_are_sold(tmp_path):
+def test_first_tier_stops_after_half_of_reference_shares_are_sold(tmp_path):
     first = evaluate_sell_reminder(tmp_path, "fund", result(100), datetime(2026, 7, 1))
     assert first["allowed"]
-    assert not evaluate_sell_reminder(tmp_path, "fund", result(75), datetime(2026, 7, 2))["allowed"]
+    assert evaluate_sell_reminder(tmp_path, "fund", result(51), datetime(2026, 7, 2))["allowed"]
+    assert not evaluate_sell_reminder(tmp_path, "fund", result(50), datetime(2026, 7, 3))["allowed"]
 
 
 def test_manual_stop_applies_only_to_the_current_cycle(tmp_path):

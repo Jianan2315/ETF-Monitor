@@ -9,6 +9,7 @@ import time
 from datetime import datetime, time as dt_time, timedelta
 from pathlib import Path
 from typing import Any
+from src.schedule_clock import beijing_now
 
 ES_CONTINUOUS = 0x80000000
 ES_SYSTEM_REQUIRED = 0x00000001
@@ -48,9 +49,18 @@ def _set_awake(enabled: bool) -> bool:
     return bool(ctypes.windll.kernel32.SetThreadExecutionState(flags))
 
 
+def _beijing_window_end(now: datetime, start: dt_time, end: dt_time) -> datetime | None:
+    """A delayed weekday trigger must not keep the system awake overnight."""
+    if now.weekday() >= 5 or not start <= now.time() < end:
+        return None
+    return datetime.combine(now.date(), end, tzinfo=now.tzinfo)
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--until", default="15:30", type=_parse_time)
+    parser.add_argument("--start", default="09:00", type=_parse_time)
+    parser.add_argument("--timezone", choices=["Asia/Shanghai", "system"], default="system")
     parser.add_argument("--state-file", default="data/keep_awake_status.json")
     parser.add_argument("--stop-file", default="data/keep_awake.stop")
     parser.add_argument("--log-file", default="logs/keep_awake.log")
@@ -66,13 +76,19 @@ def main() -> int:
         signal.signal(signal.SIGTERM, _handle_stop)
 
     stop_path.unlink(missing_ok=True)
-    now = datetime.now()
-    until_dt = datetime.combine(now.date(), args.until)
+    clock = beijing_now if args.timezone == "Asia/Shanghai" else lambda: datetime.now().astimezone()
+    now = clock()
+    until_dt = datetime.combine(now.date(), args.until, tzinfo=now.tzinfo)
 
     # A Beijing window can cross midnight in the local timezone (for example
     # 21:00–03:30 in New York).  The scheduled helper therefore treats an
     # earlier end time as the following local day.
-    if until_dt <= now:
+    if args.timezone == "Asia/Shanghai":
+        until_dt = _beijing_window_end(now, args.start, args.until)
+        if until_dt is None:
+            _write_json(state_path, {"active": False, "updated_at": now.isoformat(timespec="seconds"), "message": "当前不在北京时间防休眠窗口内"})
+            return 0
+    elif until_dt <= now:
         until_dt += timedelta(days=1)
 
     if not _set_awake(True):
@@ -84,7 +100,7 @@ def main() -> int:
 
     try:
         while not _STOP:
-            now = datetime.now()
+            now = clock()
             if now >= until_dt or stop_path.exists():
                 break
             _set_awake(True)
@@ -99,7 +115,7 @@ def main() -> int:
             time.sleep(max(5, args.interval))
     finally:
         _set_awake(False)
-        finished = datetime.now()
+        finished = clock()
         _write_json(state_path, {
             "active": False,
             "pid": os.getpid(),

@@ -243,6 +243,24 @@ def run_server() -> int:
     return 130 if interrupted else process.returncode
 
 
+def prompt_restart() -> bool:
+    """Ask in the surviving Python process whether to start the server again."""
+    while True:
+        try:
+            answer = input(
+                "Restart ETF Monitor? [Y/N] (press Enter or 0 to restart): "
+            ).strip().lower()
+        except (EOFError, KeyboardInterrupt):
+            print()
+            return False
+
+        if answer in {"", "0", "y", "yes"}:
+            return True
+        if answer in {"n", "no"}:
+            return False
+        print("Please enter Y, N, or 0. Press Enter to restart.")
+
+
 def main() -> int:
     print_header()
     LOG_DIR.mkdir(parents=True, exist_ok=True)
@@ -267,14 +285,23 @@ def main() -> int:
     if not validate_server_file():
         return 1
 
-    exit_code = run_server()
+    while True:
+        exit_code = run_server()
 
-    print()
-    print("=" * 62)
-    print(f"ETF Monitor stopped. Exit code: {exit_code}")
-    print("=" * 62)
-    append_log(BOOT_LOG, f"Control server stopped with exit code {exit_code}")
-    return exit_code
+        print()
+        print("=" * 62)
+        print(f"ETF Monitor stopped. Exit code: {exit_code}")
+        print("=" * 62)
+        append_log(BOOT_LOG, f"Control server stopped with exit code {exit_code}")
+
+        # Ctrl+C is handled by this Python process.  Keeping the restart
+        # prompt here avoids relying on cmd.exe after the same console signal.
+        if exit_code != 130 or not prompt_restart():
+            return exit_code
+
+        print()
+        append_log(BOOT_LOG, "Restarting control server at user request")
+
 
 
 if __name__ == "__main__":

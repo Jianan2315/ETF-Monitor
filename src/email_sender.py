@@ -156,6 +156,14 @@ def _plain_body(result: dict, include_raw: bool = True, forced: bool = False) ->
     if result.get("llm_summary"):
         parts.append(f"模型摘要：\n{result['llm_summary']}")
 
+    news = result.get("news") or {}
+    if news.get("status") == "SUCCESS" and str(news.get("summary") or "").strip():
+        parts.append(
+            "近期资讯摘要（仅供人工复核，不参与策略判断）：\n"
+            f"{news['summary']}\n"
+            f"检索时间：{news.get('generated_at', '未知')}"
+        )
+
     parts.append(
         f"基金：{asset['name']}（{asset['symbol']}）\n"
         f"状态：{display_status}（{result.get('status_label', display_status)}）\n"
@@ -168,8 +176,10 @@ def _plain_body(result: dict, include_raw: bool = True, forced: bool = False) ->
         f"确认高点：{(cycle.get('last_confirmed_high') or {}).get('date', '无')}（确认 {(cycle.get('last_confirmed_high') or {}).get('confirmed_date', '无')}）\n"
         f"确认低点：{(cycle.get('last_confirmed_low') or {}).get('date', '无')}（确认 {(cycle.get('last_confirmed_low') or {}).get('confirmed_date', '无')}）\n"
         f"历史样本：回撤 {cycle.get('drawdown_sample_size', 0)} / 上涨 {cycle.get('rise_sample_size', 0)}\n"
-        f"当前回撤/上涨：{cycle.get('current_drawdown_pct', '不适用')}% / {cycle.get('current_rise_pct', '不适用')}%\n"
-        f"历史分位：回撤 {cycle.get('current_drawdown_percentile', '不适用')}% / 上涨 {cycle.get('current_rise_percentile', '不适用')}%\n"
+        f"当前回撤：{cycle.get('current_drawdown_pct', '不适用')}%\n"
+        f"当前上涨：{cycle.get('current_rise_pct', '不适用')}%\n"
+        f"回撤历史分位：{cycle.get('current_drawdown_percentile', '不适用')}%\n"
+        f"上涨历史分位：{cycle.get('current_rise_percentile', '不适用')}%\n"
         f"反弹修复：{cycle.get('recovery_pct') if cycle.get('recovery_pct') is not None else '不适用'}%\n"
         f"资金流：{indicators.get('fund_flow_status', 'UNAVAILABLE')}｜{indicators.get('fund_flow_impact', '中性')}\n\n"
         "判断原因：\n"
@@ -183,9 +193,12 @@ def _plain_body(result: dict, include_raw: bool = True, forced: bool = False) ->
         parts.append(
             "减仓提醒进度：\n"
             f"是否可发送：{sell_reminder.get('allowed', True)}；原因：{sell_reminder.get('reason', '无')}\n"
-            f"参考份额：{reminder_state.get('reference_shares', '不适用')}；当前份额：{reminder_state.get('current_shares', position.get('shares', 0))}\n"
-            f"已减仓：{reminder_state.get('reduced_pct', 0)}%；剩余：{reminder_state.get('remaining_pct', 0)}%；"
-            f"第一/二档已提醒：{len((reminder_state.get('first') or {}).get('dates', []))}/{len((reminder_state.get('second') or {}).get('dates', []))} 次"
+            f"参考份额：{reminder_state.get('reference_shares', '不适用')}\n"
+            f"当前份额：{reminder_state.get('current_shares', position.get('shares', 0))}\n"
+            f"已减仓：{reminder_state.get('reduced_pct', 0)}%\n"
+            f"剩余仓位：{reminder_state.get('remaining_pct', 0)}%\n"
+            f"第一档已提醒：{len((reminder_state.get('first') or {}).get('dates', []))} 次\n"
+            f"第二档已提醒：{len((reminder_state.get('second') or {}).get('dates', []))} 次"
         )
 
     if include_raw:
@@ -317,6 +330,19 @@ def _html_body(result: dict, include_raw: bool = True, forced: bool = False) -> 
             + '</div>'
         )
 
+    news = result.get("news") or {}
+    news_html = ""
+    if news.get("status") == "SUCCESS" and str(news.get("summary") or "").strip():
+        news_text = html.escape(str(news["summary"])).replace("\n", "<br>")
+        news_html = (
+            '<div style="padding:14px 16px;background:#f8fbfd;border:1px solid #d8e9f3;'
+            'border-radius:10px;margin-bottom:16px">'
+            '<b>近期资讯摘要（仅供人工复核）</b>'
+            f'<p style="margin:8px 0;color:#475569">{news_text}</p>'
+            f'<p style="margin:8px 0 0;color:#64748b;font-size:12px">检索时间：{html.escape(str(news.get("generated_at", "未知")))}</p>'
+            '</div>'
+        )
+
     metadata = f"""
     <div style="padding:14px 16px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;margin-bottom:16px;line-height:1.8">
       <div><b>数据源：</b>{html.escape(str(result.get('data_source', '未知')))}</div>
@@ -341,16 +367,22 @@ def _html_body(result: dict, include_raw: bool = True, forced: bool = False) -> 
     <p><b>状态说明：</b>{html.escape(str(result.get('status_label', display_status)))}</p>
     <p><b>{html.escape(_suggested_amount_text(decision))}</b></p>
     <p><b>内部原因码：</b>{html.escape(str(decision.get('reason_code', 'NO_ACTION')))}</p>
-    <p><b>当前周期：</b>{html.escape(str(cycle.get('current_cycle_id') or '尚未确认'))}｜<b>历史样本：</b>回撤 {cycle.get('drawdown_sample_size', 0)} / 上涨 {cycle.get('rise_sample_size', 0)}</p>
+    <p><b>当前周期：</b>{html.escape(str(cycle.get('current_cycle_id') or '尚未确认'))}</p>
+    <p><b>历史样本：</b>回撤 {cycle.get('drawdown_sample_size', 0)} / 上涨 {cycle.get('rise_sample_size', 0)}</p>
     <p><b>确认高/低点：</b>{html.escape(str((cycle.get('last_confirmed_high') or {}).get('date', '无')))} / {html.escape(str((cycle.get('last_confirmed_low') or {}).get('date', '无')))}（确认日：{html.escape(str((cycle.get('last_confirmed_high') or {}).get('confirmed_date', '无')))} / {html.escape(str((cycle.get('last_confirmed_low') or {}).get('confirmed_date', '无')))}）</p>
-    <p><b>回撤/上涨及分位：</b>{cycle.get('current_drawdown_pct', '不适用')}% / {cycle.get('current_rise_pct', '不适用')}%；{cycle.get('current_drawdown_percentile', '不适用')}% / {cycle.get('current_rise_percentile', '不适用')}%</p>
-    <p><b>反弹修复：</b>{cycle.get('recovery_pct') if cycle.get('recovery_pct') is not None else '不适用'}%｜<b>资金流：</b>{html.escape(str(indicators.get('fund_flow_status', 'UNAVAILABLE')))}（{html.escape(str(indicators.get('fund_flow_impact', '中性')))}）</p>
+    <p><b>当前回撤：</b>{cycle.get('current_drawdown_pct', '不适用')}%</p>
+    <p><b>当前上涨：</b>{cycle.get('current_rise_pct', '不适用')}%</p>
+    <p><b>回撤历史分位：</b>{cycle.get('current_drawdown_percentile', '不适用')}%</p>
+    <p><b>上涨历史分位：</b>{cycle.get('current_rise_percentile', '不适用')}%</p>
+    <p><b>反弹修复：</b>{cycle.get('recovery_pct') if cycle.get('recovery_pct') is not None else '不适用'}%</p>
+    <p><b>资金流：</b>{html.escape(str(indicators.get('fund_flow_status', 'UNAVAILABLE')))}（{html.escape(str(indicators.get('fund_flow_impact', '中性')))}）</p>
     <h3>判断原因</h3>
     <ol>{reasons}</ol>
     {metadata}
     {data_status_html}
     {research_html}
-    {('<p><b>减仓提醒进度：</b>' + html.escape(str(sell_reminder.get('reason', '无'))) + '；参考/当前份额 ' + html.escape(str(reminder_state.get('reference_shares', '不适用'))) + ' / ' + html.escape(str(reminder_state.get('current_shares', position.get('shares', 0)))) + '；已减仓 ' + html.escape(str(reminder_state.get('reduced_pct', 0))) + '%</p>') if decision.get('status') == 'PARTIAL_SELL' else ''}
+    {news_html}
+    {('<div><p><b>减仓提醒：</b>' + html.escape(str(sell_reminder.get('reason', '无'))) + '</p><p><b>参考份额：</b>' + html.escape(str(reminder_state.get('reference_shares', '不适用'))) + '</p><p><b>当前份额：</b>' + html.escape(str(reminder_state.get('current_shares', position.get('shares', 0)))) + '</p><p><b>已减仓：</b>' + html.escape(str(reminder_state.get('reduced_pct', 0))) + '%</p><p><b>剩余仓位：</b>' + html.escape(str(reminder_state.get('remaining_pct', 0))) + '%</p><p><b>第一档已提醒：</b>' + html.escape(str(len((reminder_state.get('first') or {}).get('dates', [])))) + ' 次</p><p><b>第二档已提醒：</b>' + html.escape(str(len((reminder_state.get('second') or {}).get('dates', [])))) + ' 次</p></div>') if decision.get('status') == 'PARTIAL_SELL' else ''}
     {raw}
     <p style="margin-top:20px;color:#64748b;font-size:12px">
       仅用于人工复核，不构成投资建议。

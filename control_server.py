@@ -25,6 +25,7 @@ import requests
 from flask import Flask, jsonify, redirect, render_template, request, send_from_directory, url_for
 
 from src.market_clock import build_market_context, expected_history_date, market_now, validate_run_mode
+from src.schedule_clock import weekly_trigger, next_run, local_time_label
 from src.data_fetcher import (
     diagnose_data_sources,
     explore_eastmoney_history_endpoints,
@@ -54,6 +55,7 @@ from src.asset_store import (
 from src.news_search import (
     load_news_settings,
     load_news_snapshot,
+    news_search_plan,
     save_news_settings,
     search_asset_news,
 )
@@ -98,8 +100,7 @@ REQUIRED_PARAMETER_DEFINITIONS: tuple[dict[str, str], ...] = (
     {"key": "sell_first_percentile", "label": "第一减仓参考分位", "description": "用于第一档 PARTIAL_SELL 人工复核。"},
     {"key": "sell_second_percentile", "label": "第二减仓参考分位", "description": "用于第二档 PARTIAL_SELL 人工复核。"},
     {"key": "sell_early_alert_points", "label": "减仓提前提醒", "description": "用于减仓前的提前观察。"},
-    {"key": "sell_first_max_reminder_days", "label": "第一档最多提醒交易日", "description": "用于第一档减仓提醒时长。"},
-    {"key": "sell_first_stop_reduction_pct", "label": "第一档停止提醒减仓比例", "description": "用于判断第一档提醒是否可停止。"},
+    {"key": "sell_first_stop_reduction_pct", "label": "第一档停止提醒减仓比例", "description": "累计减仓达到该比例后，第一档提醒停止；未达到前每日可提醒一次。"},
     {"key": "sell_residual_position_pct", "label": "残余仓位比例", "description": "用于残余仓位的提醒规则。"},
     {"key": "sell_residual_max_reminder_days", "label": "残余仓位最多提醒交易日", "description": "用于残余仓位的提醒时长。"},
 )
@@ -139,6 +140,7 @@ app = Flask(
 )
 
 _RUN_LOCK = threading.Lock()
+_OLLAMA_PROCESS: subprocess.Popen | None = None
 _PENDING_SETTLEMENT_LOCK = threading.Lock()
 _PENDING_REFRESH_ATTEMPTS: dict[str, datetime] = {}
 
@@ -347,8 +349,18 @@ def _ollama_status() -> dict[str, Any]:
     status.update({
         "enabled": _ollama_enabled(),
         "configured_models": configured_models,
+        "managed_by_monitor": _managed_ollama_process() is not None,
     })
     return status
+
+
+def _managed_ollama_process() -> subprocess.Popen | None:
+    """Return the service process started by this control server, if still live."""
+    global _OLLAMA_PROCESS
+    if _OLLAMA_PROCESS is not None and _OLLAMA_PROCESS.poll() is None:
+        return _OLLAMA_PROCESS
+    _OLLAMA_PROCESS = None
+    return None
 
 
 def _find_ollama_executable() -> str | None:
@@ -372,6 +384,7 @@ def _find_ollama_executable() -> str | None:
 
 
 def _start_ollama() -> dict[str, Any]:
+    global _OLLAMA_PROCESS
     current = _check_ollama()
     if current["ok"]:
         return current
@@ -385,7 +398,7 @@ def _start_ollama() -> dict[str, Any]:
         }
 
     try:
-        subprocess.Popen(
+        _OLLAMA_PROCESS = subprocess.Popen(
             [executable, "serve"],
             cwd=ROOT,
             stdout=subprocess.DEVNULL,
@@ -408,12 +421,105 @@ def _start_ollama() -> dict[str, Any]:
         status = _check_ollama()
         if status["ok"]:
             status["message"] = "Ollama 已启动"
+            status["managed_by_monitor"] = True
             return status
 
     return {
         "ok": False,
         "message": "已尝试启动 Ollama，但服务在20秒内没有就绪。",
         "models": [],
+    }
+
+
+def _stop_ollama(*, force_external: bool = False) -> dict[str, Any]:
+    """Stop Ollama, optionally including an externally started local service."""
+    global _OLLAMA_PROCESS
+    process = _managed_ollama_process()
+    if process is None:
+        if not force_external:
+            return {
+                "ok": False,
+                "message": "当前 Ollama 并非由控制台启动，未关闭以避免影响桌面应用或手工启动的服务。",
+                "models": _check_ollama().get("models", []),
+                "managed_by_monitor": False,
+            }
+
+        if os.name != "nt":
+            return {
+                "ok": False,
+                "message": "只能在 Windows 上通过控制台关闭外部启动的 Ollama 服务。",
+                "models": _check_ollama().get("models", []),
+                "managed_by_monitor": False,
+            }
+
+        try:
+            completed = subprocess.run(
+                ["taskkill", "/IM", "ollama.exe", "/T", "/F"],
+                capture_output=True,
+                text=True,
+                errors="replace",
+                timeout=15,
+            )
+        except (OSError, subprocess.TimeoutExpired) as exc:
+            return {
+                "ok": False,
+                "message": f"关闭外部启动的 Ollama 服务失败：{exc}",
+                "models": _check_ollama().get("models", []),
+                "managed_by_monitor": False,
+            }
+
+        remaining = _check_ollama()
+        if remaining["ok"]:
+            return {
+                "ok": False,
+                "message": "已尝试关闭 Ollama，但本地模型服务仍在运行；它可能由桌面应用托管，请在 Ollama 桌面应用中退出。",
+                "models": remaining.get("models", []),
+                "managed_by_monitor": False,
+            }
+
+        if completed.returncode != 0:
+            return {
+                "ok": False,
+                "message": "未找到可关闭的 ollama.exe 进程。",
+                "models": [],
+                "managed_by_monitor": False,
+            }
+        return {
+            "ok": True,
+            "message": "已关闭外部启动的本地模型服务。",
+            "models": [],
+            "managed_by_monitor": False,
+        }
+
+    try:
+        process.terminate()
+        try:
+            process.wait(timeout=10)
+        except subprocess.TimeoutExpired:
+            process.kill()
+            process.wait(timeout=5)
+        _OLLAMA_PROCESS = None
+    except Exception as exc:
+        return {
+            "ok": False,
+            "message": f"关闭 Ollama 服务失败：{exc}",
+            "models": _check_ollama().get("models", []),
+            "managed_by_monitor": True,
+        }
+
+    remaining = _check_ollama()
+    if remaining["ok"]:
+        return {
+            "ok": False,
+            "message": "控制台启动的 Ollama 已退出，但 11434 端口仍有其他 Ollama 服务在运行。",
+            "models": remaining.get("models", []),
+            "managed_by_monitor": False,
+        }
+    return {
+        "ok": True,
+        "message": "已关闭由控制台启动的本地模型服务。",
+        "models": [],
+        "managed_by_monitor": False,
     }
 
 
@@ -560,6 +666,7 @@ def _eastmoney_check(asset: dict[str, Any] | None = None) -> dict[str, Any]:
     market_prefix = "1" if symbol.startswith(("5", "6", "9")) else "0"
     now = market_now(_schedule_config())
     begin = (now - timedelta(days=20)).strftime("%Y%m%d")
+    fallback = _provider_fallback_status(asset)
     try:
         response = requests.get(
             "https://push2his.eastmoney.com/api/qt/stock/kline/get",
@@ -580,17 +687,74 @@ def _eastmoney_check(asset: dict[str, Any] | None = None) -> dict[str, Any]:
         data = payload.get("data") if isinstance(payload, dict) else None
         return {
             "ok": bool(data),
+            "state": "ok" if data else ("warning" if fallback["ok"] else "bad"),
             "message": (
                 "东方财富历史接口可访问"
                 if data
                 else "东方财富返回成功，但没有行情数据"
             ),
+            "fallback": fallback,
         }
     except Exception as exc:
+        failure_kind = _eastmoney_failure_kind(exc)
+        has_fallback = bool(fallback.get("ok"))
         return {
-            "ok": False,
-            "message": f"东方财富接口不可用：{exc}",
+            "ok": has_fallback,
+            "state": "warning" if has_fallback else "bad",
+            "message": (
+                f"东方财富直连不可用（{failure_kind}）；正式运行会继续使用缓存和新浪备用源。"
+                if has_fallback
+                else f"东方财富直连不可用（{failure_kind}）；未检测到可用的本地缓存或最近备用数据。"
+            ),
+            "details": str(exc),
+            "fallback": fallback,
         }
+
+
+def _eastmoney_failure_kind(exc: Exception) -> str:
+    """Translate volatile low-level request errors into a concise UI status."""
+    message = str(exc).lower()
+    if "proxyerror" in message or "unable to connect to proxy" in message:
+        return "代理链路连接失败"
+    if "timeout" in message or "timed out" in message:
+        return "连接超时"
+    if "remotedisconnected" in message or "connection aborted" in message:
+        return "直连被远端或中间网络关闭"
+    if "ssLError".lower() in message or "certificate" in message:
+        return "TLS 连接失败"
+    return "请求失败"
+
+
+def _provider_fallback_status(asset: dict[str, Any]) -> dict[str, Any]:
+    """Summarize the cache and fallback source used by the latest asset run."""
+    cache = _cache_status(asset)
+    asset_key = _asset_identity(asset)
+    latest = _read_json(asset_latest_path(ROOT, asset_key), {}).get(asset_key, {})
+    data_status = latest.get("data_status", {}) if isinstance(latest, dict) else {}
+    history = data_status.get("history", {}) if isinstance(data_status, dict) else {}
+    intraday = data_status.get("intraday", {}) if isinstance(data_status, dict) else {}
+    history_ok = str(history.get("status", "")).upper() in {"SUCCESS", "CACHE", "CACHE_CIRCUIT"}
+    intraday_ok = str(intraday.get("status", "")).upper() in {
+        "SUCCESS", "CACHE", "FALLBACK_FROM_MINUTE", "NOT_REQUIRED",
+    }
+    summaries = [f"日线缓存：{cache.get('message', '未检查')}" ]
+    if history:
+        summaries.append(
+            "最近报告日线："
+            + str(history.get("source") or history.get("status") or "未知")
+        )
+    if intraday:
+        summaries.append(
+            "最近报告分时："
+            + str(intraday.get("source") or intraday.get("status") or "未知")
+        )
+    return {
+        "ok": bool(cache.get("ok") or history_ok or intraday_ok),
+        "summaries": summaries,
+        "cache_ok": bool(cache.get("ok")),
+        "history_source": history.get("source"),
+        "intraday_source": intraday.get("source"),
+    }
 
 
 def _cache_status(asset: dict[str, Any] | None = None) -> dict[str, Any]:
@@ -656,7 +820,7 @@ def _market_status() -> dict[str, Any]:
     close = validate_run_mode("close", now)
     return {
         "ok": True,
-        "message": f"{context.phase_label} · {now:%Y-%m-%d %H:%M:%S}",
+        "message": f"{context.phase_label} · {now:%Y-%m-%d %H:%M:%S}（北京时间 UTC+08:00）",
         "phase": context.phase,
         "actions": {
             "auto": {"enabled": auto.allowed, "reason": auto.message},
@@ -832,11 +996,29 @@ def _transaction_chart_data(asset_id: str | None = None) -> dict[str, Any]:
         if date_text and price > 0:
             history.append({"date": date_text, "price": price})
 
+    profit_history: list[dict[str, Any]] = []
+    for point in history:
+        transactions_to_date = [
+            item for item in transactions
+            if str(item.get("date") or "") <= point["date"]
+        ]
+        if not any(
+            str(item.get("status") or "").upper() == "SETTLED"
+            for item in transactions_to_date
+        ):
+            continue
+        position = calculate_position(transactions_to_date, point["price"])
+        profit_history.append({
+            "date": point["date"],
+            "profit": position.get("cumulative_profit_amount", 0.0),
+        })
+
     return {
         "success": True,
         "symbol": symbol,
         "tracking_code": tracking_code,
         "history": history,
+        "profit_history": profit_history,
         "transactions": list(reversed(transactions)),
         "settlement": settlement,
     }
@@ -1166,10 +1348,7 @@ def _days_xml(weekdays: list[str]) -> str:
 
 
 def _schedule_task_xml(plan: dict[str, Any]) -> str:
-    start_boundary = (
-        datetime.now().strftime("%Y-%m-%d")
-        + f"T{plan['time']}:00"
-    )
+    start_boundary, days_xml = weekly_trigger(plan["time"], plan["weekdays"])
     command = html.escape(str(_schedule_pythonw()))
     runner = ROOT / "scheduled_runner.py"
     safe_plan_name = str(plan["name"]).replace('"', "'")
@@ -1195,7 +1374,7 @@ def _schedule_task_xml(plan: dict[str, Any]) -> str:
       <Enabled>{enabled}</Enabled>
       <ScheduleByWeek>
         <WeeksInterval>1</WeeksInterval>
-        <DaysOfWeek>{_days_xml(plan["weekdays"])}</DaysOfWeek>
+        <DaysOfWeek>{days_xml}</DaysOfWeek>
       </ScheduleByWeek>
     </CalendarTrigger>
   </Triggers>
@@ -1238,45 +1417,18 @@ def _schedule_task_xml(plan: dict[str, Any]) -> str:
 def _next_schedule_run(plan: dict[str, Any]) -> str | None:
     if not plan.get("enabled", True):
         return None
-    day_index = {
-        "MON": 0,
-        "TUE": 1,
-        "WED": 2,
-        "THU": 3,
-        "FRI": 4,
-        "SAT": 5,
-        "SUN": 6,
-    }
-    allowed = {
-        day_index[day]
-        for day in plan.get("weekdays", [])
-        if day in day_index
-    }
-    if not allowed:
-        return None
-
-    hour, minute = [
-        int(part) for part in plan["time"].split(":")
-    ]
-    now = datetime.now()
-    for offset in range(0, 8):
-        candidate_date = now.date() + timedelta(days=offset)
-        if candidate_date.weekday() not in allowed:
-            continue
-        candidate = datetime.combine(
-            candidate_date,
-            datetime.min.time(),
-        ).replace(hour=hour, minute=minute)
-        if candidate > now:
-            return candidate.isoformat(timespec="minutes")
-    return None
+    upcoming = next_run(plan["time"], plan.get("weekdays", []))
+    return upcoming.isoformat(timespec="minutes") if upcoming else None
 
 
 def _schedule_runtime_status(plan_id: str) -> dict[str, Any]:
     payload = _read_json(
         _schedule_status_path(plan_id),
-        {},
+        None,
     )
+    if payload is None:
+        # Older runners wrote outside data/global. Keep their evidence visible.
+        payload = _read_json(ROOT / "data" / "schedule_status" / f"{plan_id}.json", {})
     return payload if isinstance(payload, dict) else {}
 
 def _sync_plan_to_windows(plan: dict[str, Any]) -> dict[str, Any]:
@@ -1322,6 +1474,7 @@ def _schedule_plan_view(plan: dict[str, Any]) -> dict[str, Any]:
         else False
     )
     runtime = _schedule_runtime_status(plan["id"])
+    upcoming = _next_schedule_run(plan)
     return {
         **plan,
         "weekday_labels": [
@@ -1330,7 +1483,9 @@ def _schedule_plan_view(plan: dict[str, Any]) -> dict[str, Any]:
         ],
         "system_task_exists": task_exists,
         "platform_supported": os.name == "nt",
-        "next_run": _next_schedule_run(plan),
+        "timezone": "Asia/Shanghai",
+        "next_run": upcoming,
+        "next_run_local": local_time_label(datetime.fromisoformat(upcoming)) if upcoming else None,
         "last_run_started": runtime.get("started_at"),
         "last_run_finished": runtime.get("finished_at"),
         "last_result": runtime.get("status"),
@@ -1706,7 +1861,6 @@ def _save_settings(payload: dict[str, Any], asset_id: str | None = None) -> dict
         "same_price_band_max_buys",
         "volume_required_window_count",
         "volume_move_history_lookback_days",
-        "sell_first_max_reminder_days",
         "sell_residual_max_reminder_days",
     }
     allowed_strategy_fields = {
@@ -1719,7 +1873,7 @@ def _save_settings(payload: dict[str, Any], asset_id: str | None = None) -> dict
         "volume_move_notice_percentile", "volume_move_very_large_percentile", "volume_move_history_lookback_days",
         "normal_add_amount", "enhanced_add_amount", "rebound_recovery_threshold_pct",
         "deep_drawdown_percentile", "sell_first_percentile", "sell_second_percentile",
-        "sell_early_alert_points", "sell_first_max_reminder_days",
+        "sell_early_alert_points",
         "sell_first_stop_reduction_pct", "sell_residual_position_pct",
         "sell_residual_max_reminder_days",
     }
@@ -2158,6 +2312,14 @@ def api_ollama_start():
     return jsonify(_start_ollama())
 
 
+@app.post("/api/ollama/stop")
+def api_ollama_stop():
+    payload = request.get_json(silent=True) or {}
+    if bool(payload.get("force_external", False)):
+        return jsonify(_stop_ollama(force_external=True))
+    return jsonify(_stop_ollama())
+
+
 @app.post("/api/report/run")
 def api_report_run():
     payload = request.get_json(silent=True) or {}
@@ -2176,12 +2338,31 @@ def api_report_run():
     # create a background model service without an explicit user action.
     ollama_start = _start_ollama() if mode == "manual" and _ollama_enabled() else None
     skip_llm = bool(ollama_start is not None and not ollama_start.get("ok", False))
+    asset_id = str(payload.get("asset_id", "")).strip()
+    news_refresh = None
+    if mode == "manual" and bool(payload.get("refresh_news", False)) and asset_id:
+        try:
+            asset = _find_asset(asset_id)
+            llm = _global_config("llm", {"llm": {}}).get("llm", {})
+            news_refresh = search_asset_news(
+                ROOT,
+                asset,
+                llm_config=None if skip_llm else llm,
+            )
+        except Exception as exc:
+            news_refresh = {
+                "status": "FAILED",
+                "message": f"资讯刷新未完成：{type(exc).__name__}: {exc}",
+            }
     result = _run_monitor(
         mode,
         slot,
-        str(payload.get("asset_id", "")).strip(),
+        asset_id,
         skip_llm=skip_llm,
     )
+    if news_refresh is not None:
+        result["news_refresh"] = news_refresh
+        result["message"] = f"{news_refresh.get('message', '资讯处理结束')} {result.get('message', '')}".strip()
     if ollama_start is not None:
         result["ollama"] = ollama_start
         if not ollama_start.get("ok", False):
@@ -2384,7 +2565,17 @@ def api_news_get():
             "success": True,
             "settings": load_news_settings(ROOT, key),
             "news": load_news_snapshot(ROOT, key),
+            "plan": news_search_plan(ROOT, asset),
         })
+    except ValueError as exc:
+        return jsonify({"success": False, "message": str(exc)}), 404
+
+
+@app.get("/api/news/plan")
+def api_news_plan():
+    try:
+        asset = _find_asset(request.args.get("asset_id"))
+        return jsonify({"success": True, "plan": news_search_plan(ROOT, asset)})
     except ValueError as exc:
         return jsonify({"success": False, "message": str(exc)}), 404
 
@@ -2396,7 +2587,11 @@ def api_news_search():
         asset = _find_asset(request.args.get("asset_id") or payload.get("asset_id"))
         llm = _global_config("llm", {"llm": {}}).get("llm", {})
         snapshot = search_asset_news(ROOT, asset, llm_config=llm)
-        return jsonify({"success": snapshot.get("status") != "FAILED", "news": snapshot, "message": snapshot.get("message", "")})
+        return jsonify({
+            "success": snapshot.get("status") in {"SUCCESS", "NO_RESULTS"},
+            "news": snapshot,
+            "message": snapshot.get("message", ""),
+        })
     except ValueError as exc:
         return jsonify({"success": False, "message": str(exc)}), 400
 

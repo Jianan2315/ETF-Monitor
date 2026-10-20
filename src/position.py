@@ -47,6 +47,7 @@ def calculate_position(transactions: list[dict], latest_price: float) -> dict:
         if cost_basis
         else 0.0
     )
+    cumulative_profit_amount = realized_profit + profit_amount
     return {
         "invested_amount": round(cost_basis, 2),
         "average_cost": round(average_cost, 6),
@@ -55,6 +56,7 @@ def calculate_position(transactions: list[dict], latest_price: float) -> dict:
         "profit_amount": round(profit_amount, 2),
         "profit_pct": round(profit_pct, 2),
         "realized_profit": round(realized_profit, 2),
+        "cumulative_profit_amount": round(cumulative_profit_amount, 2),
         "last_buy_price": round(last_buy_price, 6),
         "last_buy_date": last_buy_date,
         "transactions": transactions,

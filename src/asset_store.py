@@ -87,8 +87,7 @@ def load_assets(root: Path) -> list[dict[str, Any]]:
         strategy.setdefault('sell_first_percentile', 50.0)
         strategy.setdefault('sell_second_percentile', 90.0)
         strategy.setdefault('sell_early_alert_points', 3.0)
-        strategy.setdefault('sell_first_max_reminder_days', 3)
-        strategy.setdefault('sell_first_stop_reduction_pct', 25.0)
+        strategy.setdefault('sell_first_stop_reduction_pct', 50.0)
         strategy.setdefault('sell_residual_position_pct', 10.0)
         strategy.setdefault('sell_residual_max_reminder_days', 5)
         item['strategy'] = strategy

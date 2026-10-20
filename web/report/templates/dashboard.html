@@ -126,7 +126,18 @@
           </div>
         </div>
         {% if result.sell_reminder %}
-        <p class="muted"><strong>减仓提醒：</strong>{{ result.sell_reminder.reason }}{% if result.sell_reminder.state %} · 参考/当前份额 {{ result.sell_reminder.state.reference_shares or '不适用' }} / {{ result.sell_reminder.state.current_shares or result.position_metrics.shares }} · 已减仓 {{ result.sell_reminder.state.reduced_pct or 0 }}%，剩余 {{ result.sell_reminder.state.remaining_pct or 0 }}% · 第一/二档已提醒 {{ (result.sell_reminder.state.first or {}).get('dates', [])|length }} / {{ (result.sell_reminder.state.second or {}).get('dates', [])|length }} 次 · 残余仓位 {{ '是' if (result.sell_reminder.state.remaining_pct or 100) <= (result.asset.strategy.sell_residual_position_pct or 10) else '否' }}{% endif %}</p>
+        <div class="sell-reminder-details">
+          <p><strong>减仓提醒：</strong>{{ result.sell_reminder.reason }}</p>
+          {% if result.sell_reminder.state %}
+          <p><strong>参考份额：</strong>{{ result.sell_reminder.state.reference_shares or '不适用' }}</p>
+          <p><strong>当前份额：</strong>{{ result.sell_reminder.state.current_shares or result.position_metrics.shares }}</p>
+          <p><strong>已减仓：</strong>{{ result.sell_reminder.state.reduced_pct or 0 }}%</p>
+          <p><strong>剩余仓位：</strong>{{ result.sell_reminder.state.remaining_pct or 0 }}%</p>
+          <p><strong>第一档已提醒：</strong>{{ (result.sell_reminder.state.first or {}).get('dates', [])|length }} 次</p>
+          <p><strong>第二档已提醒：</strong>{{ (result.sell_reminder.state.second or {}).get('dates', [])|length }} 次</p>
+          <p><strong>残余仓位：</strong>{{ '是' if (result.sell_reminder.state.remaining_pct or 100) <= (result.asset.strategy.sell_residual_position_pct or 10) else '否' }}</p>
+          {% endif %}
+        </div>
         {% endif %}
       </section>
 

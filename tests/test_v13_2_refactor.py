@@ -28,13 +28,15 @@ def test_web_assets_are_served_from_the_unified_web_tree():
     assert client.get("/static/style.css").status_code == 200
 
 
-def test_homepage_places_system_navigation_in_dedicated_cards():
+def test_homepage_places_system_navigation_in_hero_actions():
     client = control_server.app.test_client()
     body = client.get("/").get_data(as_text=True)
     assert body.count('href="/system-tools"') == 1
     assert body.count('href="/system-settings"') == 1
-    assert "打开系统工具" in body
-    assert "打开系统设置" in body
+    assert "系统工具" in body
+    assert "系统设置" in body
+    assert "data-tooltip=\"用于环境检查、浏览器检查、数据源诊断" in body
+    assert "data-tooltip=\"用于配置本地模型、邮件通知、数据处理" in body
     assert "页面顶部的“系统工具”入口" not in body
 
 
@@ -305,7 +307,7 @@ def test_asset_strategy_files_contain_only_current_rule_parameters():
         "normal_add_amount", "enhanced_add_amount",
         "strategy_type", "cycle_confirmation_pct", "rebound_recovery_threshold_pct",
         "deep_drawdown_percentile", "sell_first_percentile", "sell_second_percentile",
-        "sell_early_alert_points", "sell_first_max_reminder_days",
+        "sell_early_alert_points",
         "sell_first_stop_reduction_pct", "sell_residual_position_pct",
         "sell_residual_max_reminder_days",
     }
@@ -340,10 +342,13 @@ def test_transaction_history_is_collapsed_and_supports_batch_delete_and_chart():
     assert '<details id="transaction-history"' in body
     assert 'id="delete-selected-transactions"' in body
     assert 'id="transaction-chart"' in body
+    assert 'id="cumulative-profit-chart"' in body
     assert 'data-chart-range="3M"' in body
     assert 'data-chart-range="15D"' in body
     assert "/api/transactions/delete-batch" in script
     assert "/api/transactions/chart" in script
+    assert "profit_history" in script
+    assert "drawCumulativeProfitChart" in script
     assert "chartRangeStart" in script
     assert "此操作不可恢复" in script
 
@@ -356,8 +361,8 @@ def test_transaction_chart_and_batch_delete_are_scoped_to_the_selected_asset(mon
     })
     transactions_path = tmp_path / "data" / "assets" / "123456" / "transactions.json"
     transactions_path.write_text(json.dumps({"123456": [
-        {"id": "buy", "date": "2026-07-21", "type": "BUY", "amount": 100, "status": "SETTLED"},
-        {"id": "sell", "date": "2026-07-22", "type": "SELL", "amount": 80, "status": "SETTLED"},
+        {"id": "buy", "date": "2026-07-21", "type": "BUY", "amount": 100, "price": 10.5, "shares": 100 / 10.5, "status": "SETTLED"},
+        {"id": "sell", "date": "2026-07-22", "type": "SELL", "amount": 80, "price": 10.8, "shares": 80 / 10.8, "status": "SETTLED"},
     ]}), encoding="utf-8")
     cache_path = asset_cache_dir(tmp_path, "123456") / "399001_daily.json"
     cache_path.write_text(json.dumps({"rows": [
@@ -371,6 +376,8 @@ def test_transaction_chart_and_batch_delete_are_scoped_to_the_selected_asset(mon
 
     assert chart["tracking_code"] == "399001"
     assert chart["history"] == [{"date": "2026-07-21", "price": 10.5}, {"date": "2026-07-22", "price": 10.8}]
+    assert chart["profit_history"][0] == {"date": "2026-07-21", "profit": 0.0}
+    assert chart["profit_history"][-1]["profit"] == 2.86
     assert {record["id"] for record in chart["transactions"]} == {"buy", "sell"}
     assert deleted["success"] is True
     assert deleted["deleted_count"] == 2

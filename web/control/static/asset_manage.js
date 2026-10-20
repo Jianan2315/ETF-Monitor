@@ -4,6 +4,7 @@ const form = document.getElementById("asset-form");
 const assetResult = document.getElementById("asset-result");
 const newsSettingsResult = document.getElementById("news-settings-result");
 const txResult = document.getElementById("tx-result");
+const txToast = document.getElementById("tx-toast");
 const transactionList = document.getElementById("transaction-list");
 const transactionCount = document.getElementById("transaction-count");
 const selectAllTransactions = document.getElementById("select-all-transactions");
@@ -11,6 +12,8 @@ const deleteSelectedTransactions = document.getElementById("delete-selected-tran
 const strategyKeys = ["strategy_type", "normal_add_amount", "enhanced_add_amount"];
 let currentChartPayload = null;
 let selectedChartRange = "ALL";
+let selectedProfitChartRange = "ALL";
+let transactionToastTimer = null;
 
 const api = path => `${path}?asset_id=${encodeURIComponent(selectedAssetId)}`;
 const escapeHtml = value => String(value ?? "").replace(/[&<>'"]/g, character => ({
@@ -31,6 +34,19 @@ function showTxResult(data) {
   txResult.hidden = false;
   txResult.className = `result-box ${data.success ? "success" : "error"}`;
   txResult.textContent = data.message || (data.success ? "操作完成。" : "操作失败。");
+}
+
+function showTransactionToast(payload) {
+  if (!txToast) return;
+  const typeLabel = payload.type === "SELL" ? "卖出" : "买入";
+  const amount = Number(payload.amount);
+  const amountLabel = Number.isFinite(amount)
+    ? amount.toLocaleString("zh-CN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+    : payload.amount;
+  txToast.textContent = `已添加${typeLabel}交易：${payload.date} · ¥${amountLabel}`;
+  txToast.hidden = false;
+  clearTimeout(transactionToastTimer);
+  transactionToastTimer = setTimeout(() => { txToast.hidden = true; }, 5000);
 }
 
 function updateLinks() {
@@ -79,7 +95,7 @@ async function loadSettings() {
   strategyKeys.forEach(key => setv(key, strategy[key]));
   const news = data.news || {};
   document.getElementById("news-lookback-days").value = news.lookback_days ?? 7;
-  document.getElementById("news-query-keywords").value = news.query_keywords ?? "";
+  document.getElementById("news-queries").value = (news.queries || []).join("\n");
 }
 
 function showNewsSettingsResult(data) {
@@ -94,7 +110,7 @@ async function saveNewsSettings() {
     body: JSON.stringify({
       asset_id: selectedAssetId,
       lookback_days: document.getElementById("news-lookback-days").value,
-      query_keywords: document.getElementById("news-query-keywords").value,
+      queries: document.getElementById("news-queries").value.split(/\r?\n/),
     }),
   });
   showNewsSettingsResult(data);
@@ -243,10 +259,94 @@ function drawTransactionChart() {
   });
 }
 
+function drawCumulativeProfitChart() {
+  const canvas = document.getElementById("cumulative-profit-chart");
+  const empty = document.getElementById("cumulative-profit-chart-empty");
+  const allPoints = (currentChartPayload?.profit_history || [])
+    .map(point => ({ date: String(point.date || "").slice(0, 10), profit: Number(point.profit) }))
+    .filter(point => point.date && Number.isFinite(point.profit))
+    .sort((left, right) => left.date.localeCompare(right.date));
+  const rangeStart = allPoints.length ? chartRangeStart(allPoints.at(-1).date, selectedProfitChartRange) : "";
+  const points = rangeStart ? allPoints.filter(point => point.date >= rangeStart) : allPoints;
+
+  if (points.length < 2) {
+    canvas.hidden = true;
+    empty.hidden = false;
+    return;
+  }
+  canvas.hidden = false;
+  empty.hidden = true;
+  const wrap = canvas.parentElement;
+  const width = Math.max(320, Math.floor(wrap.clientWidth));
+  const height = 240;
+  const ratio = window.devicePixelRatio || 1;
+  canvas.width = width * ratio;
+  canvas.height = height * ratio;
+  canvas.style.height = `${height}px`;
+  const context = canvas.getContext("2d");
+  context.setTransform(ratio, 0, 0, ratio, 0, 0);
+  context.clearRect(0, 0, width, height);
+
+  const padding = { top: 18, right: 18, bottom: 36, left: 72 };
+  const chartWidth = width - padding.left - padding.right;
+  const chartHeight = height - padding.top - padding.bottom;
+  const profits = points.map(point => point.profit);
+  let minProfit = Math.min(0, ...profits);
+  let maxProfit = Math.max(0, ...profits);
+  const profitRange = maxProfit - minProfit || Math.max(Math.abs(maxProfit) * 0.04, 1);
+  minProfit -= profitRange * 0.08;
+  maxProfit += profitRange * 0.08;
+  const start = Date.parse(points[0].date);
+  const end = Date.parse(points.at(-1).date);
+  const timeRange = end - start || 1;
+  const xFor = date => padding.left + ((Date.parse(date) - start) / timeRange) * chartWidth;
+  const yFor = profit => padding.top + ((maxProfit - profit) / (maxProfit - minProfit)) * chartHeight;
+
+  context.font = "12px system-ui, sans-serif";
+  context.fillStyle = "#64748b";
+  context.strokeStyle = "#e4eaf0";
+  context.lineWidth = 1;
+  for (let index = 0; index <= 4; index += 1) {
+    const y = padding.top + (chartHeight * index) / 4;
+    const profit = maxProfit - ((maxProfit - minProfit) * index) / 4;
+    context.beginPath();
+    context.moveTo(padding.left, y);
+    context.lineTo(width - padding.right, y);
+    context.stroke();
+    context.fillText(`¥${profit.toFixed(0)}`, 4, y + 4);
+  }
+
+  const zeroY = yFor(0);
+  context.beginPath();
+  context.moveTo(padding.left, zeroY);
+  context.lineTo(width - padding.right, zeroY);
+  context.strokeStyle = "#94a3b8";
+  context.setLineDash([4, 4]);
+  context.stroke();
+  context.setLineDash([]);
+
+  context.beginPath();
+  points.forEach((point, index) => {
+    const x = xFor(point.date);
+    const y = yFor(point.profit);
+    if (index === 0) context.moveTo(x, y); else context.lineTo(x, y);
+  });
+  context.strokeStyle = points.at(-1).profit >= 0 ? "#18794e" : "#b42318";
+  context.lineWidth = 2;
+  context.stroke();
+
+  const startLabel = points[0].date;
+  const endLabel = points.at(-1).date;
+  context.fillStyle = "#64748b";
+  context.fillText(startLabel, padding.left, height - 12);
+  context.fillText(endLabel, width - padding.right - context.measureText(endLabel).width, height - 12);
+}
+
 async function loadTransactionChart() {
   const data = await requestJson(api("/api/transactions/chart"));
   currentChartPayload = data.success === false ? { history: [], transactions: [] } : data;
   drawTransactionChart();
+  drawCumulativeProfitChart();
 }
 
 async function loadTransactions() {
@@ -297,15 +397,19 @@ document.getElementById("save-transaction").addEventListener("click", async () =
     asset_id: selectedAssetId,
     type: document.getElementById("tx-type").value,
     date: document.getElementById("tx-date").value,
-    pricing_mode: document.getElementById("tx-pricing-mode").value,
     amount: document.getElementById("tx-amount").value,
     note: document.getElementById("tx-note").value,
   };
   const data = await requestJson(api("/api/transactions/save"), {
     method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload),
   });
-  showTxResult(data);
-  if (data.success) await loadTransactions();
+  if (data.success) {
+    txResult.hidden = true;
+    showTransactionToast(payload);
+    await loadTransactions();
+  } else {
+    showTxResult(data);
+  }
 });
 document.getElementById("refresh-transactions").addEventListener("click", loadTransactions);
 
@@ -317,6 +421,15 @@ document.querySelectorAll("[data-chart-range]").forEach(button => button.addEven
     item.setAttribute("aria-pressed", String(active));
   });
   drawTransactionChart();
+}));
+document.querySelectorAll("[data-profit-chart-range]").forEach(button => button.addEventListener("click", () => {
+  selectedProfitChartRange = button.dataset.profitChartRange;
+  document.querySelectorAll("[data-profit-chart-range]").forEach(item => {
+    const active = item === button;
+    item.classList.toggle("active", active);
+    item.setAttribute("aria-pressed", String(active));
+  });
+  drawCumulativeProfitChart();
 }));
 
 transactionList.addEventListener("change", event => {
@@ -359,7 +472,11 @@ document.getElementById("delete-asset").addEventListener("click", async () => {
     setTimeout(() => { location.href = "/"; }, 400);
   }
 });
-window.addEventListener("resize", () => { if (currentChartPayload) drawTransactionChart(); });
+window.addEventListener("resize", () => {
+  if (!currentChartPayload) return;
+  drawTransactionChart();
+  drawCumulativeProfitChart();
+});
 
 (async () => {
   try {

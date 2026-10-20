@@ -12,7 +12,7 @@
       <div>
         <p class="eyebrow">SCHEDULE MANAGER</p>
         <h1>定时运行计划</h1>
-        <p>在控制台中新增、修改、停用或删除 Windows 定时任务。</p>
+        <p>所有运行时间与星期均以北京时间（Asia/Shanghai，UTC+08:00）为准，不随电脑时区或夏令时改变。</p>
       </div>
       <a class="secondary-button" href="/asset/manage?asset_id={{ request.args.get('asset_id', '') }}">返回资产管理页面</a>
     </header>
@@ -41,13 +41,13 @@
             </select>
           </label>
 
-          <label>运行时间
+          <label>运行时间（北京时间 UTC+08:00）
             <input id="plan-time" type="time" value="14:45" required>
           </label>
         </div>
 
         <div class="schedule-days">
-          <strong>运行日期</strong>
+          <strong>运行日期（北京时间）</strong>
           <div class="checkbox-grid">
             <label><input type="checkbox" name="weekday" value="MON" checked>周一</label>
             <label><input type="checkbox" name="weekday" value="TUE" checked>周二</label>

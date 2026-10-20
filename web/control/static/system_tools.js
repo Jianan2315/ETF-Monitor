@@ -1,4 +1,11 @@
-function card(title, entry){return `<article class="status-item ${entry?.ok?"ok":"bad"}"><strong>${title}</strong><p>${entry?.message||"未返回结果"}</p></article>`;}
+function escapeHtml(value){const box=document.createElement("div");box.textContent=String(value ?? "");return box.innerHTML;}
+function textWithBreaks(value){return escapeHtml(value).replace(/\n/g,"<br>");}
+function card(title, entry){
+  const state=entry?.state||(entry?.ok?"ok":"bad");
+  const fallback=(entry?.fallback?.summaries||[]).map(item=>`<li>${escapeHtml(item)}</li>`).join("");
+  const details=entry?.details?`<details class="status-details"><summary>查看连接详情</summary><pre>${escapeHtml(entry.details)}</pre></details>`:"";
+  return `<article class="status-item ${state}"><strong>${escapeHtml(title)}</strong><p>${textWithBreaks(entry?.message||"未返回结果")}</p>${fallback?`<ul class="provider-fallback-list">${fallback}</ul>`:""}${details}</article>`;
+}
 async function environment(){const grid=document.getElementById("environment-grid");grid.innerHTML="正在检查…";try{const d=await fetch("/api/environment",{cache:"no-store"}).then(r=>r.json());grid.innerHTML=[card("Python",d.python),card("依赖包",d.packages),card("浏览器 / Playwright",d.packages),card("数据提供方",d.eastmoney),card("LLM",d.ollama),card("配置文件",d.configuration),card("目录权限",d.directories),card("保持系统唤醒",d.keep_awake)].join("");}catch(e){grid.textContent=`环境检查失败：${e}`;}}
 async function action(buttonId,url,resultId,loading){document.getElementById(buttonId).addEventListener("click",async()=>{const panel=document.getElementById(resultId);panel.hidden=false;panel.className="result-box";panel.textContent=loading;try{const r=await fetch(url,{method:"POST",headers:{"Content-Type":"application/json"}}),d=await r.json();panel.className=`result-box ${d.success?"success":"error"}`;panel.textContent=d.message||"检查结束。";await environment();}catch(e){panel.className="result-box error";panel.textContent=`操作失败：${e}`;}});}
 async function power(){const panel=document.getElementById("keep-awake-status");const d=await fetch("/api/power/keep-awake",{cache:"no-store"}).then(r=>r.json());const s=d.status||{};panel.className=`result-box ${s.enabled?"success":""}`;panel.innerHTML=`<strong>${s.enabled?"已启用":"未启用"}</strong><p>系统时区：${s.system_timezone||"-"}；当前系统时间：${s.system_time||"-"}</p><p>当前北京时间：${s.beijing_time||"-"}；本地等效窗口：${s.local_window||"-"}</p><p>${s.message||""}</p>`;}

@@ -4,15 +4,15 @@
     "start": "09:00",
     "end": "15:30",
     "weekdays": [
-      "MON",
       "TUE",
       "WED",
       "THU",
-      "FRI"
+      "FRI",
+      "SAT"
     ],
     "task_name": "ETFMonitor_KeepAwake",
     "wake_to_run": false,
-    "detected_from_windows": true,
-    "updated_at": "2026-08-02T14:54:23"
+    "updated_at": "2026-09-28T23:49:38",
+    "detected_from_windows": true
   }
 }

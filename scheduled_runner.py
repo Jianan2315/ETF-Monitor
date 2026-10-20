@@ -5,9 +5,10 @@ import json
 import os
 import subprocess
 import sys
-from datetime import datetime
+import uuid
 from pathlib import Path
 from typing import Any
+from src.schedule_clock import beijing_now
 
 ROOT = Path(__file__).resolve().parent
 
@@ -34,7 +35,7 @@ def _append_log(message: str) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("a", encoding="utf-8") as handle:
         handle.write(
-            f"[{datetime.now():%Y-%m-%d %H:%M:%S}] {message}\n"
+            f"[{beijing_now().isoformat(timespec='seconds')}] {message}\n"
         )
 
 
@@ -50,10 +51,11 @@ def main() -> int:
     status_path = (
         ROOT
         / "data"
+        / "global"
         / "schedule_status"
         / f"{args.plan_id}.json"
     )
-    started = datetime.now()
+    started = beijing_now()
     _atomic_write_json(status_path, {
         "plan_id": args.plan_id,
         "plan_name": args.name,
@@ -81,31 +83,32 @@ def main() -> int:
     if args.asset:
         command.extend(["--asset", args.asset])
 
-    completed = subprocess.run(
-        command,
-        cwd=ROOT,
-        capture_output=True,
-        text=True,
-        errors="replace",
-        creationflags=(
-            subprocess.CREATE_NO_WINDOW
-            if os.name == "nt"
-            else 0
-        ),
-    )
-
-    run_status = _read_json(
-        ROOT / "data" / "global" / "run_status" / "latest_run.json",
-        {},
-    )
-    finished = datetime.now()
+    result_path = status_path.parent / f"run-{uuid.uuid4().hex}.json"
+    try:
+        completed = subprocess.run(
+            command,
+            cwd=ROOT,
+            env={**os.environ, "ETF_MONITOR_RUN_STATUS_FILE": str(result_path), "PYTHONIOENCODING": "utf-8"},
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=29 * 60,
+            creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0,
+        )
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        completed = subprocess.CompletedProcess(command, 1, "", f"{type(exc).__name__}: {exc}")
+    run_status = _read_json(result_path, {})
+    result_path.unlink(missing_ok=True)
+    finished = beijing_now()
+    successful = completed.returncode == 0 and run_status.get("status") == "SUCCESS"
+    error_detail = next((line for line in reversed(completed.stderr.splitlines()) if line.strip()), "未取得本次运行结果")
     status = {
         "plan_id": args.plan_id,
         "plan_name": args.name,
         "status": (
             "SUCCESS"
-            if completed.returncode == 0
-            and run_status.get("status") == "SUCCESS"
+            if successful
             else "FAILED"
         ),
         "started_at": started.isoformat(timespec="seconds"),
@@ -113,16 +116,16 @@ def main() -> int:
         "return_code": completed.returncode,
         "run_status": run_status.get("status"),
         "message": (
-            run_status.get("message")
+            (run_status.get("message") if completed.returncode == 0 else None)
             or (
                 "定时运行成功"
-                if completed.returncode == 0
-                else "定时运行失败"
+                if successful
+                else f"定时运行失败：{error_detail[:400]}"
             )
         ),
         "report_generated": bool(
             run_status.get("report_path")
-            and run_status.get("status") == "SUCCESS"
+            and successful
         ),
         "email_status": run_status.get("email_status", "UNKNOWN"),
         "steps": run_status.get("steps", []),
@@ -134,7 +137,7 @@ def main() -> int:
         f"Plan {args.plan_id} finished | Status={status['status']} "
         f"| ReturnCode={completed.returncode} | Message={status['message']}"
     )
-    return completed.returncode
+    return 0 if successful else (completed.returncode or 1)
 
 
 if __name__ == "__main__":

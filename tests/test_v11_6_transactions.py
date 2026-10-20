@@ -80,6 +80,16 @@ def test_sell_amount_is_converted_to_shares_from_close(tmp_path):
     assert records[0]["price"] == 0.8
 
 
+def test_transaction_requires_positive_amount(tmp_path):
+    path = tmp_path / "transactions.json"
+    try:
+        save_transaction(path, "561380", {"type": "BUY", "date": "2026-07-16"})
+    except ValueError as exc:
+        assert "交易金额必须大于0" in str(exc)
+    else:
+        raise AssertionError("缺少交易金额时应拒绝保存")
+
+
 def test_transaction_update_and_delete(tmp_path):
     path = tmp_path / "transactions.json"
     original = save_transaction(

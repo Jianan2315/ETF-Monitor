@@ -7,7 +7,7 @@
   <link rel="stylesheet" href="/control-static/control.css">
 </head>
 <body>
-<main class="shell">
+<main class="shell run-history-page">
   <header class="hero compact">
     <div>
       <p class="eyebrow">RUN DATA</p>
@@ -49,19 +49,21 @@
     <p id="records-empty" class="empty-state" hidden>暂无运行数据。生成报告后会自动新增记录。</p>
   </section>
 
-  <section id="record-editor" class="card" hidden>
-    <div class="section-title-row">
+  <dialog id="record-editor" class="record-editor-dialog" aria-labelledby="editor-title">
+    <div class="dialog-content">
+      <div class="section-title-row">
       <div>
         <h2 id="editor-title">新增记录</h2>
         <p>仅修改当前 Excel 历史表中的这条记录。</p>
       </div>
       <button id="cancel-edit" type="button" class="secondary-button">取消</button>
+      </div>
+      <form id="record-form">
+        <div id="editor-fields" class="form-grid"></div>
+        <div class="form-actions"><button type="submit">保存记录</button></div>
+      </form>
     </div>
-    <form id="record-form">
-      <div id="editor-fields" class="form-grid"></div>
-      <div class="form-actions"><button type="submit">保存记录</button></div>
-    </form>
-  </section>
+  </dialog>
 </main>
 <script src="/control-static/run_history.js"></script>
 </body>

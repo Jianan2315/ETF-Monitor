@@ -13,6 +13,24 @@ def _observe(code: str, reasons: list[str], indicators: IndicatorResult) -> Stra
     )
 
 
+def _rise_reference_reason(
+    rise: float,
+    percentile: float,
+    reference_line: float,
+    early_points: float,
+) -> str:
+    """Describe whether the current rise has reached the historical line."""
+    if rise >= reference_line:
+        return (
+            f"超过历史上涨 {percentile:.0f}% 分位参考线 "
+            f"{reference_line:.2f}%"
+        )
+    return (
+        f"接近历史上涨 {percentile:.0f}% 分位参考线 "
+        f"{reference_line:.2f}%（提前 {early_points:.1f} 个百分点提醒）"
+    )
+
+
 def evaluate_strategy(asset: dict, indicators: IndicatorResult) -> StrategyDecision:
     """Produce one of the three user-visible strategy states.
 
@@ -57,7 +75,7 @@ def evaluate_strategy(asset: dict, indicators: IndicatorResult) -> StrategyDecis
                 "PARTIAL_SELL", True, 0.0,
                 [
                     f"本轮自确认低点上涨 {rise:.2f}%",
-                    f"接近历史上涨 {sell_second_percentile:.0f}% 分位参考线 {second_line:.2f}%（提前 {early_points:.1f} 个百分点提醒）",
+                    _rise_reference_reason(rise, sell_second_percentile, second_line, early_points),
                     "已进入历史高位区间，建议重点人工复核继续减仓或退出。",
                     indicators.fund_flow_impact,
                 ],
@@ -72,7 +90,7 @@ def evaluate_strategy(asset: dict, indicators: IndicatorResult) -> StrategyDecis
                 "PARTIAL_SELL", True, 0.0,
                 [
                     f"本轮自确认低点上涨 {rise:.2f}%",
-                    f"接近历史上涨 {sell_first_percentile:.0f}% 分位参考线 {first_line:.2f}%（提前 {early_points:.1f} 个百分点提醒）",
+                    _rise_reference_reason(rise, sell_first_percentile, first_line, early_points),
                     "已进入历史常见的上涨兑现区间，建议人工复核分批减仓。",
                     indicators.fund_flow_impact,
                 ],

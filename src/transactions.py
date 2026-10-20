@@ -10,7 +10,7 @@ import pandas as pd
 
 
 VALID_TYPES = {"BUY", "SELL"}
-VALID_PRICING_MODES = {"PENDING", "CLOSE_ESTIMATE"}
+VALID_PRICING_MODES = {"CLOSE_ESTIMATE"}
 
 
 def _read_json(path: Path, default: Any) -> Any:
@@ -45,11 +45,11 @@ def normalize_transaction(record: dict[str, Any]) -> dict[str, Any]:
 
     pricing_mode = str(record.get("pricing_mode") or "").upper()
     if pricing_mode not in VALID_PRICING_MODES:
-        pricing_mode = "PENDING"
+        pricing_mode = "CLOSE_ESTIMATE"
 
     status = str(record.get("status") or "").upper()
     if status not in {"PENDING", "PENDING_CLOSE", "SETTLED"}:
-        status = "PENDING"
+        status = "PENDING_CLOSE"
 
     price_source = str(
         record.get("price_source")
@@ -137,7 +137,7 @@ def save_transaction(
     pricing_mode = str(
         payload.get("pricing_mode", "CLOSE_ESTIMATE")
     ).upper()
-    if pricing_mode not in {"PENDING", "CLOSE_ESTIMATE"}:
+    if pricing_mode not in VALID_PRICING_MODES:
         pricing_mode = "CLOSE_ESTIMATE"
 
     amount = _as_float(payload.get("amount"))
@@ -158,17 +158,9 @@ def save_transaction(
         "shares": 0.0,
         "price": 0.0,
         "pricing_mode": pricing_mode,
-        "status": (
-            "PENDING"
-            if pricing_mode == "PENDING"
-            else "PENDING_CLOSE"
-        ),
-        "price_source": (
-            "pending"
-            if pricing_mode == "PENDING"
-            else "waiting_close"
-        ),
-        "estimated": pricing_mode == "CLOSE_ESTIMATE",
+        "status": "PENDING_CLOSE",
+        "price_source": "waiting_close",
+        "estimated": True,
         "note": str(payload.get("note", "")).strip(),
         "created_at": (
             existing.get("created_at", now_text)
@@ -286,8 +278,9 @@ def reconcile_pending_transactions(
             continue
 
         amount = _as_float(record.get("amount"))
-        shares = _as_float(record.get("shares"))
-        shares = amount / close_price if amount > 0 else 0
+        if amount <= 0:
+            continue
+        shares = amount / close_price
 
         record.update({
             "amount": round(amount, 8),

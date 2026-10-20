@@ -100,9 +100,17 @@ def test_sell_tiers_use_rise_distribution_not_personal_profit():
     decision = evaluate_strategy(asset(), ind(cycle_analysis=cycle))
     assert decision.status == "PARTIAL_SELL"
     assert decision.reason_code == "SELL_REVIEW"
+    assert any("超过历史上涨 50% 分位参考线" in reason for reason in decision.reasons)
     cycle["current_rise_pct"] = 25
     decision = evaluate_strategy(asset(), ind(cycle_analysis=cycle))
     assert decision.reason_code == "EXIT_REVIEW"
+
+
+def test_sell_early_alert_is_described_as_approaching_not_exceeding():
+    cycle = {"sample_size": 4, "current_rise_pct": 15, "rises": [10, 15, 20, 30]}
+    decision = evaluate_strategy(asset(), ind(cycle_analysis=cycle))
+    assert decision.reason_code == "SELL_REVIEW"
+    assert any("接近历史上涨 50% 分位参考线" in reason for reason in decision.reasons)
 
 
 def test_sell_never_triggers_without_shares():

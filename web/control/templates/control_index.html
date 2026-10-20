@@ -2,11 +2,9 @@
 <html lang="zh-CN">
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Portfolio Monitor</title><link rel="stylesheet" href="/control-static/control.css"></head>
 <body><main class="shell">
-<header class="hero"><div><p class="eyebrow">PORTFOLIO MONITOR V13.2</p><h1>Portfolio Monitor</h1><p>多资产投资组合的日常查看与运行入口。</p></div></header>
+<header class="hero"><div><p class="eyebrow">PORTFOLIO MONITOR V13.2</p><h1>Portfolio Monitor</h1><p>多资产投资组合的日常查看与运行入口。</p></div><nav class="hero-actions" aria-label="系统页面入口"><a class="secondary-button context-tooltip" href="/system-tools" data-tooltip="用于环境检查、浏览器检查、数据源诊断、保持系统唤醒和日志维护。">系统工具</a><a class="secondary-button context-tooltip" href="/system-settings" data-tooltip="用于配置本地模型、邮件通知、数据处理、报告保留规则和默认运行时点。">系统设置</a></nav></header>
 <section class="card homepage-card"><div class="section-title-row"><div><h2>我的资产</h2><p>选择资产后，所有资产相关链接都会保持在同一资产范围内。</p></div><div class="button-row"><a class="button-link" href="/asset/new">添加资产</a></div></div><div class="form-grid"><label>当前资产<select id="asset-selector"><option value="">请选择资产</option></select></label></div><div id="asset-summary" class="status-grid"></div></section>
     <section class="card homepage-card"><div class="section-title-row"><div><h2>运行状态</h2><p>简要显示市场、自动监控、防休眠与最近一次运行；详细诊断请使用系统工具。</p></div><button id="refresh-status" class="secondary-button">刷新状态</button></div><div id="running-status" class="status-grid"></div><div class="button-row"><button id="generate-report" data-run-mode="manual">生成当前资产报告</button><a id="schedule-link" class="button-link secondary disabled" href="#" aria-disabled="true">定时运行计划</a></div><div id="run-result" class="result-box" hidden></div></section>
-<section class="card homepage-card"><div><h2>系统工具</h2><p class="muted">用于环境检查、浏览器检查、数据源诊断、保持系统唤醒和日志维护。</p></div><div class="button-row"><a class="secondary-button" href="/system-tools">打开系统工具</a></div></section>
-<section class="card homepage-card"><div><h2>系统设置</h2><p class="muted">用于配置本地模型、邮件通知、数据处理、报告保留规则和默认运行时点。这些设置对所有资产生效。</p></div><div class="button-row"><a class="secondary-button" href="/system-settings">打开系统设置</a></div></section>
 </main>
 <div id="parameter-onboarding-modal" class="modal-backdrop" hidden>
   <section class="modal-card parameter-onboarding-card" role="dialog" aria-modal="true" aria-labelledby="parameter-onboarding-title">

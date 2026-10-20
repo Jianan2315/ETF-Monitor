@@ -47,7 +47,9 @@ async function renderSelectedAsset(selected) {
   }
   const position = data.position || {};
   const profit = Number(position.profit_amount || 0);
+  const cumulativeProfit = Number(position.cumulative_profit_amount ?? profit);
   const profitClass = profit >= 0 ? "positive" : "negative";
+  const cumulativeProfitClass = cumulativeProfit >= 0 ? "positive" : "negative";
   const pendingDates = (data.pending_buy_dates || []).join("、");
   const pending = Number(data.pending_buy_count || 0) > 0
     ? `<p class="today-buy-note">待确认买入 ${money(data.pending_buy_amount)}（${escapeHtml(pendingDates || "日期待确认")}），尚未纳入已投入成本和收益计算。${escapeHtml(data.settlement?.message || "")}</p>`
@@ -59,6 +61,7 @@ async function renderSelectedAsset(selected) {
       <div><span>当前已投入成本</span><b>${money(position.invested_amount)}</b></div>
       <div class="${profitClass}"><span>当前收益率</span><b>${signedPercent(position.profit_pct)}</b></div>
       <div class="${profitClass}"><span>当前收益金额</span><b>${money(profit)}</b></div>
+      <div class="${cumulativeProfitClass}"><span>累计盈亏</span><b>${money(cumulativeProfit)}</b></div>
     </div>
     <p class="earnings-as-of">${escapeHtml(data.message || "收益数据暂不可用")}</p>
     <p class="muted valuation-basis">${escapeHtml(data.valuation_basis_label || "收益按跟踪标的价格估算")}</p>
@@ -109,16 +112,18 @@ async function loadRunningStatus() {
   const ollamaMessage = !ollamaEnabled
     ? "系统设置中未启用本地模型；报告不会调用模型摘要。"
     : (ollama.ok
-      ? `服务已运行；配置：${configuredModels}；已安装：${installedModels}`
+      ? `服务已运行${ollama.managed_by_monitor ? "（由控制台启动）" : "（由桌面应用或其他方式启动）"}；配置：${configuredModels}；已安装：${installedModels}`
       : `服务未运行；配置：${configuredModels}。`);
   const ollamaAction = ollamaEnabled && !ollama.ok
     ? '<button type="button" id="start-ollama" class="secondary-button">启动本地模型服务</button>'
-    : "";
+    : (ollama.ok
+      ? `<button type="button" id="stop-ollama" class="secondary-button" data-force-external="${ollama.managed_by_monitor ? "false" : "true"}">关闭本地模型服务</button>`
+      : "");
   const cards = [
     statusCard("市场状态", market.ok, market.message),
     statusCard("自动监控", true, "后台服务运行中"),
     statusCard("保持系统唤醒", power.enabled, power.enabled ? "已启用" : "未启用"),
-    statusCard("当前交易窗口", power.active, power.active ? "活动中" : (power.next_window || "非活动")),
+    statusCard("当前交易窗口", power.window_active, power.window_active ? "活动中 · 北京时间 09:00–15:30（UTC+08:00）" : (power.next_window || "非活动")),
     statusCard("最近成功运行", latest.ok, latest.message),
     statusCard("本地模型", !ollamaEnabled || Boolean(ollama.ok), ollamaMessage, ollamaAction),
   ];
@@ -136,6 +141,30 @@ async function loadRunningStatus() {
         showRunResult(result.message || "本地模型服务启动完成。", Boolean(result.ok));
       } catch (error) {
         showRunResult(`启动本地模型服务失败：${error}`, false);
+      } finally {
+        await loadRunningStatus();
+      }
+    });
+  }
+  const stopButton = document.getElementById("stop-ollama");
+  if (stopButton) {
+    stopButton.addEventListener("click", async () => {
+      const forceExternal = stopButton.dataset.forceExternal === "true";
+      if (forceExternal && !window.confirm("此服务由 Ollama 桌面应用或其他方式启动。关闭会终止本机 ollama.exe 服务，是否继续？")) {
+        return;
+      }
+      stopButton.disabled = true;
+      showRunResult("正在关闭本地模型服务…", true);
+      try {
+        const response = await fetch("/api/ollama/stop", {
+          method: "POST",
+          headers: {"Content-Type": "application/json"},
+          body: JSON.stringify({force_external: forceExternal}),
+        });
+        const result = await response.json();
+        showRunResult(result.message || "本地模型服务已关闭。", Boolean(result.ok));
+      } catch (error) {
+        showRunResult(`关闭本地模型服务失败：${error}`, false);
       } finally {
         await loadRunningStatus();
       }
@@ -256,13 +285,40 @@ function showRunResult(message, success) {
   panel.textContent = message;
 }
 
+async function chooseNewsRefresh() {
+  const response = await fetch(`/api/news/plan?asset_id=${encodeURIComponent(selectedAssetId)}`);
+  const payload = await response.json();
+  if (!response.ok || !payload.success) throw new Error(payload.message || "无法读取资讯检索计划。");
+  const plan = payload.plan || {};
+  const usage = plan.usage || {};
+  const snapshot = plan.snapshot || {};
+  const previous = snapshot.generated_at
+    ? `上次成功检索：${snapshot.generated_at}（约 ${snapshot.age_hours ?? "未知"} 小时前）。`
+    : "尚无成功的资讯检索记录。";
+  const budget = `本次刷新将按 ${plan.queries?.length || 0} 个关键词调用 ${plan.request_count || 0} 次资讯接口。\n` +
+    `本地用量估算：今日剩余 ${usage.daily_remaining ?? "未知"}/${usage.daily_budget ?? "未知"} 次；本月剩余 ${usage.monthly_remaining ?? "未知"}/${usage.monthly_budget ?? "未知"} 次。`;
+  if (!plan.can_refresh) {
+    window.alert(`${previous}\n${budget}\n本次不刷新，将复用已有资讯快照。`);
+    return false;
+  }
+  return window.confirm(`${previous}\n${budget}\n\n点击“确定”刷新近期资讯；点击“取消”直接使用已有资讯生成报告。`);
+}
+
 async function runReport(mode) {
   if (!selectedAssetId) return;
   const panel = document.getElementById("run-result");
+  let refreshNews = false;
+  if (mode === "manual") {
+    try {
+      refreshNews = await chooseNewsRefresh();
+    } catch (error) {
+      window.alert(`无法读取资讯额度：${error.message || error}\n本次将直接使用已有资讯快照。`);
+    }
+  }
   panel.hidden = false;
   panel.className = "result-box";
   panel.textContent = "正在生成报告…";
-  const response = await fetch("/api/report/run", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({mode, asset_id:selectedAssetId})});
+  const response = await fetch("/api/report/run", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({mode, asset_id:selectedAssetId, refresh_news:refreshNews})});
   const data = await response.json();
   panel.className = `result-box ${data.success ? "success" : "error"}`;
   panel.textContent = data.message || "运行结束。";

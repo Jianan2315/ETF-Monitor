@@ -22,6 +22,11 @@
     <section class="card">
       <h2>近期资讯与研究摘要</h2>
       <p class="muted">手动检索最近设定天数内的公开资讯；摘要只供人工复核，不改变策略状态，也不会发邮件。</p>
+      <div class="form-grid">
+        <label>检索范围（天）<input id="review-news-lookback-days" type="number" min="1" max="30" step="1" value="7"></label>
+        <label class="wide">检索词（每行一条，分别检索并合并去重）<textarea id="review-news-queries" rows="4" placeholder="例如：&#10;国证有色&#10;有色金属"></textarea></label>
+      </div>
+      <div class="button-row"><button id="save-news-settings" type="button" class="secondary-button">保存资讯检索设置</button></div>
       <div class="button-row"><button id="search-news">检索近期资讯</button></div>
       <div id="news-context" class="result-box" hidden></div>
       <div id="news-articles" class="review-news-list"></div>

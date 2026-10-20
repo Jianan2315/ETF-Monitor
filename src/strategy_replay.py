@@ -53,7 +53,7 @@ def default_replay_settings(asset: dict[str, Any], transactions: list[dict[str, 
         "initial_buy_amount": round(min(first_buy_amount or initial_capital, initial_capital), 2),
         "review_buy_amount": round(review_buy, 2),
         "deep_drawdown_buy_amount": round(deep_buy, 2),
-        "first_sell_pct": round(_number(strategy.get("sell_first_stop_reduction_pct"), 25.0), 2),
+        "first_sell_pct": round(_number(strategy.get("sell_first_stop_reduction_pct"), 50.0), 2),
         "second_sell_pct": 100.0,
         "execute_downtrend_sell": False,
     }
